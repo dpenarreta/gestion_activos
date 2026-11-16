@@ -30,6 +30,13 @@ class User(AbstractUser, BaseModel):
     #: consulta su rol de pagos: por eso lo asigna la administración y nunca
     #: la persona. Único; vacío si la cuenta no es de un empleado.
     codigo_empleado = models.CharField(max_length=40, null=True, blank=True, unique=True)
+    #: La cédula de la persona, traída de nómina (US-021). Dato personal
+    #: (LOPDP): la ve ella y, en la ficha, solo quien tiene
+    #: `usuarios.ver_cedula`. Nadie la escribe a mano.
+    cedula = models.CharField(max_length=20, null=True, blank=True, unique=True)
+    #: La última vez que nómina actualizó o creó esta cuenta (US-021). Vacío si
+    #: la cuenta nunca se emparejó con nómina.
+    nomina_sincronizada_en = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="created_users"
     )

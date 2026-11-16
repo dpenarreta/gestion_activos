@@ -14,6 +14,7 @@ import { useAdminUsers } from "../../../hooks/useAdminUsers";
 import { useBusquedaEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { useVistaDeTarjetas } from "../../../hooks/useMediaQuery";
 import { usePermission } from "../../../hooks/usePermission";
+import { SincronizacionNomina } from "./SincronizacionNomina";
 import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import "./UsersList.css";
@@ -42,6 +43,8 @@ export function UsersList() {
   // terminaría en un 403.
   const puedeCrear = usePermission("usuarios.crear");
   const puedeDeshabilitar = usePermission("usuarios.deshabilitar");
+  // US-021: perfiles desde nómina.
+  const puedeSincronizarNomina = usePermission("usuarios.sincronizar_nomina");
   const {
     users,
     count,
@@ -126,6 +129,8 @@ export function UsersList() {
           </div>
         )}
       </div>
+
+      {puedeSincronizarNomina && <SincronizacionNomina />}
 
       <form
         onSubmit={handleSearchSubmit}

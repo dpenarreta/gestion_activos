@@ -195,7 +195,9 @@ class Command(BaseCommand):
         from apps.alertas.services import destinatarios_vigentes
 
         hallazgos = []
-        backend = settings.EMAIL_BACKEND
+        from apps.core.correo_backend import backend_real
+
+        backend = backend_real()
 
         configuracion = ConfiguracionAlertas.cargar()
         if "console" in backend or "locmem" in backend:

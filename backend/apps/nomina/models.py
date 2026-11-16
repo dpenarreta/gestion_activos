@@ -289,3 +289,37 @@ class AdjuntoObservacion(ModeloDeEmpresa):
         ordering = ["id"]
         verbose_name = "adjunto de una observación"
         verbose_name_plural = "adjuntos de las observaciones"
+
+
+class SincronizacionNomina(models.Model):
+    """Una corrida de la sincronización de perfiles con nómina (US-021):
+    `dbo.sp_ObtenerEmpleadosActivos` → cuentas de la intranet. Es de todo el
+    sistema, no de una empresa: las cuentas son globales."""
+
+    class Estado(models.TextChoices):
+        CORRIENDO = "corriendo", "En curso"
+        OK = "ok", "Completa"
+        FALLIDA = "fallida", "Fallida"
+
+    iniciada_en = models.DateTimeField(auto_now_add=True)
+    terminada_en = models.DateTimeField(null=True, blank=True)
+    #: Quién la pidió con «Sincronizar ahora»; vacío si fue la automática.
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.CORRIENDO)
+    empleados = models.PositiveIntegerField(default=0)
+    creadas = models.PositiveIntegerField(default=0)
+    actualizadas = models.PositiveIntegerField(default=0)
+    sin_cambios = models.PositiveIntegerField(default=0)
+    #: `[{codigo, nombre, motivo}]`: empleados que no se pudieron aplicar.
+    conflictos = models.JSONField(default=list, blank=True)
+    #: `[{id, usuario, nombre}]`: cuentas activas que no están en nómina.
+    fuera_de_nomina = models.JSONField(default=list, blank=True)
+    #: Por qué falló, sin datos personales.
+    error = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        ordering = ["-iniciada_en", "-id"]
+        verbose_name = "sincronización con nómina"
+        verbose_name_plural = "sincronizaciones con nómina"

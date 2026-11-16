@@ -36,7 +36,9 @@ class CorreoPermission(HasModulePermission):
 
 def estado_del_correo() -> dict:
     """Por dónde sale el correo, sin la clave."""
-    backend = settings.EMAIL_BACKEND
+    from apps.core.correo_backend import backend_real
+
+    backend = backend_real()
     smtp = backend.endswith("smtp.EmailBackend")
     return {
         "backend": BACKENDS.get(backend, backend),

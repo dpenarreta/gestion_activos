@@ -4335,7 +4335,9 @@ class NotificationRecipientService:
         recipients = list(CollaboratorNotificationRecipient.objects.select_related("updated_by"))
         # Solo el TIPO de envío (SMTP real o consola de desarrollo): nunca el
         # servidor, el usuario ni la contraseña.
-        backend = settings.EMAIL_BACKEND.lower()
+        from apps.core.correo_backend import backend_real
+
+        backend = backend_real().lower()
         delivery = "smtp" if "smtp" in backend else "console" if "console" in backend else "other"
         return {
             "recipients": [NotificationRecipientService.serialize(r) for r in recipients],

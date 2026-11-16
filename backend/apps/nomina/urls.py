@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .sincronizacion_views import SincronizacionNominaView
 from .views import (
     AdjuntoObservacionView,
     AuditadoView,
@@ -26,6 +27,8 @@ from .views import (
 )
 
 urlpatterns = [
+    # US-021: perfiles desde nómina.
+    path("sincronizacion/", SincronizacionNominaView.as_view(), name="nomina-sincronizacion"),
     path("rol-pagos/", EstadoView.as_view(), name="rol-pagos"),
     path("rol-pagos/consultar/", ConsultarView.as_view(), name="rol-pagos-consultar"),
     path(

@@ -35,6 +35,12 @@ PERMISSION_CATALOG = {
             "usuarios.clave_temporal": (
                 "Restablecer la contraseña de otra cuenta a la clave temporal"
             ),
+            # US-021 (16/11/2026): perfiles desde nómina.
+            "usuarios.sincronizar_nomina": (
+                "Sincronizar los perfiles con nómina (nombre, código de empleado, correo y "
+                "cédula), crear las cuentas de quien no la tiene y ver el reporte"
+            ),
+            "usuarios.ver_cedula": "Ver la cédula de las personas en la ficha del usuario",
             # US-018 (13/11/2026): desde la ficha del usuario.
             "usuarios.reemplazo": (
                 "Configurar quién aprueba por otra persona mientras está ausente "

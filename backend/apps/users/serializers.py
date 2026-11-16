@@ -85,6 +85,14 @@ class UserAdminListSerializer(serializers.ModelSerializer):
     #: `apps.chat.presencia`). La vista calcula la página entera de una vez.
     en_linea = serializers.SerializerMethodField()
     ultima_conexion = serializers.SerializerMethodField()
+    #: Si la cuenta no tiene correo real: fue creada desde nómina y quedó con
+    #: la dirección reservada `@sin-correo.invalid` (US-021).
+    sin_correo = serializers.SerializerMethodField()
+
+    def get_sin_correo(self, obj) -> bool:
+        from apps.nomina.empleados import es_correo_reservado
+
+        return es_correo_reservado(obj.email)
 
     def _presencia(self, obj):
         mapa = self.context.get("presencia")
@@ -109,6 +117,8 @@ class UserAdminListSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "codigo_empleado",
+            "nomina_sincronizada_en",
+            "sin_correo",
             "status",
             "is_active",
             "is_superuser",
@@ -135,9 +145,27 @@ class UserAdminDetailSerializer(UserAdminListSerializer):
 
     permissions = serializers.SerializerMethodField()
     direct_permissions = serializers.SerializerMethodField()
+    #: La cédula (de nómina, US-021): solo para quien tiene
+    #: `usuarios.ver_cedula` o es la propia persona; para los demás, None.
+    cedula = serializers.SerializerMethodField()
 
     class Meta(UserAdminListSerializer.Meta):
-        fields = UserAdminListSerializer.Meta.fields + ["permissions", "direct_permissions"]
+        fields = UserAdminListSerializer.Meta.fields + [
+            "permissions",
+            "direct_permissions",
+            "cedula",
+        ]
+
+    def get_cedula(self, obj: User):
+        from apps.permissions.authorization import user_has_permission
+
+        request = self.context.get("request")
+        quien = getattr(request, "user", None)
+        if quien is None or not quien.is_authenticated:
+            return None
+        if quien.pk == obj.pk or user_has_permission(quien, "usuarios.ver_cedula"):
+            return obj.cedula or ""
+        return None
 
     def get_permissions(self, obj: User) -> list[str]:
         return sorted(get_user_permission_codenames(obj))

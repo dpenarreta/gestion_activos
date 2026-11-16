@@ -187,4 +187,7 @@ class MeView(APIView):
         # texto: el frontend pone la pantalla obligatoria sin otra consulta
         # (`apps.privacidad.consentimiento`, 09/11/2026).
         data["consentimiento"] = consentimiento.para_la_sesion(request.user)
+        # Su cédula y cuándo la actualizó nómina (US-021): la ve en su perfil.
+        data["cedula"] = request.user.cedula or ""
+        data["nomina_sincronizada_en"] = request.user.nomina_sincronizada_en
         return Response(data)

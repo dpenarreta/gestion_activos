@@ -192,7 +192,9 @@ $salida = Invoke-Command -ComputerName $ServerHost -Credential $credencial -Erro
     $tareas = @(
         @{ Nombre = "Intranet-Ciclo"; Exe = $pythonw; Script = "scripts\produccion.py scripts\tarea_respaldo.py"; Disparador = (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)) },
         @{ Nombre = "Intranet-Indicadores"; Exe = $python; Script = "scripts\produccion.py manage.py recalcular_indicadores"; Disparador = (New-ScheduledTaskTrigger -Daily -At "05:00") },
-        @{ Nombre = "Intranet-Alertas"; Exe = $python; Script = "scripts\produccion.py manage.py enviar_alertas"; Disparador = (New-ScheduledTaskTrigger -Daily -At "07:00") }
+        @{ Nombre = "Intranet-Alertas"; Exe = $python; Script = "scripts\produccion.py manage.py enviar_alertas"; Disparador = (New-ScheduledTaskTrigger -Daily -At "07:00") },
+        # Perfiles desde nómina (US-021): sp de empleados activos → cuentas.
+        @{ Nombre = "Intranet-Nomina"; Exe = $python; Script = "scripts\produccion.py manage.py sincronizar_empleados_nomina"; Disparador = (New-ScheduledTaskTrigger -Daily -At "02:00") }
     )
     foreach ($tarea in $tareas) {
         if (Get-ScheduledTask -TaskName $tarea.Nombre -ErrorAction SilentlyContinue) { Write-Host "   $($tarea.Nombre): ya existe"; continue }

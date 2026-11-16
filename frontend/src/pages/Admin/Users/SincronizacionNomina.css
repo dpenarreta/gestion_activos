@@ -1,0 +1,54 @@
+/* «Nómina» en Configuración › Usuarios (US-021). */
+.nomina-sync {
+  margin-bottom: 16px;
+}
+
+.nomina-sync__cabeza {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.nomina-sync__cifras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.nomina-sync__cifra {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-sunken);
+}
+
+.nomina-sync__numero {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--mz-ink);
+  line-height: 1.2;
+}
+
+.nomina-sync__detalle {
+  margin-top: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.nomina-sync__subtitulo {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 12px 0 4px;
+}
+
+.nomina-sync__lista {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+}

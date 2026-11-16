@@ -432,6 +432,22 @@ export function FormularioMisDatos({
         />
         <div className="form-text">Lo asigna Talento Humano.</div>
       </div>
+      {datos.cedula && (
+        <div className="col-12 col-md-6">
+          <label className="form-label" htmlFor="md-cedula">
+            Cédula
+          </label>
+          <input
+            id="md-cedula"
+            className="form-control"
+            value={datos.cedula}
+            disabled
+          />
+          <div className="form-text">
+            Viene de nómina. Si no es correcta, avise a Talento Humano.
+          </div>
+        </div>
+      )}
       <div className="col-12">
         <fieldset
           className="mis-datos__pregunta"

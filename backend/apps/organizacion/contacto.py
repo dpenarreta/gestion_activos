@@ -178,6 +178,8 @@ def de(usuario) -> dict:
         "tiene_telefono_corporativo": propios.tiene_telefono_corporativo if propios else None,
         "telefono_corporativo": (propios.telefono_corporativo if propios else "") or "",
         "en_nomina": empleado is not None,
+        # Su cédula, traída de nómina (US-021): solo la ve ella.
+        "cedula": usuario.cedula or "",
         "telefono_autorizacion": _autorizacion_telefono(usuario),
         "cumpleanos": cumpleanos(usuario),
         "aniversario": aniversario(usuario),

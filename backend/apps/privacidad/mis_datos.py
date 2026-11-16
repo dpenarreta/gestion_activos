@@ -128,6 +128,9 @@ def _cuenta(ctx: Contexto) -> dict:
         "correo": u.email,
         "estado_de_la_cuenta": u.status,
         "codigo_de_empleado": u.codigo_empleado or "",
+        # De nómina (US-021).
+        "cedula": u.cedula or "",
+        "actualizada_desde_nomina_el": u.nomina_sincronizada_en,
         "creada_el": u.created_at,
         "ultimo_inicio_de_sesion": u.last_login,
     }

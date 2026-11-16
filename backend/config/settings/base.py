@@ -518,7 +518,12 @@ CACHES = {
 CACHE_AGREGADOS_SEGUNDOS = env.int("CACHE_AGREGADOS_SEGUNDOS", default=120)
 
 # --- Correo ---
-EMAIL_BACKEND = env.str("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+# El backend real es el del .env; delante va uno que descarta las direcciones
+# `@sin-correo.invalid` de las cuentas creadas desde nómina sin correo (US-021).
+EMAIL_BACKEND_REAL = env.str(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_BACKEND = "apps.core.correo_backend.SinCorreosReservados"
 EMAIL_HOST = env.str("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env.int("EMAIL_PORT", default=25)
 EMAIL_HOST_USER = env.str("EMAIL_HOST_USER", default="")
@@ -576,6 +581,10 @@ MULTIEMPRESA = env.bool("MULTIEMPRESA", default=False)
 # externa que recibe año, mes y código de empleado. Sin él, en desarrollo se
 # usan datos de ejemplo (NOMINA_ROL_DEMO, por defecto igual a DEBUG).
 NOMINA_ROL_PROCEDIMIENTO = env.str("NOMINA_ROL_PROCEDIMIENTO", default="")
+# Perfiles desde nómina (US-021): el procedimiento de la base externa que
+# devuelve los empleados activos (código, nombre completo, correo y cédula).
+# Vacío, la sincronización queda apagada.
+NOMINA_EMPLEADOS_PROCEDIMIENTO = env.str("NOMINA_EMPLEADOS_PROCEDIMIENTO", default="")
 
 # Onboarding (apps.capacitacion): días para completarlo desde que se asigna.
 CAPACITACION_DIAS_PLAZO = env.int("CAPACITACION_DIAS_PLAZO", default=15)

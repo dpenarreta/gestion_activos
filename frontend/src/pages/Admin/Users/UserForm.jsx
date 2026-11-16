@@ -85,6 +85,14 @@ export function UserForm() {
   const [form, setForm] = useState(EMPTY_FORM);
   // Lo último cargado o guardado: con él se sabe si hay cambios sin guardar.
   const [original, setOriginal] = useState(EMPTY_FORM);
+  // Lo que viene de nómina y no se edita aquí (US-021): la cédula (null si
+  // quien mira no tiene `usuarios.ver_cedula`), si la cuenta no tiene correo
+  // real y cuándo la actualizó nómina por última vez.
+  const [deNomina, setDeNomina] = useState({
+    cedula: null,
+    sinCorreo: false,
+    sincronizadaEn: null,
+  });
   // Con qué nombre entrará: se enseña mientras se escribe, para que no haya
   // que descubrirlo después de guardar.
   const usernamePropuesto = baseDeUsername(form.first_name, form.last_name);
@@ -158,6 +166,11 @@ export function UserForm() {
         setForm(cargado);
         setOriginal(cargado);
         setEsSuperusuario(Boolean(data.is_superuser));
+        setDeNomina({
+          cedula: data.cedula ?? null,
+          sinCorreo: Boolean(data.sin_correo),
+          sincronizadaEn: data.nomina_sincronizada_en ?? null,
+        });
       })
       .catch(() => setError("No se pudo cargar el usuario."))
       .finally(() => setIsLoading(false));
@@ -499,6 +512,26 @@ export function UserForm() {
                 />
               </Campo>
 
+              {isEditing && deNomina.cedula !== null && (
+                <Campo
+                  id="cedula"
+                  etiqueta="Cédula"
+                  ayuda={
+                    deNomina.sincronizadaEn
+                      ? "Viene de nómina y se actualiza sola cada noche: no se edita aquí."
+                      : "Llega de nómina cuando la cuenta se empareja: no se edita aquí."
+                  }
+                  className="mz-field"
+                >
+                  <input
+                    name="cedula"
+                    className="form-control"
+                    value={deNomina.cedula || "Sin cédula de nómina"}
+                    readOnly
+                  />
+                </Campo>
+              )}
+
               <Campo
                 id="username"
                 etiqueta="Nombre de usuario"
@@ -533,6 +566,18 @@ export function UserForm() {
                   onChange={handleChange}
                 />
               </Campo>
+              {isEditing && deNomina.sinCorreo && (
+                <p
+                  className="mz-alert mz-alert--warn mb-0"
+                  style={{ gridColumn: "1 / -1" }}
+                >
+                  <Icon name="envelope-exclamation" />
+                  Esta cuenta se creó desde nómina sin correo: tiene una
+                  dirección reservada que no recibe mensajes. Escriba aquí su
+                  correo real antes de activarla, o espere a que nómina lo
+                  traiga.
+                </p>
+              )}
 
               {!isEditing && (
                 <div>
