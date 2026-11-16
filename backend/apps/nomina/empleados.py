@@ -443,6 +443,15 @@ def sincronizar(actor=None, empleados: list[Empleado] | None = None):
     corrida.estado = SincronizacionNomina.Estado.OK
     corrida.terminada_en = timezone.now()
     corrida.save()
+    # Cada persona de nómina con su ficha de empleado, para que se la pueda
+    # elegir como responsable de un equipo (16/11/2026). Un fallo aquí no
+    # tumba la sincronización: las cuentas ya quedaron al día.
+    try:
+        from apps.organizacion.fichas import sincronizar_fichas
+
+        sincronizar_fichas()
+    except Exception:  # noqa: BLE001
+        logger.exception("Nómina: no se pudieron poner al día las fichas de empleado")
     logger.info(
         "Nómina: %s empleados, %s creadas, %s actualizadas, %s sin cambios, %s conflictos",
         len(lista),

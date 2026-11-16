@@ -6,6 +6,7 @@ import {
   empleadosService,
   sedesService,
 } from "../../../api/organizacionService";
+import { useResultadosEnVivo } from "../../../hooks/useBusquedaEnVivo";
 import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
 import { mensajeDeError } from "../../../utils/errores";
@@ -15,6 +16,76 @@ const MODOS = {
   ASIGNAR: "asignar",
   TRASLADAR: "trasladar",
 };
+
+/**
+ * Buscar a la persona por nombre o código, en el servidor (16/11/2026).
+ *
+ * Era un desplegable con los primeros 200 empleados —el servidor da 100 como
+ * máximo—: con las 712 personas de nómina, quien no estaba entre las primeras
+ * no aparecía. Ahora se escribe y se elige.
+ */
+function BuscadorDeEmpleado({ id, excluir = [], onElegir, describe }) {
+  const [texto, setTexto] = useState("");
+  const busqueda = useResultadosEnVivo(texto.trim(), (q) =>
+    q.length < 2
+      ? Promise.resolve([])
+      : empleadosService
+          .list({ activo: "true", q, page_size: 20 })
+          .then((datos) => datos.results ?? datos),
+  );
+  const resultados = (busqueda.datos ?? []).filter(
+    (e) => !excluir.includes(String(e.id)),
+  );
+  const corto = texto.trim().length < 2;
+  return (
+    <div className="buscador-empleado">
+      <input
+        id={id}
+        type="search"
+        className="form-control"
+        placeholder="Escriba el nombre o el código"
+        aria-describedby={describe}
+        autoComplete="off"
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+      />
+      {!corto && (
+        <ul className="buscador-empleado__resultados" aria-label="Resultados">
+          {busqueda.cargando && resultados.length === 0 && (
+            <li className="mz-faint mz-small">Buscando…</li>
+          )}
+          {!busqueda.cargando && resultados.length === 0 && (
+            <li className="mz-faint mz-small">
+              Nadie coincide con «{texto.trim()}».
+            </li>
+          )}
+          {resultados.map((empleado) => (
+            <li key={empleado.id}>
+              <button
+                type="button"
+                className="buscador-empleado__opcion"
+                onClick={() => {
+                  onElegir(empleado);
+                  setTexto("");
+                }}
+              >
+                <span className="mz-strong">{empleado.nombre_completo}</span>
+                <span className="mz-faint mz-small">
+                  {[empleado.codigo_empleado, empleado.departamento_nombre]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** Dónde está una sede, dicho como lo diría una persona: «en Quito». */
 function donde(sede) {
@@ -42,7 +113,9 @@ function donde(sede) {
  * quien entrega una laptop pase por una lista de una sola fila sería peor.
  */
 export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
-  const [empleados, setEmpleados] = useState([]);
+  // Las personas conocidas: las que ya responden por el equipo y las que se
+  // eligen en el buscador.
+  const [empleados, setEmpleados] = useState(() => activo.responsables || []);
   const [departamentos, setDepartamentos] = useState([]);
   const [sedes, setSedes] = useState([]);
 
@@ -66,13 +139,6 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
   useEffect(() => {
     const fallo = (catalogo, mensaje) =>
       setFallos((actuales) => ({ ...actuales, [catalogo]: mensaje }));
-    empleadosService
-      .list({ activo: "true", page_size: 200 })
-      .then((datos) => setEmpleados(datos.results ?? datos))
-      .catch(() => {
-        setEmpleados([]);
-        fallo("empleados", "No se pudo cargar la lista de empleados.");
-      });
     departamentosService
       .list({ activo: "true", page_size: 100 })
       .then((datos) => setDepartamentos(datos.results ?? datos))
@@ -99,10 +165,14 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
         .filter(Boolean),
     [empleados, responsables],
   );
-  const disponibles = useMemo(
-    () => empleados.filter((e) => !responsables.includes(String(e.id))),
-    [empleados, responsables],
-  );
+  /** Guarda a la persona elegida en el buscador para poder nombrarla. */
+  function conocer(persona) {
+    setEmpleados((actuales) =>
+      actuales.some((e) => e.id === persona.id)
+        ? actuales
+        : [...actuales, persona],
+    );
+  }
   const sedeElegida = useMemo(
     () => sedes.find((s) => String(s.id) === String(sede)),
     [sedes, sede],
@@ -124,28 +194,29 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
    * usuario lo seleccione dos veces invita a dejarlo descuadrado. Sigue siendo
    * editable, porque un préstamo entre áreas es un caso legítimo.
    */
-  function proponerAreaDe(id) {
-    const persona = empleados.find((e) => String(e.id) === String(id));
+  function proponerAreaDe(id, elegida) {
+    const persona =
+      elegida || empleados.find((e) => String(e.id) === String(id));
     if (persona?.departamento) {
       setDepartamento(String(persona.departamento));
     }
   }
 
   /** Un equipo normal cambia de manos: el elegido sustituye al anterior. */
-  function elegirUnico(id) {
+  function elegirUnico(id, persona) {
     setResponsables(id ? [String(id)] : []);
-    proponerAreaDe(id);
+    proponerAreaDe(id, persona);
   }
 
   /** Uno compartido suma: el turno crece y mengua sin que nadie sea el titular. */
-  function sumar(id) {
+  function sumar(id, persona) {
     if (!id) return;
     setResponsables((actuales) =>
       actuales.includes(String(id)) ? actuales : [...actuales, String(id)],
     );
     // El área se propone solo con el primero: con el turno ya formado,
     // reproponerla en cada alta pisaría lo que alguien acaba de elegir.
-    if (responsables.length === 0) proponerAreaDe(id);
+    if (responsables.length === 0) proponerAreaDe(id, persona);
   }
 
   function quitar(id) {
@@ -303,22 +374,14 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               <label className="mt-2" htmlFor="sumar-responsable">
                 Sumar a alguien
               </label>
-              <select
+              <BuscadorDeEmpleado
                 id="sumar-responsable"
-                className="form-select"
-                aria-describedby={
-                  fallos.empleados ? "sumar-responsable-fallo" : undefined
-                }
-                value=""
-                onChange={(event) => sumar(event.target.value)}
-              >
-                <option value="">Elija a quién sumar</option>
-                {disponibles.map((empleado) => (
-                  <option key={empleado.id} value={empleado.id}>
-                    {empleado.nombre_completo} — {empleado.departamento_nombre}
-                  </option>
-                ))}
-              </select>
+                excluir={responsables}
+                onElegir={(persona) => {
+                  conocer(persona);
+                  sumar(persona.id, persona);
+                }}
+              />
               <FalloCatalogo id="sumar-responsable-fallo">
                 {fallos.empleados}
               </FalloCatalogo>
@@ -326,31 +389,45 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
           ) : (
             <div className="mz-field mb-3">
               <label htmlFor="custodio">Nuevo responsable</label>
-              <select
-                id="custodio"
-                className="form-select"
-                aria-describedby={
-                  [
-                    fallos.empleados && "custodio-fallo",
-                    elegidos[0] && "custodio-ayuda",
-                  ]
-                    .filter(Boolean)
-                    .join(" ") || undefined
-                }
-                value={responsables[0] || ""}
-                onChange={(event) => elegirUnico(event.target.value)}
-              >
-                <option value="">Sin custodio (devolver a bodega)</option>
-                {empleados.map((empleado) => (
-                  <option key={empleado.id} value={empleado.id}>
-                    {empleado.nombre_completo} — {empleado.departamento_nombre}
-                  </option>
-                ))}
-              </select>
+              {elegidos[0] ? (
+                <div className="responsable-elegido">
+                  <span>
+                    <span className="mz-strong">
+                      {elegidos[0].nombre_completo}
+                    </span>
+                    {elegidos[0].codigo_empleado && (
+                      <span className="mz-faint mz-small">
+                        {" "}
+                        · {elegidos[0].codigo_empleado}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0"
+                    onClick={() => elegirUnico("")}
+                  >
+                    Cambiar
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <BuscadorDeEmpleado
+                    id="custodio"
+                    onElegir={(persona) => {
+                      conocer(persona);
+                      elegirUnico(persona.id, persona);
+                    }}
+                  />
+                  <div className="form-text">
+                    Sin nadie elegido, el equipo vuelve a bodega.
+                  </div>
+                </>
+              )}
               <FalloCatalogo id="custodio-fallo">
                 {fallos.empleados}
               </FalloCatalogo>
-              {elegidos[0] && (
+              {elegidos[0]?.departamento_nombre && (
                 <div id="custodio-ayuda" className="form-text">
                   {elegidos[0].nombre_completo} pertenece a{" "}
                   <strong>{elegidos[0].departamento_nombre}</strong>.

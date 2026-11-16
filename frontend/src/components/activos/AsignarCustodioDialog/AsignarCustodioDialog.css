@@ -79,3 +79,55 @@
   font-size: 10px;
   color: inherit;
 }
+
+/* Buscar a la persona en lugar del desplegable (16/11/2026). */
+.buscador-empleado__resultados {
+  max-height: 220px;
+  margin: 4px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}
+
+.buscador-empleado__resultados li {
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.buscador-empleado__resultados li:last-child {
+  border-bottom: 0;
+}
+
+.buscador-empleado__resultados > li.mz-faint {
+  padding: 8px 12px;
+}
+
+.buscador-empleado__opcion {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: var(--mz-ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.buscador-empleado__opcion:hover,
+.buscador-empleado__opcion:focus-visible {
+  background: var(--mz-raised);
+}
+
+.responsable-elegido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 12px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+}

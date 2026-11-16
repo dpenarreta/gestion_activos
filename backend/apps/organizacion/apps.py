@@ -10,4 +10,5 @@ class OrganizacionConfig(AppConfig):
         # Enlaza a quien figuraba sin cuenta cuando entra a la empresa; y
         # `llamados.solicitar` (lo que da tener a alguien a cargo) sigue al
         # organigrama (US-013, 12/11/2026).
-        from . import carga_personas, senales_equipo  # noqa: F401
+        # La ficha de empleado sigue a Mi perfil (`fichas`, 16/11/2026).
+        from . import carga_personas, fichas, senales_equipo  # noqa: F401

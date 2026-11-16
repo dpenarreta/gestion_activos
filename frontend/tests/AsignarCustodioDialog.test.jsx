@@ -74,6 +74,29 @@ function abrir(activo = ACTIVO) {
   );
 }
 
+/** Cambia al responsable único: «Cambiar», escribir y elegir (buscador,
+ * 16/11/2026). Con `null`, lo deja sin nadie (vuelve a bodega). */
+async function cambiarResponsable(nombre) {
+  fireEvent.click(await screen.findByRole("button", { name: "Cambiar" }));
+  if (!nombre) return;
+  fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
+    target: { value: nombre.slice(0, 4) },
+  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: new RegExp(nombre) }),
+  );
+}
+
+/** En un equipo compartido: escribir en «Sumar a alguien» y elegir. */
+async function sumarA(nombre) {
+  fireEvent.change(await screen.findByLabelText("Sumar a alguien"), {
+    target: { value: nombre.slice(0, 4) },
+  });
+  fireEvent.click(
+    await screen.findByRole("button", { name: new RegExp(nombre) }),
+  );
+}
+
 /** Entra al modo traslado y devuelve el desplegable de destino. */
 async function trasladar() {
   fireEvent.click(screen.getByLabelText("Trasladar de ubicación"));
@@ -120,9 +143,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "7" },
-    });
+    await cambiarResponsable("Luis Torres");
 
     expect(
       await screen.findByText(/Luis Torres pertenece a/),
@@ -139,9 +160,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "7" },
-    });
+    await cambiarResponsable("Luis Torres");
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
@@ -156,9 +175,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "7" },
-    });
+    await cambiarResponsable("Luis Torres");
     fireEvent.change(screen.getByLabelText("Sede donde queda el equipo"), {
       target: { value: "2" },
     });
@@ -174,9 +191,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "7" },
-    });
+    await cambiarResponsable("Luis Torres");
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
@@ -202,9 +217,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "" },
-    });
+    await cambiarResponsable(null);
 
     // Como nota y no como alerta: aparece por lo que se eligió y no debe
     // interrumpir al lector de pantalla (revisión final UX/UI, 28/10/2026).
@@ -218,9 +231,7 @@ describe("Asignar o trasladar un activo", () => {
     abrir();
     await screen.findByText("Situación actual");
 
-    fireEvent.change(screen.getByLabelText("Nuevo responsable"), {
-      target: { value: "7" },
-    });
+    await cambiarResponsable("Luis Torres");
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
@@ -283,18 +294,12 @@ describe("Traslado de sede", () => {
 
   it("si una lista no carga lo dice junto a su campo", async () => {
     // Auditoría UX/UI, fase 2 (28/10/2026): antes quedaba vacía sin aviso.
-    const { empleadosService, sedesService } =
-      await import("../src/api/organizacionService");
-    empleadosService.list.mockRejectedValueOnce(new Error("500"));
+    // Las personas ya no se cargan de entrada: se buscan (16/11/2026).
+    const { sedesService } = await import("../src/api/organizacionService");
     sedesService.list.mockRejectedValueOnce(new Error("500"));
     abrir();
     await screen.findByText("Situación actual");
 
-    await waitFor(() =>
-      expect(
-        screen.getByLabelText("Nuevo responsable"),
-      ).toHaveAccessibleDescription("No se pudo cargar la lista de empleados."),
-    );
     // El fallo va primero; detrás, la ayuda del campo.
     expect(
       screen.getByLabelText("Sede donde queda el equipo"),
@@ -417,9 +422,7 @@ describe("Un equipo compartido", () => {
     abrir(COMPARTIDO);
     await screen.findByText("Situación actual");
 
-    fireEvent.change(await screen.findByLabelText("Sumar a alguien"), {
-      target: { value: "7" },
-    });
+    await sumarA("Luis Torres");
     fireEvent.click(screen.getByRole("button", { name: "Confirmar" }));
 
     await waitFor(() => expect(activosService.asignar).toHaveBeenCalled());
@@ -431,9 +434,13 @@ describe("Un equipo compartido", () => {
     abrir(COMPARTIDO);
     await screen.findByLabelText("Sumar a alguien");
 
-    const textos = [
-      ...screen.getByLabelText("Sumar a alguien").querySelectorAll("option"),
-    ].map((opcion) => opcion.textContent);
+    fireEvent.change(screen.getByLabelText("Sumar a alguien"), {
+      target: { value: "ar" },
+    });
+    await screen.findByRole("button", { name: /Luis Torres/ });
+    const textos = screen
+      .getAllByRole("button")
+      .map((boton) => boton.textContent);
 
     expect(textos.some((t) => t.includes("María Salazar"))).toBe(false);
     expect(textos.some((t) => t.includes("Luis Torres"))).toBe(true);
@@ -478,9 +485,7 @@ describe("Un equipo compartido", () => {
     abrir(COMPARTIDO);
     await screen.findByLabelText("Sumar a alguien");
 
-    fireEvent.change(screen.getByLabelText("Sumar a alguien"), {
-      target: { value: "7" },
-    });
+    await sumarA("Luis Torres");
     fireEvent.click(
       await screen.findByRole("button", { name: "Quitar a Luis Torres" }),
     );
