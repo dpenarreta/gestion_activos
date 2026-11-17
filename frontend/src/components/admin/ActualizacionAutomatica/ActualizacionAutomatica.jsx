@@ -23,6 +23,26 @@ import { useUnsavedChanges } from "../../../context/UnsavedChangesContext";
 const CADA_CUANTO_MS = 60 * 1000;
 const REINTENTO_MS = 15 * 1000;
 const PATRON = /\/assets\/index-[\w-]+\.js/;
+//: La versión por la que ya se recargó en esta pestaña: si después de
+//: recargar se sigue viendo la misma diferencia, no se recarga otra vez
+//: (freno contra un bucle de recargas).
+const RECARGADA_POR = "intranet.recargada_por_version";
+
+function yaRecargadaPor(version) {
+  try {
+    return sessionStorage.getItem(RECARGADA_POR) === version;
+  } catch {
+    return false;
+  }
+}
+
+function anotarRecarga(version) {
+  try {
+    sessionStorage.setItem(RECARGADA_POR, version);
+  } catch {
+    // Sin almacenamiento: sin freno, pero la consulta ya no se engaña.
+  }
+}
 
 /** El script principal de la página que está corriendo. */
 function scriptActual() {
@@ -36,7 +56,10 @@ function scriptActual() {
 /** El de la página publicada ahora en el servidor, o null si no se pudo ver. */
 export async function scriptPublicado() {
   try {
-    const respuesta = await fetch("/", {
+    // Con un parámetro único: el service worker viejo respondía «/» con la
+    // página guardada al instalarse y la versión parecía nueva siempre
+    // (recargaba en cada clic, 17/11/2026).
+    const respuesta = await fetch(`/?version=${Date.now()}`, {
       cache: "no-store",
       credentials: "same-origin",
     });
@@ -90,6 +113,7 @@ export function ActualizacionAutomatica() {
         reintento = setTimeout(intentarRecargar, REINTENTO_MS);
         return;
       }
+      anotarRecarga(nueva.current);
       window.location.reload();
     }
 
@@ -97,7 +121,8 @@ export function ActualizacionAutomatica() {
       if (!vivo || nueva.current) return;
       const publicado = await scriptPublicado();
       if (publicado && publicado !== actual.current) {
-        nueva.current = true;
+        if (yaRecargadaPor(publicado)) return;
+        nueva.current = publicado;
         intentarRecargar();
       }
     }

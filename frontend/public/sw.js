@@ -24,7 +24,11 @@
 // v4 (06/11/2026): página sin conexión y manifiesto con el azul del tema claro.
 // v5 (09/11/2026): la página sin conexión explica qué revisar y cuándo avisar
 // a Tecnología (también aparece en computadoras, no solo en teléfonos).
-const VERSION = "v5";
+// v6 (17/11/2026): «/» ya no se guarda ni se responde de caché. La consulta
+// de versión de `ActualizacionAutomatica` recibía la página vieja guardada al
+// instalar, creía que siempre había una versión nueva y recargaba la página
+// en cada clic. Se activa enseguida (`skipWaiting`) para cortar ese bucle.
+const VERSION = "v6";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";
@@ -32,7 +36,6 @@ const SIN_CONEXION = "/sin-conexion.html";
 //: Lo que se guarda al instalar. Los archivos con hash en el nombre no van
 //: aquí: los pone la caché sobre la marcha, y su nombre cambia solo.
 const ARMAZON = [
-  "/",
   SIN_CONEXION,
   // Lo que hace andar a la página sin conexión (Reintentar y volver sola):
   // sin él guardado, la página se vería pero no respondería.
@@ -43,6 +46,7 @@ const ARMAZON = [
 ];
 
 self.addEventListener("install", (evento) => {
+  self.skipWaiting();
   evento.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ARMAZON)));
 });
 
@@ -114,6 +118,11 @@ self.addEventListener("fetch", (evento) => {
       ),
     );
     return;
+  }
+
+  // La página misma (o cualquier HTML) nunca de caché: siempre la red.
+  if (url.pathname === "/" || url.pathname.endsWith(".html")) {
+    if (url.pathname !== SIN_CONEXION) return;
   }
 
   // El resto del armazón —iconos, manifiesto—: lo guardado si está, y si no,

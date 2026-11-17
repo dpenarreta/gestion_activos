@@ -27,6 +27,7 @@ function publicada(script) {
 describe("Recarga automática por versión nueva", () => {
   let recargar;
   beforeEach(() => {
+    sessionStorage.clear();
     vi.useFakeTimers();
     vi.stubEnv("DEV", false);
     sinGuardar.valor = false;
@@ -83,6 +84,21 @@ describe("Recarga automática por versión nueva", () => {
       await vi.advanceTimersByTimeAsync(16_000);
     });
     expect(recargar).toHaveBeenCalledTimes(1);
+  });
+
+  it("consulta con un parámetro único y no recarga dos veces por la misma versión", async () => {
+    sessionStorage.setItem(
+      "intranet.recargada_por_version",
+      "/assets/index-NUEVO2.js",
+    );
+    const consulta = vi.fn(() => publicada("/assets/index-NUEVO2.js"));
+    vi.stubGlobal("fetch", consulta);
+    render(<ActualizacionAutomatica />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000);
+    });
+    expect(consulta.mock.calls[0][0]).toMatch(/^\/\?version=\d+$/);
+    expect(recargar).not.toHaveBeenCalled();
   });
 });
 
