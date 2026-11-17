@@ -72,9 +72,33 @@ def _persona(usuario):
     return {"id": usuario.id, "nombre": usuario.get_full_name().strip() or usuario.username}
 
 
-def ocupantes() -> dict[int, list[dict]]:
-    """Cargo → las personas activas que lo ocupan (según su perfil) y, después,
-    las cargadas sin cuenta (`sin_cuenta`)."""
+def _es_la_misma_persona(nombre_sin_cuenta: str, nombre_cuenta: str) -> bool:
+    """Si el ocupante «sin cuenta» es la misma persona que la cuenta del mismo
+    cargo (17/11/2026): cada palabra del primero está en el segundo, sin
+    tildes ni mayúsculas, en cualquier orden y admitiendo una letra cambiada
+    («Antonhy Jácome» ⊂ «Anthony Roberto Jacome Buñay»). La cuenta trae el
+    nombre completo de nómina; el «sin cuenta», el de la imagen del área."""
+    from difflib import SequenceMatcher
+
+    cortas = _nombre_comparable(nombre_sin_cuenta).split()
+    largas = _nombre_comparable(nombre_cuenta).split()
+    if len(cortas) < 2 or not largas:
+        return False
+    return all(
+        any(p == q or SequenceMatcher(None, p, q).ratio() >= 0.8 for q in largas) for p in cortas
+    )
+
+
+def ocupantes(incluir_sin_cuenta: bool = False) -> dict[int, list[dict]]:
+    """Cargo → las personas activas asignadas a él (según su perfil), con su
+    nombre real de la cuenta.
+
+    Decisión del usuario (17/11/2026): el organigrama muestra solo a los
+    asignados. Los ocupantes «sin cuenta» (los nombres cargados desde la
+    imagen de cada área) ya no se muestran ni ocupan plaza; esos puestos se
+    ven como «Sin asignación» hasta que se asigna a la persona real. Con
+    `incluir_sin_cuenta=True` se suman, sin repetir a quien ya tiene cuenta en
+    el mismo cargo (`_es_la_misma_persona`). El registro no se borra."""
     por_cargo: dict[int, list[dict]] = {}
     filas = (
         DatosDeContacto.objects.filter(cargo__isnull=False, usuario__is_active=True)
@@ -83,7 +107,12 @@ def ocupantes() -> dict[int, list[dict]]:
     )
     for fila in filas:
         por_cargo.setdefault(fila.cargo_id, []).append(_persona(fila.usuario))
+    if not incluir_sin_cuenta:
+        return por_cargo
     for otro in OcupanteCargo.objects.all():
+        con_cuenta = [p for p in por_cargo.get(otro.cargo_id, []) if not p.get("sin_cuenta")]
+        if any(_es_la_misma_persona(str(otro), p["nombre"]) for p in con_cuenta):
+            continue
         por_cargo.setdefault(otro.cargo_id, []).append(
             {"id": f"sin-cuenta-{otro.pk}", "nombre": str(otro), "sin_cuenta": True}
         )
@@ -224,9 +253,10 @@ def linea_de_supervision(usuario, cargo) -> dict:
     - **supervisa**: los cargos que le reportan directamente, con quién los
       ocupa y sus plazas vacantes.
 
-    Las personas incluyen a quienes tienen cuenta y a las cargadas sin cuenta.
+    Las personas incluyen a quienes tienen cuenta y a las cargadas sin cuenta
+    (el organigrama, en cambio, solo muestra a los asignados, 17/11/2026).
     """
-    quienes = ocupantes()
+    quienes = ocupantes(incluir_sin_cuenta=True)
 
     def cargo_con_personas(c, sin=None):
         personas = [p for p in quienes.get(c.id, []) if p["id"] != sin]

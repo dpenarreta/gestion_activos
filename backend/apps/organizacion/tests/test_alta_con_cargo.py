@@ -133,11 +133,12 @@ def test_el_ocupante_sin_cuenta_con_el_mismo_nombre_se_reemplaza(cartera):
     assert [str(o) for o in OcupanteCargo.objects.filter(cargo=jefe)] == ["Luis Paredes"]
     datos = cartera["admin"].get(f"{BASE}organigrama/").json()
     en_el_cargo = next(c for c in datos["cargos"] if c["id"] == jefe.id)
+    # El organigrama muestra solo a los asignados con cuenta (17/11/2026):
+    # Luis Paredes sigue registrado «sin cuenta», pero no ocupa la plaza.
     assert sorted(o["nombre"] for o in en_el_cargo["ocupantes"]) == [
-        "Luis Paredes",
         "SARA  FERNANDA Marroquin Garcia",
     ]
-    assert en_el_cargo["vacantes"] == 0
+    assert en_el_cargo["vacantes"] == en_el_cargo["plazas"] - 1
 
 
 def test_no_se_borra_un_homonimo_de_otro_cargo_ni_un_nombre_solo_parecido(cartera):

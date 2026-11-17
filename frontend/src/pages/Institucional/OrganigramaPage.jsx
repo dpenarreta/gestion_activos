@@ -224,6 +224,15 @@ function TambienReportaA({ cargo, cargos }) {
   );
 }
 
+/** Sin nadie asignado: «Sin asignación» (17/11/2026, decisión del usuario);
+ * con alguno, las plazas que faltan. */
+export function textoVacantes(cargo) {
+  if ((cargo.ocupantes ?? []).length === 0) return "Sin asignación";
+  return cargo.vacantes === 1
+    ? "1 plaza vacante"
+    : `${cargo.vacantes} plazas vacantes`;
+}
+
 function Cargo({ cargo, cargos, conPersonas }) {
   const jefe = cargos.find((c) => c.id === cargo.jefe);
   return (
@@ -256,11 +265,7 @@ function Cargo({ cargo, cargos, conPersonas }) {
             </li>
           ))}
           {cargo.vacantes > 0 && (
-            <li className="org-personas__vacante">
-              {cargo.vacantes === 1
-                ? "1 plaza vacante"
-                : `${cargo.vacantes} plazas vacantes`}
-            </li>
+            <li className="org-personas__vacante">{textoVacantes(cargo)}</li>
           )}
         </ul>
       )}
@@ -286,11 +291,7 @@ function PersonasDelCargo({ cargo }) {
         </li>
       ))}
       {cargo.vacantes > 0 && (
-        <li className="org-personas__vacante">
-          {cargo.vacantes === 1
-            ? "1 plaza vacante"
-            : `${cargo.vacantes} plazas vacantes`}
-        </li>
+        <li className="org-personas__vacante">{textoVacantes(cargo)}</li>
       )}
     </ul>
   );

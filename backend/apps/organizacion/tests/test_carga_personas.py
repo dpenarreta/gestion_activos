@@ -211,12 +211,12 @@ def test_validar_no_guarda_y_confirmar_asigna_y_registra(db):
             "Lucía Paz",
             "Pedro Mora",
         ]
-    # En el organigrama se ven los dos, los sin cuenta marcados.
+    # Quedan registrados «sin cuenta», pero el organigrama muestra solo a los
+    # asignados con cuenta (17/11/2026): el cargo sale sin asignación.
     organigrama = admin.get(f"{BASE}organigrama/").json()
     analista = next(x for x in organigrama["cargos"] if x["id"] == c["analista"].pk)
-    assert {p["nombre"] for p in analista["ocupantes"]} == {"Pedro Mora", "Lucía Paz"}
-    assert all(p["sin_cuenta"] for p in analista["ocupantes"])
-    assert analista["vacantes"] == 0
+    assert analista["ocupantes"] == []
+    assert analista["vacantes"] == analista["plazas"]
 
     # El organigrama completo trae a todos, con su situación y el resumen.
     completo = _completo(admin)
