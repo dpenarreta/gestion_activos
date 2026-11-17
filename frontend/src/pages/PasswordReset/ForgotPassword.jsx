@@ -51,7 +51,7 @@ export function ForgotPassword() {
           <>
             <div className="mb-3">
               <label className="form-label" htmlFor="identifier">
-                Usuario o correo
+                Usuario, correo o código de empleado
               </label>
               <input
                 id="identifier"

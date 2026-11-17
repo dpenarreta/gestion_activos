@@ -81,6 +81,25 @@ class BruteForceProtectionService:
         return fallidos.count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL
 
     @staticmethod
+    def cuenta_bloqueada(user: User, ip_address: str | None = None) -> bool:
+        """El mismo límite, pero sumando los fallos de la **cuenta** con
+        cualquiera de sus identificadores (17/11/2026).
+
+        Con usuario, correo y código de empleado hay tres textos que llevan a
+        la misma cuenta: contando solo por texto, quien alternara entre ellos
+        tendría el triple de intentos.
+        """
+        window_start = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
+        fallidos = LoginAttempt.objects.filter(
+            user=user, successful=False, created_at__gte=window_start
+        )
+        if ip_address is None:
+            return fallidos.count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS
+        if fallidos.filter(ip_address=ip_address).count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS:
+            return True
+        return fallidos.count() >= settings.LOGIN_MAX_FAILED_ATTEMPTS_GLOBAL
+
+    @staticmethod
     def record_attempt(
         *, identifier: str, ip_address: str | None, user: User | None, successful: bool
     ) -> None:
@@ -113,9 +132,13 @@ class BruteForceProtectionService:
         de administración y se levanta con «Desbloquear».
         """
         window_start = timezone.now() - timedelta(minutes=settings.LOGIN_LOCKOUT_MINUTES)
-        identificadores = Q(identifier__iexact=user.username)
+        # También los registrados a nombre de la cuenta: un fallo con el
+        # correo anterior (cambiado en el primer ingreso) también la bloquea.
+        identificadores = Q(user=user) | Q(identifier__iexact=user.username)
         if user.email:
             identificadores |= Q(identifier__iexact=user.email)
+        if user.codigo_empleado:
+            identificadores |= Q(identifier__iexact=user.codigo_empleado)
         fallidos = LoginAttempt.objects.filter(identificadores).filter(
             successful=False, created_at__gte=window_start
         )
@@ -198,9 +221,22 @@ class AuthenticationService:
 
     @staticmethod
     def _resolve_user(identifier: str) -> User | None:
-        return User.objects.filter(
-            Q(username__iexact=identifier) | Q(email__iexact=identifier)
-        ).first()
+        """La cuenta por su nombre de usuario, su correo o su código de
+        empleado (17/11/2026), en ese orden de preferencia.
+
+        El correo es el que la cuenta tiene **ahora**: si se cambió en el
+        primer ingreso, vale el nuevo y ya no el anterior. Se busca uno por
+        uno y no con un OR para que, si un texto coincidiera con el usuario de
+        una cuenta y el código de otra, gane siempre el mismo.
+        """
+        identifier = (identifier or "").strip()
+        if not identifier:
+            return None
+        for campo in ("username__iexact", "email__iexact", "codigo_empleado__iexact"):
+            usuario = User.objects.filter(**{campo: identifier}).first()
+            if usuario is not None:
+                return usuario
+        return None
 
     @staticmethod
     def _issue_tokens_for_new_session(
@@ -253,6 +289,15 @@ class AuthenticationService:
                 identifier=identifier, ip_address=ip_address, user=None, successful=False
             )
             raise AuthenticationFailed(GENERIC_AUTH_ERROR, code="invalid_credentials")
+
+        if BruteForceProtectionService.cuenta_bloqueada(user, ip_address):
+            check_password(password, _DUMMY_PASSWORD_HASH)
+            logger.warning(
+                "Bloqueo por fuerza bruta activo para la cuenta %s desde ip=%s",
+                user.pk,
+                ip_address,
+            )
+            raise AuthenticationFailed(LOCKOUT_ERROR, code="account_locked")
 
         if not user.check_password(password) or not user.is_active:
             BruteForceProtectionService.record_attempt(

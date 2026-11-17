@@ -67,9 +67,12 @@ function pintar(entrada = "/login") {
 }
 
 function entrar(identificador = "acevallos", clave = "Contraseña.2026") {
-  fireEvent.change(screen.getByLabelText(/usuario o correo/i), {
-    target: { value: identificador },
-  });
+  fireEvent.change(
+    screen.getByLabelText(/usuario, correo o código de empleado/i),
+    {
+      target: { value: identificador },
+    },
+  );
   fireEvent.change(screen.getByLabelText(/contraseña/i), {
     target: { value: clave },
   });
@@ -97,7 +100,9 @@ describe("Iniciar sesión", () => {
        correo sí. */
     pintar();
 
-    expect(screen.getByLabelText(/usuario o correo/i)).toBeRequired();
+    expect(
+      screen.getByLabelText(/usuario, correo o código de empleado/i),
+    ).toBeRequired();
     expect(screen.getByLabelText(/contraseña/i)).toBeRequired();
   });
 
@@ -220,7 +225,7 @@ describe("La sesión que ya venía guardada", () => {
   it("sin token no se pregunta por el perfil", async () => {
     pintar();
 
-    await screen.findByLabelText(/usuario o correo/i);
+    await screen.findByLabelText(/usuario, correo o código de empleado/i);
     expect(me).not.toHaveBeenCalled();
   });
 

@@ -7,7 +7,7 @@ from .models import Session
 class LoginSerializer(serializers.Serializer):
     """Valida las credenciales de entrada para el inicio de sesión.
 
-    `identifier` acepta indistintamente nombre de usuario o correo — la
+    `identifier` acepta nombre de usuario, correo o código de empleado — la
     resolución ocurre en AuthenticationService, nunca aquí, para no acoplar
     la validación de forma con la lógica de negocio.
     """

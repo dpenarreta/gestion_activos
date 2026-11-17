@@ -85,9 +85,12 @@ describe("Pedir un enlace de recuperación", () => {
        cuentas válidas. */
     pintar(<ForgotPassword />, "/forgot-password");
 
-    fireEvent.change(screen.getByLabelText("Usuario o correo"), {
-      target: { value: "acevallos" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Usuario, correo o código de empleado"),
+      {
+        target: { value: "acevallos" },
+      },
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Enviar enlace de recuperación" }),
     );
@@ -103,9 +106,12 @@ describe("Pedir un enlace de recuperación", () => {
 
     pintar(<ForgotPassword />, "/forgot-password");
 
-    fireEvent.change(screen.getByLabelText("Usuario o correo"), {
-      target: { value: "no-existe" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Usuario, correo o código de empleado"),
+      {
+        target: { value: "no-existe" },
+      },
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Enviar enlace de recuperación" }),
     );
@@ -116,15 +122,20 @@ describe("Pedir un enlace de recuperación", () => {
   it("enviado, el formulario deja de estar: no se reenvía por inercia", async () => {
     pintar(<ForgotPassword />, "/forgot-password");
 
-    fireEvent.change(screen.getByLabelText("Usuario o correo"), {
-      target: { value: "acevallos" },
-    });
+    fireEvent.change(
+      screen.getByLabelText("Usuario, correo o código de empleado"),
+      {
+        target: { value: "acevallos" },
+      },
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Enviar enlace de recuperación" }),
     );
 
     await screen.findByText(GENERICO);
-    expect(screen.queryByLabelText("Usuario o correo")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Usuario, correo o código de empleado"),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: "Volver a iniciar sesión" }),
     ).toBeInTheDocument();
