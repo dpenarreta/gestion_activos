@@ -1,9 +1,10 @@
 import { useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { matrizService } from "../../api/servicios";
 import { BotonRedondo } from "../../componentes/BotonRedondo";
+import { Refresco } from "../../componentes/Refresco";
 import { Alerta, Boton, Cargando, Desplegable, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { tamanoLegible } from "../../adjuntos/seleccion";
@@ -26,7 +27,8 @@ import {
 import { abrirEnNavegador, TEXTO_NAVEGADOR_FALLO } from "../../navegador/enlaceWeb";
 import { useSesion } from "../../sesion/SesionContext";
 import { TONOS } from "../../soporte/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { AbrirEnLaWeb } from "../permisos/piezas";
 import { Dato, Pildora, Seccion } from "../soporte/piezas";
@@ -49,6 +51,7 @@ function Persona({ nombre, persona }) {
 /** El avance en número y en barra; la barra es un `progressbar` con su
  * valor. */
 function Avance({ valor }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const n = Math.max(0, Math.min(100, Number(valor) || 0));
   return (
     <View style={estilos.dato}>
@@ -72,6 +75,8 @@ function Avance({ valor }) {
 
 /** Una evidencia válida: un botón que la abre en el visor. */
 function Evidencia({ documento, zona, abriendo, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const cargando = abriendo === documento.id;
   const detalle = [
     `v${documento.version}`,
@@ -123,6 +128,8 @@ function Evidencia({ documento, zona, abriendo, onAbrir }) {
  * la US-009).
  */
 export function DetallePeriodo({ id, empresa = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const { empresaActiva, versionEmpresa } = useSesion();
@@ -302,7 +309,7 @@ export function DetallePeriodo({ id, empresa = null }) {
       <ScrollView
         testID="detalle-periodo"
         contentContainerStyle={estilos.contenido}
-        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+        refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
       >
         <View style={estilos.resumen}>
           <Text style={estilos.codigo}>{[periodo.codigo, periodo.etiqueta].filter(Boolean).join(" · ")}</Text>
@@ -512,7 +519,7 @@ export function DetallePeriodo({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   centrado: { flex: 1, padding: 16, gap: 12, backgroundColor: colores.fondo },

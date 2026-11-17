@@ -15,7 +15,8 @@ import {
   pestanaValida,
   textoDeListaVacia,
 } from "../../ordenes/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { BuscadorDeLista, ListaPaginada } from "../activos/listas";
 import { useMontado } from "../activos/piezas";
@@ -24,6 +25,8 @@ import { FilaOrden } from "./piezas";
 /** Las dos pestañas con su contador (CA-7). La elegida lleva fondo negro y
  * ✓: no se distingue solo por el color. */
 function Pestanas({ actual, cuentas, onCambio }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.pestanas} accessibilityRole="tablist" accessibilityLabel="Mis órdenes">
       {PESTANAS.map((p) => {
@@ -215,7 +218,7 @@ export function MisOrdenes({ pestanaPedida, permisos = [], empresa, versionEmpre
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pestanas: { flexDirection: "row", gap: 8 },
   pestana: {
     flex: 1,

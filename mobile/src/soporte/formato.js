@@ -1,5 +1,5 @@
 import { limpiarMensaje, mensajeDeError } from "../api/errores";
-import { colores } from "../tema/colores";
+import { paletaActiva } from "../tema/colores";
 import { fechaYHora } from "../utils/fechas";
 
 /**
@@ -109,13 +109,30 @@ export function mensajeDeAccion(error, porDefecto) {
 
 // --- Tonos ----------------------------------------------------------------------------
 
-/** Cada tono con su fondo, su texto (contrastes de `colores.js`) e ícono. */
+/** Cada tono con su fondo y su texto (contrastes de `colores.js`). Se leen
+ * del modo que se ve (US-026): cada lectura devuelve un objeto nuevo con la
+ * paleta activa, así que no se guardan en constantes del módulo. */
 export const TONOS = {
-  bien: { fondo: colores.bienFondo, color: colores.bienTexto },
-  aviso: { fondo: colores.avisoFondo, color: colores.avisoTexto },
-  mal: { fondo: colores.malFondo, color: colores.malTexto },
-  info: { fondo: colores.infoFondo, color: colores.infoTexto },
-  neutro: { fondo: colores.hundido, color: colores.tintaSuave },
+  get bien() {
+    const c = paletaActiva();
+    return { fondo: c.bienFondo, color: c.bienTexto };
+  },
+  get aviso() {
+    const c = paletaActiva();
+    return { fondo: c.avisoFondo, color: c.avisoTexto };
+  },
+  get mal() {
+    const c = paletaActiva();
+    return { fondo: c.malFondo, color: c.malTexto };
+  },
+  get info() {
+    const c = paletaActiva();
+    return { fondo: c.infoFondo, color: c.infoTexto };
+  },
+  get neutro() {
+    const c = paletaActiva();
+    return { fondo: c.hundido, color: c.tintaSuave };
+  },
 };
 
 const ESTADO = {

@@ -6,8 +6,7 @@ import { useEmpresaDeLaMatriz } from "../../matriz/useEmpresaDeLaMatriz";
 import { moduloPorId, vistaActiva } from "../../navegacion/modulos";
 import { useContextoDeNavegacion } from "../../navegacion/useContextoDeNavegacion";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { BandejaMatriz } from "./BandejaMatriz";
 import { CalendarioMatriz } from "./CalendarioMatriz";
@@ -25,6 +24,7 @@ const TITULOS = { bandeja: "Bandeja", calendario: "Calendario" };
  * roles) se pide una vez y la comparten las dos.
  */
 export function Matriz() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const parametros = useLocalSearchParams();
   const { usuario, empresaActiva } = useSesion();
@@ -66,7 +66,7 @@ export function Matriz() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   tituloVista: CONTROLES.tituloVista,
 });

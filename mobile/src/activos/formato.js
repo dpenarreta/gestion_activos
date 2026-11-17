@@ -443,7 +443,12 @@ export const ACTIVOS_EN_LA_WEB = [
   { permisos: ["activos.crear"], nombre: "Carga masiva", ruta: "/admin/activos/importar", icono: "file-excel-outline" },
   { permisos: ["alertas.ver"], nombre: "Alertas", ruta: "/admin/alertas", icono: "bell-alert-outline" },
   { permisos: ["politicas.ver"], nombre: "Renovación", ruta: "/admin/renovacion/sugerencias", icono: "autorenew" },
+  // US-028 (CA-6, 17/11/2026): con el permiso de su grupo en el menú web
+  // («Renovación», «Activos» y «Mantenimientos»), que sus hijos heredan.
+  { permisos: ["politicas.ver"], nombre: "Políticas", ruta: "/admin/politicas", icono: "tune-variant" },
+  { permisos: ["activos.ver"], nombre: "Categorías", ruta: "/admin/activos/categorias", icono: "tag-multiple-outline" },
   { permisos: ["activos.ver"], nombre: "Tipos de dispositivo", ruta: "/admin/activos/tipos", icono: "shape-outline" },
+  { permisos: ["mantenimientos.ver"], nombre: "Componentes", ruta: "/admin/mantenimientos/componentes", icono: "chip" },
 ];
 
 export function activosEnLaWeb(permisos) {

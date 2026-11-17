@@ -1,10 +1,12 @@
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { ESPACIO_BOTON_FLOTANTE } from "../../componentes/BotonFlotante";
+import { Refresco } from "../../componentes/Refresco";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useColores, useEstilos } from "../../tema/apariencia";
+
+
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 
@@ -17,6 +19,8 @@ import { Separador } from "../soporte/piezas";
 /** El campo de búsqueda con su lupa. La etiqueta visible no se lee dos
  * veces: el nombre accesible ya la dice. */
 export function BuscadorDeLista({ texto, onCambio, onBuscar, etiqueta, placeholder, testID, accion = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <>
       <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
@@ -47,6 +51,8 @@ export function BuscadorDeLista({ texto, onCambio, onBuscar, etiqueta, placehold
 
 /** Los chips de un filtro: el elegido con fondo negro y ✓ (no solo color). */
 export function ChipsDeFiltro({ filtros, valor, onCambio, etiqueta, prefijo = "filtro" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <ScrollView
       horizontal
@@ -91,6 +97,8 @@ export function ListaPaginada({
   textos,
   iconoVacio = "information-outline",
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const { lista, refrescando, cargandoMas, errorMas, cargar, cargarMas, refrescar } = paginada;
 
   let vacio;
@@ -149,12 +157,12 @@ export function ListaPaginada({
       onEndReachedThreshold={0.4}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
   );
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   lista: { flex: 1 },
   // El final queda libre para la burbuja de «Escanear» (`BotonFlotante`).
   contenido: { padding: 16, paddingTop: 8, paddingBottom: ESPACIO_BOTON_FLOTANTE },

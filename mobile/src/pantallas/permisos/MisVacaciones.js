@@ -1,15 +1,17 @@
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { mensajeDeError } from "../../api/errores";
 import { vacacionesService } from "../../api/servicios";
 import { Alerta, Boton, BotonIcono, Cargando, Desplegable, ErrorConReintento } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { dias, fechaCorta, fechaLarga, palabraDias, rangoDeFechas } from "../../permisos/formato";
 import { TEXTO_SIN_ROL, useResumenPermisos } from "../../permisos/ResumenPermisosContext";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 
 /**
@@ -27,6 +29,7 @@ function diasCon(n, singular, plural) {
 }
 
 export function MisVacaciones({ foco = 0 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { versionEmpresa } = useSesion();
   const { puedeSolicitar, cargado } = useResumenPermisos();
@@ -92,7 +95,7 @@ export function MisVacaciones({ foco = 0 }) {
       testID="mis-vacaciones"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {/* Alternativa a deslizar hacia abajo (revisión de QA-UX), como ícono
           en una fila con el título para dejar más a la vista (auditoría UX,
@@ -117,6 +120,8 @@ export function MisVacaciones({ foco = 0 }) {
 }
 
 function Resumen({ datos, puedeSolicitar, sinRol, router }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const todos = Array.isArray(datos?.periodos) ? datos.periodos : [];
   if (todos.length === 0) {
     return (
@@ -226,17 +231,21 @@ function Resumen({ datos, puedeSolicitar, sinRol, router }) {
   );
 }
 
+// Igual que la web (commit 7c11577, 17/11/2026): los fines de semana son una
+// recomendación y el sistema ya no los marca. «Por defecto» en lo gozado
+// queda solo para los goces anteriores a ese cambio.
 export const TEXTO_FINES_DETALLE =
-  "Si al completarse el período faltan, se marcan por defecto los siguientes a la solicitud (aparecen como «Por defecto» en lo gozado). Para elegirlos usted, inclúyalos al pedir sus vacaciones.";
+  "Es una recomendación: si su solicitud no la cumple, se le avisa y la decisión es de Talento Humano. Para cumplirla, inclúyalos al pedir sus vacaciones.";
 
 /** La regla de los fines de semana: una línea y, si se pide, el detalle
  * (auditoría UX, H-24: eran unas 60 palabras de entrada). */
 function ReglaDeFines({ regla }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [abierto, setAbierto] = useState(false);
   return (
     <View style={estilos.regla} testID="regla-fines">
       <Text style={estilos.reglaTexto}>
-        De cada período deben salir al menos {regla.sabados} {regla.sabados === 1 ? "sábado" : "sábados"} y{" "}
+        Se recomienda que de cada período salgan al menos {regla.sabados} {regla.sabados === 1 ? "sábado" : "sábados"} y{" "}
         {regla.domingos} {regla.domingos === 1 ? "domingo" : "domingos"}.
       </Text>
       <Desplegable titulo="Más información" abierto={abierto} onCambiar={setAbierto} testID="regla-fines-mas">
@@ -247,6 +256,7 @@ function ReglaDeFines({ regla }) {
 }
 
 function Periodo({ periodo: p, regla, primero }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const finesCompletos = regla && p.sabados >= regla.sabados && p.domingos >= regla.domingos;
   return (
     <View style={estilos.tarjeta} testID={`periodo-${p.id}`}>
@@ -319,7 +329,7 @@ function Periodo({ periodo: p, regla, primero }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, gap: 12, paddingBottom: 32 },
   bloques: { gap: 12 },

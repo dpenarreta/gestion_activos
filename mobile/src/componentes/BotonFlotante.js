@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from "react-native";
 
-import { colores } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { Icono } from "./Icono";
 
 /**
@@ -15,6 +15,8 @@ import { Icono } from "./Icono";
  * lo único que dice el lector de pantalla.
  */
 export function BotonFlotante({ icono, etiqueta, pista, onPress, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <Pressable
       testID={testID}
@@ -34,7 +36,7 @@ export function BotonFlotante({ icono, etiqueta, pista, onPress, testID }) {
  * su última fila: el botón (60) más su margen (16) y un respiro. */
 export const ESPACIO_BOTON_FLOTANTE = 96;
 
-const estilos = StyleSheet.create({
+const fabricaDeEstilos = (colores) => StyleSheet.create({
   boton: {
     position: "absolute",
     right: 16,

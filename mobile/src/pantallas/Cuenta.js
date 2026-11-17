@@ -19,8 +19,7 @@ import { useSesion } from "../sesion/SesionContext";
 import { useCerrarSesion } from "../sesion/useCerrarSesion";
 import { ResumenMiEstado } from "./chat/piezas";
 import { MiPerfil } from "./MiPerfil";
-import { colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 
 /** El nombre con el rol que se ejerce en ella, como el selector web. */
@@ -45,6 +44,8 @@ const TEXTOS_AVISOS = {
  * cambia en los ajustes (revisión de QA-UX, 12/11/2026).
  */
 function BloqueAvisos() {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [estado, setEstado] = useState(null);
   const [pidiendo, setPidiendo] = useState(false);
   const montado = useRef(true);
@@ -128,6 +129,8 @@ function BloqueAvisos() {
  * trae.
  */
 export function Cuenta() {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { usuario, empresas, empresaActiva, cambiarEmpresa } = useSesion();
   const { cerrando, confirmarCierre } = useCerrarSesion();
@@ -246,7 +249,7 @@ export function Cuenta() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 24 },
   bloque: { gap: 8 },

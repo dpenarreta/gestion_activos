@@ -20,8 +20,9 @@ import {
 } from "../../activos/formato";
 import { Alerta, Boton, Cargando } from "../../componentes/comunes";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useColores, useEstilos } from "../../tema/apariencia";
+
+
 import { crearEstilos } from "../../tema/tipografia";
 import { rutaDeRegistrarMantenimiento } from "./FichaActivo";
 import { EstadoDelActivo, useMontado } from "./piezas";
@@ -39,6 +40,7 @@ export const TEXTO_SIN_PERMISO_CAMARA =
 /** Lo que muestra el escáner tras leer un código: el resumen del activo
  * (CA-11) con «Ver ficha» y «Registrar mantenimiento». */
 function Resultado({ ficha, permisos, onVerFicha, onRegistrar, onOtro }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const activo = ficha?.activo ?? {};
   const puedeRegistrar = permisos.includes("mantenimientos.registrar") && estaOperativo(activo);
   return (
@@ -75,6 +77,7 @@ function Resultado({ ficha, permisos, onVerFicha, onRegistrar, onOtro }) {
  * (`[permiso, pedir, obtener]` de `createPermissionHook`), sin salir y
  * entrar de nuevo al escáner. */
 function VistaDeCamara({ camara, activa, onLeido, pedirAlEntrar = false }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { CameraView, useCameraPermissions } = camara;
   const [permiso, pedirPermiso, obtenerPermiso] = useCameraPermissions();
   const pedido = useRef(false);
@@ -164,6 +167,8 @@ function VistaDeCamara({ camara, activa, onLeido, pedirAlEntrar = false }) {
 /** `auto`: se llega desde la burbuja de «Escanear» y la cámara arranca sola
  * (pide el permiso de inmediato si hace falta). */
 export function Escaner({ auto = false } = {}) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { usuario } = useSesion();
   const permisos = usuario?.permissions ?? [];
@@ -328,7 +333,7 @@ export function Escaner({ auto = false } = {}) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 40, gap: 14 },
   bloque: { gap: 10 },

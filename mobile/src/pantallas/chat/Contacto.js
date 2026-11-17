@@ -18,7 +18,8 @@ import {
   ErrorConReintento,
 } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Presencia } from "./piezas";
 
@@ -36,6 +37,8 @@ export const TEXTO_SIN_APP = {
  * seleccionar para copiarlo, y el teléfono y el correo abren su app.
  */
 export function Contacto({ id, empresa = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [estado, setEstado] = useState("cargando");
   const [contacto, setContacto] = useState(null);
   const [error, setError] = useState(null);
@@ -188,7 +191,7 @@ export function Contacto({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16 },
   encabezado: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -196,7 +199,7 @@ const estilos = crearEstilos({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colores.primario,
+    backgroundColor: colores.avatar,
     alignItems: "center",
     justifyContent: "center",
   },

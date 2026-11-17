@@ -21,8 +21,8 @@ import { TEXTO_SIN_ROL, useResumenPermisos } from "../../permisos/ResumenPermiso
 import { useReemplazoEnAusencia, YA_QUEDO_GUARDADO } from "../../permisos/useReemplazoEnAusencia";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { CampoTexto, ReglasDelPermiso } from "./piezas";
 import { ReemplazoEnAusencia } from "./ReemplazoEnAusencia";
 import { crearEstilos } from "../../tema/tipografia";
@@ -126,6 +126,8 @@ function validarHoras({ hora_desde: inicio, hora_hasta: fin }) {
 }
 
 export function NuevaSolicitud({ deVacaciones = false }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   // Antes de cualquier `return` temprano (revisión UX, M-1).
@@ -812,7 +814,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   leyenda: { fontSize: 14, color: colores.tintaSuave },

@@ -6,8 +6,7 @@ import { Alerta } from "../../componentes/comunes";
 import { moduloPorId, vistaActiva } from "../../navegacion/modulos";
 import { useContextoDeNavegacion } from "../../navegacion/useContextoDeNavegacion";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { useEmpresaDelAviso } from "../activos/GestionDeActivos";
 import { MisOrdenes } from "./MisOrdenes";
@@ -38,6 +37,7 @@ function primero(valor) {
  * es de la persona, o avisa que lo que se ve es de la empresa activa.
  */
 export function OrdenesDeTrabajo() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const parametros = useLocalSearchParams();
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
@@ -77,7 +77,7 @@ export function OrdenesDeTrabajo() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   tituloVista: CONTROLES.tituloVista,
   aviso: { paddingHorizontal: 16, paddingTop: 8 },

@@ -3,8 +3,8 @@ import { Pressable, Text, View } from "react-native";
 
 import { FilaDeslizable } from "../componentes/FilaDeslizable";
 import { Icono } from "../componentes/Icono";
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useControles, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { nombreAccesibleDelModulo } from "./modulos";
 
@@ -23,6 +23,9 @@ import { nombreAccesibleDelModulo } from "./modulos";
  * `modulos`: los de `modulosVisibles` (con `cuenta`); `activo`: el `id`.
  */
 export const PestanasDeModulos = memo(function PestanasDeModulos({ modulos, activo, onElegir, foco = 0 }) {
+  const colores = useColores();
+  const CONTROLES = useControles();
+  const estilos = useEstilos(fabricaDeEstilos);
   const fila = useRef(null);
   const posiciones = useRef({});
 
@@ -79,7 +82,7 @@ export const PestanasDeModulos = memo(function PestanasDeModulos({ modulos, acti
   );
 });
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   fila: { backgroundColor: colores.cabecera },
   // `flexGrow`: si caben, ocupan todo el ancho y se lo reparten.
   contenido: { flexGrow: 1, paddingHorizontal: 8 },

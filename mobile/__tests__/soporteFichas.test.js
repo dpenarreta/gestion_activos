@@ -28,6 +28,7 @@ import {
 } from "../src/pantallas/soporte/TicketDetalle";
 import PantallaMiTicket from "../src/app/(app)/soporte/mi-ticket/[id]";
 import PantallaTicket from "../src/app/(app)/soporte/ticket/[id]";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) };
 const mockNavegacion = { setOptions: jest.fn(), dispatch: jest.fn() };
@@ -854,5 +855,16 @@ describe("la ficha del técnico (CA-10 a CA-15, CA-21)", () => {
     await render(<TicketDetalle id="9" />);
     expect(await screen.findByText(/ya no se puede responder/)).toBeTruthy();
     expect(screen.queryByTestId("texto-respuesta")).toBeNull();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("el seguimiento de un ticket en oscuro (CA-5)", async () => {
+    soporteService.miTicket.mockResolvedValue(seguimiento());
+    const vista = await renderEnOscuro(<MiTicket id="7" />);
+    expect(await screen.findByRole("header", { name: "Papel atascado" })).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

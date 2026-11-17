@@ -8,7 +8,7 @@ import { confirmarDescarte } from "../../componentes/confirmarDescarte";
 import { ErrorDeCampo } from "../../componentes/Selectores";
 import { Ventana } from "../../componentes/Ventana";
 import { cuerpoDelProveedor, erroresDelProveedor, validarProveedor, valoresDeProveedor } from "../../ordenes/formato";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { useEnvioDeOrden } from "./AccionesDeLaOrden";
@@ -33,6 +33,7 @@ const CAMPOS_PROVEEDOR = {
  * escribió en el buscador.
  */
 export function VentanaRegistrarProveedor({ destino, nombreInicial = "", onCerrar, onRegistrado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [iniciales] = useState(() => valoresDeProveedor(nombreInicial));
   const [valores, setValores] = useState(iniciales);
   const desplazable = useRef(null);
@@ -168,7 +169,7 @@ export function VentanaRegistrarProveedor({ destino, nombreInicial = "", onCerra
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   leyenda: { fontSize: 14, color: colores.tintaSuave },
   grupo: { gap: 8 },
   // Teléfono y correo, bajo «Contacto (al menos uno)».

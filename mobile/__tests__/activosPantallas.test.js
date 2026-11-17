@@ -2,7 +2,15 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import * as Linking from "expo-linking";
 import { AccessibilityInfo, Alert, AppState } from "react-native";
 
-import { activosService, organizacionService, solicitudesService } from "../src/api/servicios";
+import { File } from "expo-file-system";
+
+import { actasEntregaService, activosService, organizacionService, solicitudesService } from "../src/api/servicios";
+import {
+  TEXTO_ABRIENDO_ACTA,
+  TEXTO_ACTA_SIN_GENERAR,
+  TEXTO_ACTA_SIN_PERMISO,
+  TEXTO_ACTA_SIN_VISOR,
+} from "../src/activos/actaEntrega";
 import { camaraDisponible } from "../src/activos/camara";
 import {
   TEXTO_CODIGO_NO_ENCONTRADO,
@@ -18,6 +26,7 @@ import { GestionDeActivos, TEXTO_AVISO_SIN_ACCESO } from "../src/pantallas/activ
 import { TEXTO_REENVIO, TITULO_REENVIO } from "../src/pantallas/activos/formularios";
 import PantallaFicha from "../src/app/(app)/activos/[id]";
 import PantallaRegistrar from "../src/app/(app)/mantenimientos/nuevo";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), setParams: jest.fn() };
 const mockParametros = {};
@@ -71,6 +80,10 @@ jest.mock("../src/api/servicios", () => ({
   },
   mantenimientosService: { listar: jest.fn() },
   solicitudesService: { listar: jest.fn() },
+  actasEntregaService: {
+    preparar: jest.fn(),
+    urlDocumento: jest.fn((id, formato) => `https://api/activos/actas-entrega/${id}/documento/?formato=${formato}`),
+  },
 }));
 
 const TODOS = ["activos.ver", "activos.asignar", "activos.dar_baja", "activos.editar", "mantenimientos.registrar"];
@@ -463,6 +476,183 @@ describe("la ficha (CA-7)", () => {
     await render(<PantallaFicha />);
     await fireEvent.press(await screen.findByTestId("registrar-mantenimiento"));
     expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/mantenimientos/nuevo", params: { activo: "42" } });
+  });
+});
+
+describe("US-028 · CA-6: Categorías, Componentes y Políticas en el Panel", () => {
+  it("botones redondos según el permiso del menú web, con confirmación de salida", async () => {
+    mockSesion.usuario = { permissions: ["activos.ver", "mantenimientos.ver", "politicas.ver"] };
+    await render(<GestionDeActivos />);
+    await screen.findByTestId("kpis-activos");
+    for (const nombre of ["Categorías", "Componentes", "Políticas"]) {
+      expect(screen.getByRole("link", { name: `${nombre}. Abrir en el navegador` })).toBeTruthy();
+    }
+    await fireEvent.press(screen.getByRole("link", { name: "Componentes. Abrir en el navegador" }));
+    expect(confirmarSalida).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/mantenimientos\/componentes\?empresa=2$/)),
+    );
+  });
+
+  it("sin `mantenimientos.ver` ni `politicas.ver` solo queda Categorías (con `activos.ver`)", async () => {
+    mockSesion.usuario = { permissions: ["activos.ver"] };
+    await render(<GestionDeActivos />);
+    await screen.findByTestId("kpis-activos");
+    expect(screen.getByRole("link", { name: "Categorías. Abrir en el navegador" })).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Componentes. Abrir en el navegador" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Políticas. Abrir en el navegador" })).toBeNull();
+  });
+});
+
+describe("US-028 · CA-7: el acta AEE-LC-01 en la asignación", () => {
+  const CON_ACTA = [...TODOS, "activos.acta_entrega"];
+
+  it("sin `activos.acta_entrega` no se ofrece; con él, solo en la asignación a una persona", async () => {
+    mockParametros.id = "42";
+    const { unmount } = await render(<PantallaFicha />);
+    await screen.findByTestId("ficha-activo");
+    expect(screen.queryByTestId("acta-entrega-5")).toBeNull();
+    await unmount();
+
+    mockSesion.usuario = { permissions: CON_ACTA };
+    const base = ficha();
+    activosService.historial.mockResolvedValueOnce({
+      ...base,
+      movimientos: [
+        ...base.movimientos,
+        { id: 6, tipo: "cambio_estado", tipo_display: "Cambio de estado", created_at: "2026-10-03T15:00:00Z" },
+        { id: 7, tipo: "asignacion", tipo_display: "Devolución a bodega", custodio_nuevo_nombre: null, created_at: "2026-10-04T15:00:00Z" },
+      ],
+    });
+    await render(<PantallaFicha />);
+    const boton = await screen.findByTestId("acta-entrega-5");
+    expect(boton.props.accessibilityLabel).toBe("Acta de recepción de equipo AEE-LC-01 de la entrega a Ana Pérez");
+    expect(within(boton).getByText("Acta de recepción (AEE-LC-01)")).toBeTruthy();
+    expect(screen.queryByTestId("acta-entrega-6")).toBeNull();
+    expect(screen.queryByTestId("acta-entrega-7")).toBeNull();
+  });
+
+  it("si el acta existe, descarga el PDF con la sesión y lo abre con el visor; al salir lo borra", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockResolvedValueOnce({ movimiento: 5, acta: { id: 31 }, candidatos: [] });
+    const { unmount } = await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    await waitFor(() => expect(File.preview).toHaveBeenCalled());
+    expect(actasEntregaService.preparar).toHaveBeenCalledWith(5, { empresa: 2 });
+    expect(actasEntregaService.urlDocumento).toHaveBeenCalledWith("31", "pdf");
+    const [url, destino] = File.downloadFileAsync.mock.calls.at(-1);
+    expect(url).toBe("https://api/activos/actas-entrega/31/documento/?formato=pdf");
+    expect(destino.uri).toMatch(/activos-adjuntos\/acta-entrega-31\.pdf$/);
+    expect(File.preview).toHaveBeenCalledWith(destino, expect.objectContaining({ mimeType: "application/pdf" }));
+    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(destino.exists).toBe(true);
+    await unmount();
+    expect(destino.exists).toBe(false);
+  });
+
+  it("si todavía no se generó, lo explica y lleva a la ficha en la web con confirmación", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockResolvedValueOnce({ movimiento: 5, acta: null, candidatos: [] });
+    await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    expect(await screen.findByText(TEXTO_ACTA_SIN_GENERAR)).toBeTruthy();
+    await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/activos\/42\?empresa=2$/)));
+    expect(confirmarSalida).toHaveBeenCalled();
+    expect(File.downloadFileAsync).not.toHaveBeenCalled();
+  });
+
+  it("sin con qué abrir el PDF, lo dice y ofrece la web con confirmación", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockResolvedValueOnce({ movimiento: 5, acta: { id: 31 } });
+    File.canPreview.mockResolvedValueOnce(false);
+    await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    expect(await screen.findByText(TEXTO_ACTA_SIN_VISOR)).toBeTruthy();
+    await waitFor(() => expect(confirmarSalida).toHaveBeenCalled());
+    await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith(expect.stringMatching(/\/admin\/activos\/42\?empresa=2$/)));
+  });
+
+  it("mientras se abre, el nombre accesible es el texto visible (QA)", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    let responder;
+    actasEntregaService.preparar.mockReturnValueOnce(new Promise((r) => (responder = r)));
+    await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    const boton = screen.getByTestId("acta-entrega-5");
+    expect(boton.props.accessibilityLabel).toBe(TEXTO_ABRIENDO_ACTA);
+    expect(within(boton).getByText(TEXTO_ABRIENDO_ACTA)).toBeTruthy();
+    expect(boton.props.accessibilityState).toMatchObject({ busy: true });
+    await act(async () => {
+      responder({ movimiento: 5, acta: { id: 31 } });
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("acta-entrega-5").props.accessibilityLabel).toBe(
+        "Acta de recepción de equipo AEE-LC-01 de la entrega a Ana Pérez",
+      ),
+    );
+  });
+
+  it("un doble toque mientras se espera la confirmación de salida no abre otra (QA)", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockResolvedValue({ movimiento: 5, acta: null });
+    let confirmar;
+    confirmarSalida.mockImplementationOnce(() => new Promise((r) => (confirmar = r)));
+    await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    await waitFor(() => expect(confirmarSalida).toHaveBeenCalledTimes(1));
+    // El botón ya no se ve ocupado, pero el candado sigue.
+    expect(screen.getByTestId("acta-entrega-5").props.accessibilityState).toMatchObject({ busy: false });
+    await fireEvent.press(screen.getByTestId("acta-entrega-5"));
+    await act(async () => {});
+    expect(actasEntregaService.preparar).toHaveBeenCalledTimes(1);
+    expect(confirmarSalida).toHaveBeenCalledTimes(1);
+
+    // Respondida la confirmación, se puede volver a pedir.
+    await act(async () => {
+      confirmar(false);
+    });
+    await fireEvent.press(screen.getByTestId("acta-entrega-5"));
+    await waitFor(() => expect(confirmarSalida).toHaveBeenCalledTimes(2));
+    expect(actasEntregaService.preparar).toHaveBeenCalledTimes(2);
+    actasEntregaService.preparar.mockReset();
+  });
+
+  it("un 403 se dice claro, sin salir de la app", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockRejectedValueOnce(
+      error(403, "permission_denied", "No tiene el permiso requerido: activos.acta_entrega."),
+    );
+    await render(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    expect(await screen.findByText(TEXTO_ACTA_SIN_PERMISO)).toBeTruthy();
+    expect(screen.queryByText(/activos\.acta_entrega/)).toBeNull();
+    expect(confirmarSalida).not.toHaveBeenCalled();
+  });
+
+  it("de un aviso de otra empresa no se ofrece (los permisos son los de la activa)", async () => {
+    mockParametros.id = "42";
+    mockParametros.empresa = "5";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    await render(<PantallaFicha />);
+    await screen.findByTestId("ficha-activo");
+    expect(screen.queryByTestId("acta-entrega-5")).toBeNull();
+  });
+
+  it("en oscuro, con el botón del acta y su aviso, sin colores claros (CA-8)", async () => {
+    mockParametros.id = "42";
+    mockSesion.usuario = { permissions: CON_ACTA };
+    actasEntregaService.preparar.mockResolvedValueOnce({ movimiento: 5, acta: null });
+    const vista = await renderEnOscuro(<PantallaFicha />);
+    await fireEvent.press(await screen.findByTestId("acta-entrega-5"));
+    await screen.findByText(TEXTO_ACTA_SIN_GENERAR);
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+    olvidarApariencia();
   });
 });
 
@@ -938,5 +1128,15 @@ describe("ronda 1: inventario, panel y empresa", () => {
     await render(<GestionDeActivos />);
     expect(await screen.findByTestId("aviso-de-empresa")).toHaveTextContent(new RegExp(TEXTO_AVISO_SIN_ACCESO.slice(0, 40)));
     expect(mockSesion.cambiarEmpresaSiEsSuya).not.toHaveBeenCalled();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("Gestión de Activos en oscuro (CA-5)", async () => {
+    const vista = await renderEnOscuro(<GestionDeActivos />);
+    expect(await screen.findByTestId("activos-panel")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

@@ -42,8 +42,7 @@ import {
   useReemplazoEnAusencia,
   YA_QUEDO_GUARDADO,
 } from "../../permisos/useReemplazoEnAusencia";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useApariencia, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { ReemplazoEnAusencia } from "../permisos/ReemplazoEnAusencia";
 
@@ -56,6 +55,7 @@ import { ReemplazoEnAusencia } from "../permisos/ReemplazoEnAusencia";
 export const TEXTO_GUARDADO = "Su estado se guardó.";
 
 export function MiEstado() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const [datos, setDatos] = useState(null);
   const [errorCarga, setErrorCarga] = useState(null);
@@ -104,6 +104,8 @@ export function MiEstado() {
 }
 
 export function FormularioEstado({ datos, onGuardado }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const alturaCabecera = useAlturaCabecera();
   const sugeridas = datos.vacaciones_sugeridas;
   const vigente = datos.vigente;
@@ -316,10 +318,10 @@ export function FormularioEstado({ datos, onGuardado }) {
                 // radio dice cuál está elegido sin depender del color.
                 style={[
                   estilos.opcion,
-                  { borderColor: colorDeEstado(opcion.clave).color },
+                  { borderColor: colorDeEstado(opcion.clave, oscuro).color },
                   activa && {
                     borderWidth: 2,
-                    backgroundColor: colorDeEstado(opcion.clave).fondo,
+                    backgroundColor: colorDeEstado(opcion.clave, oscuro).fondo,
                   },
                 ]}
               >
@@ -332,13 +334,13 @@ export function FormularioEstado({ datos, onGuardado }) {
                 <View
                   style={[
                     estilos.iconoEstado,
-                    { backgroundColor: colorDeEstado(opcion.clave).fondo },
+                    { backgroundColor: colorDeEstado(opcion.clave, oscuro).fondo },
                   ]}
                 >
                   <Icono
                     nombre={ICONO_DE_ESTADO[opcion.clave]}
                     size={20}
-                    color={colorDeEstado(opcion.clave).color}
+                    color={colorDeEstado(opcion.clave, oscuro).color}
                   />
                 </View>
                 <Text style={estilos.opcionTexto}>{opcion.nombre}</Text>
@@ -577,7 +579,7 @@ export function FormularioEstado({ datos, onGuardado }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   iconoEstado: {
     width: 34,
     height: 34,

@@ -4,8 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { normalizar } from "../utils/texto";
 
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { BotonIcono } from "./comunes";
 import { Icono } from "./Icono";
@@ -35,6 +35,7 @@ function etiquetaAccesible({ etiqueta, obligatorio, ayuda, error }) {
 }
 
 function Etiqueta({ etiqueta, obligatorio, opcional, ayuda }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <>
       <Text style={estilos.etiqueta} importantForAccessibility="no" accessibilityElementsHidden>
@@ -52,6 +53,8 @@ function Etiqueta({ etiqueta, obligatorio, opcional, ayuda }) {
 }
 
 export function ErrorDeCampo({ error }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!error) return null;
   return (
     <View style={estilos.filaError} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -75,6 +78,8 @@ export function OpcionesEnLinea({
   testID,
   deshabilitado = false,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const grupo = etiquetaAccesible({ etiqueta, obligatorio, ayuda, error });
   return (
     <View style={estilos.campo} testID={testID}>
@@ -116,6 +121,8 @@ export function OpcionesEnLinea({
 }
 
 const FilaDeOpcion = memo(function FilaDeOpcion({ opcion, activa, onElegir, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <Pressable
       testID={testID}
@@ -165,6 +172,8 @@ export function SelectorDeLista({
   compacto = false,
   buscable = false,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [abierta, setAbierta] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const elegida = opciones.find((o) => String(o.valor) === String(valor ?? ""));
@@ -285,6 +294,8 @@ export function SelectorDeLista({
 /** Sí o no, con el estado dicho (no solo el ícono). `deshabilitado`
  * (US-022, UX H-12): mientras se guarda no cambia. */
 export function Casilla({ etiqueta, marcada, onCambio, ayuda, error, refFoco, testID, obligatorio = false, deshabilitado = false }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.campo}>
       <Pressable
@@ -315,7 +326,7 @@ export function Casilla({ etiqueta, marcada, onCambio, ayuda, error, refFoco, te
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   campo: { gap: 4 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   obligatorio: { color: colores.malTexto },

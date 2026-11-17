@@ -37,7 +37,8 @@ import { Icono } from "../../componentes/Icono";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { volverAlModulo } from "../../navegacion/abrir";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { useCandado, useReenvioConfirmado, useSalirConCambios } from "../activos/formularios";
 import { CampoTexto } from "../permisos/piezas";
@@ -84,6 +85,8 @@ function preguntar(titulo, mensaje, accion) {
 }
 
 export function Participantes({ id, empresa = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
@@ -619,7 +622,7 @@ export function Participantes({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 6, paddingBottom: 40 },
   cabecera: { gap: 10, marginBottom: 8 },

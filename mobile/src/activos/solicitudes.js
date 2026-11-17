@@ -41,11 +41,18 @@ export const PRIORIDADES = [
   { valor: "alta", texto: "Alta" },
 ];
 
+// Getters: los tonos salen del modo que se ve (US-026).
 const TONO_DE_PRIORIDAD = {
-  alta: { ...TONOS.mal, icono: "chevron-double-up" },
+  get alta() {
+    return { ...TONOS.mal, icono: "chevron-double-up" };
+  },
   // UX H-16: «Media» es lo normal; no se pinta como un aviso.
-  media: { ...TONOS.neutro, icono: "equal" },
-  baja: { ...TONOS.neutro, icono: "chevron-double-down" },
+  get media() {
+    return { ...TONOS.neutro, icono: "equal" };
+  },
+  get baja() {
+    return { ...TONOS.neutro, icono: "chevron-double-down" };
+  },
 };
 
 /** «Prioridad: Alta», con su tono e ícono. */

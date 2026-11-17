@@ -223,3 +223,21 @@ jest.mock("expo-camera", () => {
 // suite reemplaza para simular el servidor; `fetchNativo.test.js` comprueba
 // por separado que no es el global de Expo.
 jest.mock("whatwg-fetch", () => ({ fetch: (...args) => global.fetch(...args) }));
+
+// US-026 (ronda QA): el fondo raíz y la barra de navegación de Android siguen
+// el modo. Las pruebas leen lo último que se pidió.
+jest.mock("expo-system-ui", () => ({
+  setBackgroundColorAsync: jest.fn(async () => undefined),
+  getBackgroundColorAsync: jest.fn(async () => null),
+}));
+
+jest.mock("expo-navigation-bar", () => {
+  const React = require("react");
+  const { View } = require("react-native");
+  function NavigationBar(props) {
+    return React.createElement(View, { testID: "barra-de-navegacion", ...props });
+  }
+  NavigationBar.setStyle = jest.fn();
+  NavigationBar.setHidden = jest.fn();
+  return { NavigationBar, setStyle: NavigationBar.setStyle };
+});

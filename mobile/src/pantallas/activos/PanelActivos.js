@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { activosService } from "../../api/servicios";
 import {
@@ -13,10 +13,12 @@ import {
   textoDeAlerta,
 } from "../../activos/formato";
 import { ESPACIO_BOTON_FLOTANTE } from "../../componentes/BotonFlotante";
+import { Refresco } from "../../componentes/Refresco";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { TONOS } from "../../soporte/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 import { ActivosEnElNavegador, useMontado } from "./piezas";
@@ -24,6 +26,7 @@ import { ActivosEnElNavegador, useMontado } from "./piezas";
 /** Una tarjeta destacada (CA-3): ícono, título y cifra, con el borde y el
  * ícono del tono. Abre el inventario filtrado. */
 function Tarjeta({ kpi, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const tono = TONOS[kpi.tono];
   return (
     <Pressable
@@ -48,6 +51,7 @@ function Tarjeta({ kpi, onAbrir }) {
 
 /** Un par nombre-cifra de la sección de mantenimientos, leído junto. */
 function Cifra({ nombre, valor, testID }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.cifraChica} accessible accessibilityLabel={`${nombre}: ${valor}`} testID={testID}>
       <Text style={estilos.tenue}>{nombre}</Text>
@@ -69,6 +73,8 @@ function Cifra({ nombre, valor, testID }) {
  * Con `activos.crear`, «Registrar activo» arriba (US-023, CA-1).
  */
 export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventario, onAbrirActivo }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
@@ -247,7 +253,7 @@ export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventa
       testID="panel-activos"
       style={estilos.lista}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {puedeRegistrarActivos(permisos) ? (
         <Boton
@@ -265,7 +271,7 @@ export function PanelActivos({ permisos, empresa, versionEmpresa, onAbrirInventa
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   // El final queda libre para la burbuja de «Escanear» (`BotonFlotante`).
   contenido: { padding: 16, paddingTop: 8, paddingBottom: ESPACIO_BOTON_FLOTANTE, gap: 16 },

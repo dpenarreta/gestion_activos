@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, useWindowDimensions, View } from "react-native";
+import { FlatList, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { useChat, useChatVisible } from "../../chat/ChatContext";
 import {
@@ -15,9 +15,11 @@ import {
 } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
 import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { InsigniaSinLeer, Presencia, ResumenMiEstado } from "./piezas";
 
@@ -43,6 +45,8 @@ export const PISTA_NUEVO_GRUPO = "Abre el formulario para crear un grupo";
  * lista filtrada en el teléfono a los grupos (sin API nueva).
  */
 export function ListaChats({ soloGrupos = false }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
   const router = useRouter();
   const { conversaciones, estado, error, noLeidos, cargarConversaciones } = useChat();
@@ -167,7 +171,7 @@ export function ListaChats({ soloGrupos = false }) {
           />
         )}
         ItemSeparatorComponent={SeparadorDeFila}
-        refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+        refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
       />
     </View>
   );
@@ -175,10 +179,13 @@ export function ListaChats({ soloGrupos = false }) {
 
 /** Una línea fina entre filas, desde el texto (no bajo el avatar). */
 function SeparadorDeFila() {
+  const estilos = useEstilos(fabricaDeEstilos);
   return <View style={estilos.separador} />;
 }
 
 export function FilaConversacion({ conversacion, sinLeer, presencia, onAbrir, horaAbajo = false }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const ultimo = textoUltimo(conversacion);
   const hora = conversacion.ultimo ? horaDeLista(conversacion.ultimo.fecha) : "";
   const etiqueta = [
@@ -236,7 +243,7 @@ export function FilaConversacion({ conversacion, sinLeer, presencia, onAbrir, ho
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   // Abajo deja sitio al botón flotante.
   contenido: { paddingTop: 8, paddingBottom: 96, flexGrow: 1 },
@@ -260,7 +267,7 @@ const estilos = crearEstilos({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colores.primario,
+    backgroundColor: colores.avatar,
     alignItems: "center",
     justifyContent: "center",
   },

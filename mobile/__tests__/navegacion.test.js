@@ -13,6 +13,8 @@ import { BarraDeFuncionalidades, navegacionActiva } from "../src/navegacion/Barr
 import { CabeceraDeModulos, nombreDeLaCampana, NOMBRE_DE_CUENTA } from "../src/navegacion/CabeceraDeModulos";
 import { ProveedorDeModulos, PublicarEstadoDeModulos, SoloConFoco } from "../src/navegacion/EstadoDeModulos";
 import { useAlturaCabecera } from "../src/navegador/alturaCabecera";
+import { AREA_TACTIL } from "../src/tema/colores";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 import {
   esRutaDeModulo,
   funcionalidadesVisibles,
@@ -891,5 +893,52 @@ describe("el navegador de módulos ((tabs)/_layout.js)", () => {
     const fuente = fs.readFileSync(path.join(__dirname, "../src/app/(app)/_layout.js"), "utf8");
     expect(fuente).toMatch(/export const unstable_settings = \{ anchor: "\(tabs\)" \};/);
     expect(fuente).not.toMatch(/initialRouteName:/);
+  });
+});
+
+describe("US-026: la cabecera y la barra en modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("CA-1: el botón de apariencia va junto a la campana, en la cabecera negra, sin colores claros fijos", async () => {
+    const props = propsDeTabBar("soporte");
+    const vista = await renderEnOscuro(
+      <ProveedorDeModulos>
+        <PublicarEstadoDeModulos state={props.state} descriptors={props.descriptors} />
+        <CabeceraDeModulos />
+      </ProveedorDeModulos>,
+    );
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+    expect(StyleSheet.flatten(screen.getByTestId("cabecera-de-modulos").props.style).backgroundColor).toBe("#000000");
+    const nombres = screen.getAllByRole("button").map((b) => b.props.accessibilityLabel);
+    expect(nombres).toEqual(["Apariencia: Oscuro", "Avisos: notificaciones", NOMBRE_DE_CUENTA]);
+    const boton = StyleSheet.flatten(screen.getByTestId("abrir-apariencia").props.style);
+    expect(boton.minWidth).toBeGreaterThanOrEqual(AREA_TACTIL);
+    expect(boton.minHeight).toBeGreaterThanOrEqual(AREA_TACTIL);
+    // La pestaña activa sigue en el amarillo de la marca.
+    expect(StyleSheet.flatten(screen.getByTestId("modulo-mesa").props.style).borderBottomColor).toBe("#FCE200");
+  });
+
+  it("ronda QA: las insignias rojas llevan el número en negro sobre #FF8080 (8,65:1), no en blanco", async () => {
+    mockContador.noLeidas = 5;
+    mockChat.totalNoLeidos = 3;
+    const props = propsDeTabBar("soporte");
+    await renderEnOscuro(
+      <ProveedorDeModulos>
+        <PublicarEstadoDeModulos state={props.state} descriptors={props.descriptors} />
+        <CabeceraDeModulos />
+      </ProveedorDeModulos>,
+    );
+    const campana = within(screen.getByRole("button", { name: "Avisos: notificaciones, 5 sin leer" })).getByText("5", {
+      includeHiddenElements: true,
+    });
+    expect(StyleSheet.flatten(campana.props.style).color).toBe("#000000");
+    const chat = within(screen.getByTestId("modulo-chat")).getByText("3", { includeHiddenElements: true });
+    expect(StyleSheet.flatten(chat.props.style).color).toBe("#000000");
+  });
+
+  it("CA-4: la barra de funcionalidades sigue oscura con la vista activa en amarillo", async () => {
+    const props = propsDeTabBar("permisos", {});
+    const vista = await renderEnOscuro(<BarraDeFuncionalidades {...props} />);
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

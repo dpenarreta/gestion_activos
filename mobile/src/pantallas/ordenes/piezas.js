@@ -11,7 +11,8 @@ import {
   sedeDe,
   textoDeProgramada,
 } from "../../ordenes/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta } from "../../utils/fechas";
 import { Pildora } from "../soporte/piezas";
@@ -53,6 +54,8 @@ export function CumplimientoOrden({ orden, testID }) {
  * «Requieren atención» del panel (UX H-01), con su `testID`.
  */
 export const FilaOrden = memo(function FilaOrden({ orden, onAbrir, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <Pressable
       testID={testID ?? `orden-${orden.id}`}
@@ -89,7 +92,7 @@ export const FilaOrden = memo(function FilaOrden({ orden, onAbrir, testID }) {
   );
 });
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores) => crearEstilos({
   fila: {
     minHeight: AREA_TACTIL,
     padding: 14,

@@ -18,6 +18,7 @@ import { TITULO_QUITAR_COSTO } from "../src/pantallas/ordenes/AccionesDeLaOrden"
 import { OrdenesDeTrabajo } from "../src/pantallas/ordenes/OrdenesDeTrabajo";
 import PantallaFicha from "../src/app/(app)/ordenes/[id]";
 import PantallaNueva from "../src/app/(app)/ordenes/nueva";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), setParams: jest.fn() };
 const mockNavegacion = { setOptions: jest.fn(), dispatch: jest.fn() };
@@ -899,5 +900,17 @@ describe("Nueva orden (CA-14 a CA-16)", () => {
     expect(ordenesService.responsables).toHaveBeenCalledWith("", { soloProveedores: false });
     await act(async () => resolver(detalle({ id: 32, numero: "OT-2026-000032" })));
     await waitFor(() => expect(mockRouter.replace).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("el panel de Órdenes de trabajo en oscuro (CA-5)", async () => {
+    mockParametros.vista = "panel";
+    ordenesService.resumen.mockResolvedValueOnce(RESUMEN);
+    const vista = await renderEnOscuro(<OrdenesDeTrabajo />);
+    expect(await screen.findByText(`Alcance: ${RESUMEN.alcance}`)).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

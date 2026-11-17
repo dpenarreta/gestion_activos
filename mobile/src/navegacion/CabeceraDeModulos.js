@@ -5,10 +5,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Icono } from "../componentes/Icono";
 import { useContador } from "../notificaciones/ContadorContext";
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useControles, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { abrirModulo } from "./abrir";
+import { BotonDeApariencia } from "./BotonDeApariencia";
 import { navegacionActiva } from "./BarraDeFuncionalidades";
 import { useEstadoDeModulos, useFijarAlturaCabecera } from "./EstadoDeModulos";
 import { moduloDePantalla, modulosVisibles, vistasDelEstado } from "./modulos";
@@ -34,6 +35,9 @@ export const NOMBRE_DE_CUENTA = "Mi perfil: sus datos, empresa y cerrar sesión"
  * va también en el nombre accesible).
  */
 function BotonDeCabecera({ icono, etiqueta, cuenta = 0, onPress, testID }) {
+  const colores = useColores();
+  const CONTROLES = useControles();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <Pressable
       testID={testID}
@@ -59,8 +63,9 @@ function BotonDeCabecera({ icono, etiqueta, cuenta = 0, onPress, testID }) {
 
 /**
  * La cabecera de los módulos (US-016, CA-1 y CA-5): a la izquierda, el
- * logotipo LAARCOURIER en negativo; a la derecha, la campana con las no
- * leídas y la Cuenta, en cualquier módulo. Debajo, las pestañas de los
+ * logotipo LAARCOURIER en negativo; a la derecha, la apariencia (US-026), la
+ * campana con las no leídas y la Cuenta, en cualquier módulo. Es negra en los
+ * dos modos (en oscuro, el negro del menú de la web). Debajo, las pestañas de los
  * módulos.
  *
  * El logotipo va a 192 × 32 dp (H-07): el Brand Book pide al menos 3 cm de
@@ -77,6 +82,7 @@ function BotonDeCabecera({ icono, etiqueta, cuenta = 0, onPress, testID }) {
  * `useAlturaCabecera` (las vistas con teclado).
  */
 export function CabeceraDeModulos() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { noLeidas } = useContador();
@@ -107,6 +113,8 @@ export function CabeceraDeModulos() {
             accessibilityLabel={`LAARCOURIER · ${actual?.texto ?? "Inicio"}`}
           />
         </View>
+        {/* US-026: Claro, Oscuro o Sistema, junto a la campana. */}
+        <BotonDeApariencia estiloBoton={estilos.boton} estiloPresionado={estilos.presionado} />
         <BotonDeCabecera
           testID="abrir-avisos"
           icono={noLeidas > 0 ? "bell-badge-outline" : "bell-outline"}
@@ -126,18 +134,20 @@ export function CabeceraDeModulos() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   cabecera: { backgroundColor: colores.cabecera },
+  // US-026: con el botón de apariencia son tres botones de 48 dp; sin
+  // espacio entre ellos, el logotipo sigue en 192 dp en un teléfono de 360 dp
+  // (16 + 192 + 4 + 3 × 48 + 4). En uno más angosto se achica sin cortarse.
   fila: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
     paddingLeft: 16,
-    paddingRight: 8,
+    paddingRight: 4,
     minHeight: 56,
   },
-  marca: { flex: 1, justifyContent: "center" },
-  logotipo: { width: 192, height: 32 },
+  marca: { flex: 1, justifyContent: "center", marginRight: 4 },
+  logotipo: { width: 192, maxWidth: "100%", height: 32 },
   boton: {
     minWidth: AREA_TACTIL,
     minHeight: AREA_TACTIL,

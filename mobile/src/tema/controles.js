@@ -1,4 +1,4 @@
-import { AREA_TACTIL, colores } from "./colores";
+import { AREA_TACTIL, paletaClara } from "./colores";
 
 /**
  * Los estilos de los controles que se repetían pantalla por pantalla
@@ -7,66 +7,76 @@ import { AREA_TACTIL, colores } from "./colores";
  * por `crearEstilos`: cada pantalla los mezcla en los suyos (`...CONTROLES.opcion`)
  * y `crearEstilos` les pone la fuente, así la vuelta a la fuente del sistema
  * sigue funcionando.
+ *
+ * US-026 (17/11/2026): dependen del modo (claro u oscuro), así que se crean
+ * con `crearControles(colores)`. Las pantallas los reciben como segundo
+ * argumento de su fábrica de estilos (`useEstilos`) o con `useControles()`.
+ * `CONTROLES` sigue exportado con la paleta clara.
  */
-export const CONTROLES = {
-  /** Una opción de un grupo de radios: borde de control (4,5:1) y, la
-   * elegida, borde negro de 2 y fondo `realce`. */
-  opcion: {
-    minHeight: AREA_TACTIL,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: colores.bordeControl,
-    borderRadius: 8,
-    backgroundColor: colores.superficie,
-  },
-  opcionActiva: { borderColor: colores.primario, borderWidth: 2, backgroundColor: colores.realce },
-  opcionTexto: { flexShrink: 1, fontSize: 16, color: colores.tinta },
+export function crearControles(colores) {
+  return {
+    /** Una opción de un grupo de radios: borde de control (4,5:1) y, la
+     * elegida, borde negro de 2 y fondo `realce`. */
+    opcion: {
+      minHeight: AREA_TACTIL,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderWidth: 1,
+      borderColor: colores.bordeControl,
+      borderRadius: 8,
+      backgroundColor: colores.superficie,
+    },
+    opcionActiva: { borderColor: colores.primario, borderWidth: 2, backgroundColor: colores.realce },
+    opcionTexto: { flexShrink: 1, fontSize: 16, color: colores.tinta },
 
-  /** Un campo de texto de una línea. */
-  entrada: {
-    minHeight: AREA_TACTIL,
-    borderWidth: 1,
-    borderColor: colores.bordeControl,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 16,
-    color: colores.tinta,
-    backgroundColor: colores.superficie,
-  },
-  entradaConError: { borderColor: colores.malTexto, borderWidth: 2 },
+    /** Un campo de texto de una línea. */
+    entrada: {
+      minHeight: AREA_TACTIL,
+      borderWidth: 1,
+      borderColor: colores.bordeControl,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      fontSize: 16,
+      color: colores.tinta,
+      backgroundColor: colores.superficie,
+    },
+    entradaConError: { borderColor: colores.malTexto, borderWidth: 2 },
 
-  /** La píldora de un filtro («Todas», «Sin leer»…). */
-  pildora: {
-    minHeight: AREA_TACTIL,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colores.bordeControl,
-    backgroundColor: colores.superficie,
-  },
-  pildoraActiva: { backgroundColor: colores.primario, borderColor: colores.primario },
-  pildoraTexto: { fontSize: 15, fontWeight: "600", color: colores.tinta, flexShrink: 1 },
-  pildoraTextoActivo: { color: colores.sobrePrimario },
+    /** La píldora de un filtro («Todas», «Sin leer»…). */
+    pildora: {
+      minHeight: AREA_TACTIL,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingHorizontal: 14,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: colores.bordeControl,
+      backgroundColor: colores.superficie,
+    },
+    pildoraActiva: { backgroundColor: colores.primario, borderColor: colores.primario },
+    pildoraTexto: { fontSize: 15, fontWeight: "600", color: colores.tinta, flexShrink: 1 },
+    pildoraTextoActivo: { color: colores.sobrePrimario },
 
-  /** El título pequeño de la vista de un módulo («Bandeja», «Mis
-   * tickets»…, H-10 de la US-016; en `tema/` desde la US-019, H-21). */
-  tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
+    /** El título pequeño de la vista de un módulo («Bandeja», «Mis
+     * tickets»…, H-10 de la US-016; en `tema/` desde la US-019, H-21). */
+    tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
 
-  /** El número rojo de pendientes: blanco sobre `malTexto` (7,3:1). */
-  insignia: {
-    minWidth: 22,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 11,
-    backgroundColor: colores.malTexto,
-    alignItems: "center",
-  },
-  insigniaTexto: { color: colores.sobrePrimario, fontSize: 12, fontWeight: "700" },
-};
+    /** El número rojo de pendientes: `sobreInsignia` sobre `insignia`
+     * (blanco sobre #A91E1E, 7,3:1; en oscuro, negro sobre #FF8080, 8,7:1). */
+    insignia: {
+      minWidth: 22,
+      paddingHorizontal: 6,
+      paddingVertical: 1,
+      borderRadius: 11,
+      backgroundColor: colores.insignia,
+      alignItems: "center",
+    },
+    insigniaTexto: { color: colores.sobreInsignia, fontSize: 12, fontWeight: "700" },
+  };
+}
+
+export const CONTROLES = crearControles(paletaClara);

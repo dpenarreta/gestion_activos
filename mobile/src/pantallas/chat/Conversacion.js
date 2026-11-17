@@ -48,8 +48,8 @@ import { VisorDeImagen } from "../../componentes/VisorDeImagen";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useContador } from "../../notificaciones/ContadorContext";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { aHora } from "../../utils/fechas";
 import { useMedianoche } from "../../utils/useMedianoche";
@@ -227,6 +227,8 @@ function unir(previos, nuevos) {
 }
 
 export function Conversacion({ id, empresa = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
   const router = useRouter();
   const navegacion = useNavigation();
@@ -1059,6 +1061,7 @@ export function Conversacion({ id, empresa = null }) {
 /** «Hoy», «Ayer» o la fecha, centrado entre los mensajes (H-07). Es un
  * encabezado: con el lector se salta de día en día. */
 export const SeparadorDeDia = memo(function SeparadorDeDia({ texto }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!texto) return null;
   return (
     <View style={estilos.separadorDia}>
@@ -1085,6 +1088,8 @@ export const Burbuja = memo(function Burbuja({
   onAbrirArchivo,
   onVerLecturas,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const propio = Boolean(mensaje.propio);
   const autor = propio ? "Usted" : mensaje.autor?.nombre ?? "Alguien";
   const hora = horaDeMensaje(mensaje.fecha);
@@ -1158,15 +1163,15 @@ export const Burbuja = memo(function Burbuja({
                 accessibilityIgnoresInvertColors
               />
             ) : (
-              <ActivityIndicator color={propio ? colores.sobrePrimario : colores.primario} />
+              <ActivityIndicator color={propio ? colores.sobreBurbujaPropia : colores.primario} />
             )}
           </View>
         ) : archivo?.es_imagen ? (
           <View style={[estilos.archivo, propio && estilos.archivoPropio]}>
             {abriendo ? (
-              <ActivityIndicator color={propio ? colores.sobrePrimario : colores.primario} />
+              <ActivityIndicator color={propio ? colores.sobreBurbujaPropia : colores.primario} />
             ) : (
-              <Icono nombre="file-image-outline" size={20} color={propio ? colores.sobrePrimario : colores.primario} />
+              <Icono nombre="file-image-outline" size={20} color={propio ? colores.sobreBurbujaPropia : colores.primario} />
             )}
             <Text style={[estilos.archivoTexto, propio && estilos.textoPropio]}>
               {archivo.nombre}
@@ -1210,7 +1215,7 @@ ${tamanoLegible(archivo.tamano)}`}</Text>
               <Icono
                 nombre={lectura.leido ? "check-all" : "check"}
                 size={14}
-                color={lectura.todos ? colores.acento : colores.sobrePrimario}
+                color={lectura.todos ? colores.acento : colores.sobreBurbujaPropia}
               />
               <Text style={[estilos.hora, estilos.textoPropioSuave]}>{lectura.texto}</Text>
             </View>
@@ -1224,6 +1229,8 @@ ${tamanoLegible(archivo.tamano)}`}</Text>
 /** Un mensaje que todavía no está en el servidor: «Enviando…» o «No se
  * envió» con «Reintentar» y «Descartar» (CA-3). */
 const BurbujaPendiente = memo(function BurbujaPendiente({ pendiente, bloqueado, onReintentar, onDescartar, onCorreo }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const fallido = pendiente.estado === "fallido";
   const sinConfirmar = fallido && Boolean(pendiente.error?.sinConfirmar);
   const titulo = sinConfirmar ? TEXTO_SIN_CONFIRMAR : TEXTO_NO_SE_ENVIO;
@@ -1244,7 +1251,7 @@ const BurbujaPendiente = memo(function BurbujaPendiente({ pendiente, bloqueado, 
         ) : null}
         {pendiente.archivo ? (
           <View style={estilos.archivo}>
-            <Icono nombre="paperclip" size={18} color={fallido ? colorFallo : colores.sobrePrimario} />
+            <Icono nombre="paperclip" size={18} color={fallido ? colorFallo : colores.sobreBurbujaPropia} />
             <Text style={[estilos.archivoTexto, fallido ? null : estilos.textoPropio]}>{pendiente.archivo.name}</Text>
           </View>
         ) : null}
@@ -1286,7 +1293,7 @@ const BurbujaPendiente = memo(function BurbujaPendiente({ pendiente, bloqueado, 
           </View>
         ) : (
           <View style={estilos.lectura} accessible accessibilityLabel="Enviando…">
-            <ActivityIndicator size="small" color={colores.sobrePrimario} />
+            <ActivityIndicator size="small" color={colores.sobreBurbujaPropia} />
             <Text style={[estilos.hora, estilos.textoPropioSuave]}>Enviando…</Text>
           </View>
         )}
@@ -1298,6 +1305,8 @@ const BurbujaPendiente = memo(function BurbujaPendiente({ pendiente, bloqueado, 
 /** Quién leyó un mensaje propio y cuándo (CA-9), como el `title` de la
  * confirmación de lectura de la web. */
 export function ModalLecturas({ mensaje, lecturas, grupal, onCerrar }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const lectura = mensaje ? estadoDeLectura(mensaje, lecturas, grupal) : null;
   return (
     <Modal visible={Boolean(mensaje)} animationType="slide" onRequestClose={onCerrar} presentationStyle="pageSheet">
@@ -1352,7 +1361,7 @@ export function ModalLecturas({ mensaje, lecturas, grupal, onCerrar }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenidoError: { padding: 16, gap: 12 },
   barra: { paddingHorizontal: 12, paddingTop: 8, gap: 6, backgroundColor: colores.fondo },
@@ -1381,8 +1390,9 @@ const estilos = crearEstilos({
   filaPropia: { justifyContent: "flex-end" },
   burbuja: { maxWidth: "85%", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, gap: 4 },
   // Propios: el negro de la marca con texto blanco (16,7:1); ajenos: blanco
-  // con borde.
-  burbujaPropia: { backgroundColor: colores.primario },
+  // con borde. En oscuro (US-026), los propios en #2E2A0C con #F2F2F2
+  // (12,9:1) y los ajenos en la superficie oscura.
+  burbujaPropia: { backgroundColor: colores.burbujaPropia },
   burbujaAjena: { backgroundColor: colores.superficie, borderWidth: 1, borderColor: colores.borde },
   burbujaFallida: { backgroundColor: colores.malFondo, borderWidth: 1, borderColor: colores.malTexto },
   // `avisoTexto` sobre `avisoFondo`: 4,8:1.
@@ -1390,9 +1400,9 @@ const estilos = crearEstilos({
   avisoTexto: { color: colores.avisoTexto },
   autor: { fontSize: 13, fontWeight: "600", color: colores.tintaSuave },
   textoMensaje: { fontSize: 16, color: colores.tinta },
-  textoPropio: { color: colores.sobrePrimario },
-  // #C8C8C8 sobre #1E1E1E: 10,0:1.
-  textoPropioSuave: { color: colores.tintaInactivaOscuro },
+  textoPropio: { color: colores.sobreBurbujaPropia },
+  // #C8C8C8 sobre #1E1E1E: 10,0:1 (sobre #2E2A0C en oscuro, 8,6:1).
+  textoPropioSuave: { color: colores.sobreBurbujaPropiaSuave },
   archivo: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, minHeight: AREA_TACTIL },
   archivoPropio: {},
   // El archivo que no es foto (16/11/2026): tarjeta clara también en las

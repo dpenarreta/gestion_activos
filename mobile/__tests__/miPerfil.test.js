@@ -11,6 +11,7 @@ import {
   queFalta,
   telefonoAMostrar,
 } from "../src/pantallas/MiPerfil";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 jest.mock("../src/sesion/SesionContext", () => ({
   useSesion: () => ({ empresaActiva: { id: 1 }, versionEmpresa: 0 }),
@@ -161,5 +162,95 @@ describe("encabezado de Mi perfil (16/11/2026)", () => {
     await render(<MiPerfil />);
     await screen.findByTestId("encabezado-perfil");
     expect(screen.queryByTestId("codigo-empleado")).toBeNull();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("Mi perfil en oscuro (CA-5)", async () => {
+    inicioService.misDatos.mockResolvedValueOnce(DATOS);
+    const vista = await renderEnOscuro(<MiPerfil />);
+    expect(await screen.findByTestId("mis-datos")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+  });
+});
+
+describe("US-028 · CA-1 y CA-2: línea fija, extensión y cédula", () => {
+  const { lineaFijaAMostrar } = require("../src/pantallas/MiPerfil");
+
+  it("la respuesta y la extensión con la regla de la web", () => {
+    expect(lineaFijaAMostrar({ tiene_linea_fija: true, linea_fija_extension: " 1234 " })).toEqual({
+      respuesta: "Sí",
+      extension: "1234",
+    });
+    // Con «No» la extensión no se muestra (la web no muestra el campo).
+    expect(lineaFijaAMostrar({ tiene_linea_fija: false, linea_fija_extension: "99" })).toEqual({
+      respuesta: "No",
+      extension: null,
+    });
+    // Sin responder: «Sin registrar».
+    expect(lineaFijaAMostrar({ tiene_linea_fija: null })).toEqual({ respuesta: "", extension: null });
+    expect(lineaFijaAMostrar(undefined)).toEqual({ respuesta: "", extension: null });
+  });
+
+  it("con línea fija muestra «Sí» y la extensión", async () => {
+    inicioService.misDatos.mockResolvedValueOnce({
+      ...DATOS,
+      tiene_linea_fija: true,
+      linea_fija_extension: "1234",
+    });
+    await render(<MiPerfil />);
+    const datos = await screen.findByTestId("mis-datos");
+    expect(within(datos).getByLabelText("¿Tiene línea fija?: Sí")).toBeTruthy();
+    expect(within(datos).getByLabelText("Extensión de su línea fija: 1234")).toBeTruthy();
+  });
+
+  it("con «No» no muestra la extensión; sin responder dice «Sin registrar»", async () => {
+    inicioService.misDatos.mockResolvedValueOnce({ ...DATOS, tiene_linea_fija: false, linea_fija_extension: "" });
+    const { unmount } = await render(<MiPerfil />);
+    await screen.findByTestId("mis-datos");
+    expect(screen.getByLabelText("¿Tiene línea fija?: No")).toBeTruthy();
+    expect(screen.queryByTestId("mi-extension")).toBeNull();
+    await unmount();
+
+    inicioService.misDatos.mockResolvedValueOnce({ ...DATOS, tiene_linea_fija: null });
+    await render(<MiPerfil />);
+    await screen.findByTestId("mis-datos");
+    expect(screen.getByLabelText("¿Tiene línea fija?: sin registrar")).toBeTruthy();
+    expect(screen.queryByTestId("mi-extension")).toBeNull();
+  });
+
+  it("la cédula de nómina, solo si el servidor la envía", async () => {
+    inicioService.misDatos.mockResolvedValueOnce({ ...DATOS, cedula: "0912345678" });
+    const { unmount } = await render(<MiPerfil />);
+    const cedula = await screen.findByTestId("mi-cedula");
+    expect(cedula.props.accessibilityLabel).toBe(
+      "Cédula: 0912345678. Viene de nómina. Si no es correcta, avise a Talento Humano.",
+    );
+    expect(screen.getByText("0912345678")).toBeTruthy();
+    await unmount();
+
+    for (const sinCedula of [{ cedula: "" }, {}]) {
+      inicioService.misDatos.mockResolvedValueOnce({ ...DATOS, ...sinCedula });
+      const vista = await render(<MiPerfil />);
+      await screen.findByTestId("mis-datos");
+      expect(screen.queryByTestId("mi-cedula")).toBeNull();
+      expect(screen.queryByText("Cédula")).toBeNull();
+      await vista.unmount();
+    }
+  });
+
+  it("en oscuro, con cédula y extensión, sin colores claros (CA-8)", async () => {
+    inicioService.misDatos.mockResolvedValueOnce({
+      ...DATOS,
+      cedula: "0912345678",
+      tiene_linea_fija: true,
+      linea_fija_extension: "1234",
+    });
+    const vista = await renderEnOscuro(<MiPerfil />);
+    expect(await screen.findByTestId("mi-cedula")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+    olvidarApariencia();
   });
 });

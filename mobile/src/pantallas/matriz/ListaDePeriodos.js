@@ -1,13 +1,14 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Text, View } from "react-native";
 
 import { matrizService } from "../../api/servicios";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { cuantas, mensajeDeMatriz } from "../../matriz/formato";
 import { useEmpresaDeLaMatriz } from "../../matriz/useEmpresaDeLaMatriz";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 import { FilaPeriodo, SinRolMatriz } from "./piezas";
@@ -27,6 +28,8 @@ const LISTA_VACIA = { estado: "cargando", items: [], total: 0, hayMas: false, er
  * total. Se vuelve a pedir al cambiar de empresa.
  */
 export function ListaDePeriodos({ params, detalle, nota, textoVacio, testID = "lista-de-periodos" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { versionEmpresa } = useSesion();
   const matriz = useEmpresaDeLaMatriz();
@@ -213,12 +216,12 @@ export function ListaDePeriodos({ params, detalle, nota, textoVacio, testID = "l
       onEndReachedThreshold={0.4}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 32 },
   cabecera: { gap: 4, marginBottom: 12 },

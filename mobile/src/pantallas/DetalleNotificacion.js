@@ -24,7 +24,7 @@ import {
   TEXTO_NAVEGADOR_FALLO,
   urlWebDeNotificacion,
 } from "../navegador/enlaceWeb";
-import { colores } from "../tema/colores";
+import { useApariencia, useEstilos } from "../tema/apariencia";
 import { fechaCompleta } from "../utils/fechas";
 import { crearEstilos } from "../tema/tipografia";
 
@@ -58,6 +58,8 @@ export function textoSinEnlace(modulo) {
  * decisión del Tech Lead, 12/11/2026).
  */
 export function DetalleNotificacion({ id, mapa, empresa = null }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { recargar: recargarContador } = useContador();
   const { cambiarEmpresaSiEsSuya, empresas } = useSesion();
@@ -198,13 +200,13 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
         <View
           style={[
             estilos.icono,
-            { backgroundColor: coloresDe(notificacion).fondo },
+            { backgroundColor: coloresDe(notificacion, oscuro).fondo },
           ]}
         >
           <Icono
             bootstrap={iconoDe(notificacion)}
             size={24}
-            color={coloresDe(notificacion).icono}
+            color={coloresDe(notificacion, oscuro).icono}
           />
         </View>
         <Text style={estilos.moduloTexto}>{notificacion.modulo_nombre}</Text>
@@ -232,7 +234,7 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
           testID="abrir-en-navegador"
           icono={nombreDeIcono(iconoDe(notificacion))}
           nombre="Abrir en el navegador"
-          color={coloresDe(notificacion)}
+          color={coloresDe(notificacion, oscuro)}
           navegador
           etiqueta="Abrir en el navegador"
           pista="Abre esta notificación en la web de la intranet"
@@ -244,7 +246,7 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14 },
   neutro: {

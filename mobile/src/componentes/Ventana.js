@@ -2,7 +2,7 @@ import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, View } from "r
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAlturaCabecera } from "../navegador/alturaCabecera";
-import { colores } from "../tema/colores";
+import { useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { BotonIcono } from "./comunes";
 
@@ -19,6 +19,7 @@ import { BotonIcono } from "./comunes";
  * vista al primer campo con error (`useIrAlBloque`).
  */
 export function Ventana({ titulo, subtitulo, onCerrar, children, testID, ocupada = false, refDesplazable }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const alturaCabecera = useAlturaCabecera();
   const cerrar = () => {
     if (!ocupada) onCerrar();
@@ -62,7 +63,7 @@ export function Ventana({ titulo, subtitulo, onCerrar, children, testID, ocupada
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   ventana: { flex: 1, backgroundColor: colores.fondo },
   cabecera: {
     flexDirection: "row",

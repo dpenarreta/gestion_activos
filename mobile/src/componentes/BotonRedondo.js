@@ -1,7 +1,8 @@
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
 
 import { coloresDeFamilia } from "../notificaciones/coloresDeModulo";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { AREA_TACTIL } from "../tema/colores";
+import { useApariencia, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { Icono } from "./Icono";
 
@@ -26,7 +27,9 @@ export function BotonRedondo({
   testID,
   ancho,
 }) {
-  const color = colorPropio ?? coloresDeFamilia(familia);
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
+  const color = colorPropio ?? coloresDeFamilia(familia, oscuro);
   return (
     <Pressable
       testID={testID}
@@ -36,7 +39,9 @@ export function BotonRedondo({
       accessibilityHint={pista}
       style={({ pressed }) => [estilos.boton, ancho ? { width: ancho } : estilos.suelto, pressed && estilos.presionado]}
     >
-      <View style={[estilos.circulo, { backgroundColor: color.fondo }]}>
+      {/* En oscuro, el círculo lleva el anillo de su familia (`borde`, US-026):
+          el fondo -950 casi no se separa del fondo de la pantalla. */}
+      <View style={[estilos.circulo, { backgroundColor: color.fondo }, color.borde ? { borderWidth: 2, borderColor: color.borde } : null]}>
         <Icono nombre={icono} size={28} color={color.icono} />
         {navegador ? (
           <View style={estilos.marcaNavegador}>
@@ -61,6 +66,7 @@ export function useColumnasRedondas(maximo = 4) {
  * («Configuración de la mesa» no entra en una de cuatro sin partir la
  * palabra). */
 export function CuadriculaRedonda({ children, testID, columnas: maximo = 4 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const columnas = useColumnasRedondas(maximo);
   return (
     <View style={estilos.cuadricula} testID={testID}>
@@ -69,7 +75,7 @@ export function CuadriculaRedonda({ children, testID, columnas: maximo = 4 }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   cuadricula: { flexDirection: "row", flexWrap: "wrap", rowGap: 12 },
   boton: {
     minHeight: AREA_TACTIL,

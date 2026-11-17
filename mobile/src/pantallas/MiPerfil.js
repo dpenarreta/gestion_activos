@@ -10,7 +10,7 @@ import {
 } from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
 import { useSesion } from "../sesion/SesionContext";
-import { colores } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { AbrirEnLaWeb } from "./permisos/piezas";
 
@@ -66,26 +66,44 @@ export function telefonoAMostrar(datos) {
   };
 }
 
-/** Un dato: su nombre arriba y el valor debajo; sin valor, «Sin registrar». */
-function Dato({ etiqueta, valor, testID }) {
+/**
+ * «¿Tiene línea fija?» y su extensión, como «Mis datos» de la web (US-028,
+ * CA-1; commit 2ed5676 del 16/11/2026): la respuesta es «Sí» o «No» (sin
+ * responder, «Sin registrar») y la extensión solo se muestra con «Sí», igual
+ * que el campo de la web, que solo aparece con esa respuesta.
+ */
+export function lineaFijaAMostrar(datos) {
+  const tiene = datos?.tiene_linea_fija;
+  return {
+    respuesta: tiene === true ? "Sí" : tiene === false ? "No" : "",
+    extension: tiene === true ? String(datos?.linea_fija_extension ?? "").trim() : null,
+  };
+}
+
+/** Un dato: su nombre arriba y el valor debajo; sin valor, «Sin registrar».
+ * `nota`: una aclaración debajo, como el texto de ayuda de la web. */
+function Dato({ etiqueta, valor, nota, testID }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const vacio = !String(valor ?? "").trim();
   return (
     <View
       style={estilos.dato}
       accessible
-      accessibilityLabel={`${etiqueta}: ${vacio ? "sin registrar" : valor}`}
+      accessibilityLabel={`${etiqueta}: ${vacio ? "sin registrar" : valor}${nota ? `. ${nota}` : ""}`}
       testID={testID}
     >
       <Text style={estilos.datoEtiqueta}>{etiqueta}</Text>
       <Text style={[estilos.datoValor, vacio && estilos.datoVacio]}>
         {vacio ? "Sin registrar" : valor}
       </Text>
+      {nota ? <Text style={estilos.datoNota}>{nota}</Text> : null}
     </View>
   );
 }
 
 /** Una lista numerada del perfil del cargo (funciones, competencias, KPIs). */
 function Lista({ items }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!items?.length)
     return <Text style={estilos.tenue}>Todavía no se ha definido.</Text>;
   return (
@@ -101,6 +119,8 @@ function Lista({ items }) {
 }
 
 function Tarjeta({ icono, titulo, descripcion, children, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.tarjeta} testID={testID}>
       <View style={estilos.tarjetaCabecera}>
@@ -116,6 +136,7 @@ function Tarjeta({ icono, titulo, descripcion, children, testID }) {
 }
 
 function MiCargo({ perfil }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [abierto, setAbierto] = useState(null);
   if (!perfil) return null;
   const vacio =
@@ -167,6 +188,8 @@ function MiCargo({ perfil }) {
 
 /** Las personas de un cargo, con «sin cuenta» en texto. */
 function Personas({ personas = [], vacantes = 0 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!personas.length && !vacantes) return null;
   return (
     <View style={estilos.personas}>
@@ -195,6 +218,7 @@ function Personas({ personas = [], vacantes = 0 }) {
 }
 
 function Cargo({ cargo, nivel }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.cargo}>
       <Text style={estilos.cargoNombre}>{cargo.nombre}</Text>
@@ -211,6 +235,8 @@ function Cargo({ cargo, nivel }) {
 }
 
 function MiSupervision({ linea, cargo }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!linea) return null;
   return (
     <Tarjeta
@@ -287,6 +313,7 @@ export function nombreCorto(nombres, apellidos) {
  * registrado) y, debajo, el cargo en lugar del correo.
  */
 function Encabezado({ usuario, datos }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const nombre =
     nombreCorto(
       datos?.nombres ?? usuario?.first_name,
@@ -323,6 +350,7 @@ function Encabezado({ usuario, datos }) {
 /** Los tres bloques de «Mi perfil», con su carga, error y «Editar en el
  * navegador». Se vuelve a pedir al cambiar de empresa. */
 export function MiPerfil({ usuario } = {}) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { empresaActiva, versionEmpresa } = useSesion();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null });
   const consulta = useRef(0);
@@ -372,6 +400,7 @@ export function MiPerfil({ usuario } = {}) {
 
   const d = carga.datos;
   const telefono = telefonoAMostrar(d);
+  const lineaFija = lineaFijaAMostrar(d);
   return (
     <View style={estilos.contenedor} testID="mi-perfil">
       <Encabezado usuario={usuario} datos={d} />
@@ -391,11 +420,33 @@ export function MiPerfil({ usuario } = {}) {
         <Dato etiqueta="Apellidos" valor={d.apellidos} />
         <Dato etiqueta="Correo" valor={d.correo} />
         <Dato etiqueta="Código de empleado" valor={d.codigo_empleado} />
+        {/* US-028 (CA-2): la cédula de nómina (c33d146), solo si el servidor
+            la envía, como la web (`{datos.cedula && …}`). */}
+        {d.cedula ? (
+          <Dato
+            etiqueta="Cédula"
+            valor={d.cedula}
+            nota="Viene de nómina. Si no es correcta, avise a Talento Humano."
+            testID="mi-cedula"
+          />
+        ) : null}
         <Dato
           etiqueta={telefono.etiqueta}
           valor={telefono.valor}
           testID="mi-telefono"
         />
+        <Dato
+          etiqueta="¿Tiene línea fija?"
+          valor={lineaFija.respuesta}
+          testID="mi-linea-fija"
+        />
+        {lineaFija.extension !== null ? (
+          <Dato
+            etiqueta="Extensión de su línea fija"
+            valor={lineaFija.extension}
+            testID="mi-extension"
+          />
+        ) : null}
         <Dato etiqueta="Cargo" valor={d.cargo?.nombre} />
         <Dato etiqueta="Área" valor={d.area?.nombre} />
         <Dato etiqueta="Agencia" valor={d.agencia?.nombre} />
@@ -416,7 +467,7 @@ export function MiPerfil({ usuario } = {}) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   contenedor: { gap: 16 },
   encabezado: { gap: 4 },
   filaNombre: {
@@ -466,6 +517,7 @@ const estilos = crearEstilos({
   datoEtiqueta: { fontSize: 13, color: colores.tintaTenue },
   datoValor: { fontSize: 16, color: colores.tinta },
   datoVacio: { color: colores.tintaTenue },
+  datoNota: { fontSize: 13, color: colores.tintaTenue },
   lista: { gap: 6, paddingBottom: 4 },
   itemLista: { flexDirection: "row", gap: 6 },
   numeroLista: { fontSize: 15, fontWeight: "600", color: colores.tintaSuave },

@@ -12,6 +12,7 @@ import { MiEstado, TEXTO_GUARDADO } from "../src/pantallas/chat/MiEstado";
 import { ESPERA_BUSCAR_MS, NuevoMensaje } from "../src/pantallas/chat/NuevoMensaje";
 import { Contacto, TEXTO_SIN_APP } from "../src/pantallas/chat/Contacto";
 import { Participantes } from "../src/pantallas/chat/Participantes";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 /**
  * Las pantallas del chat fuera de la conversación (US-011): la pestaña
@@ -910,5 +911,19 @@ describe("useMedianoche (O3)", () => {
     const suyo = programar.mock.results[llamada].value;
     await unmount();
     expect(cancelar).toHaveBeenCalledWith(suyo);
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la lista de chats en oscuro: avatares negros con iniciales amarillas (CA-5)", async () => {
+    const vista = await renderEnOscuro(
+      <ChatProvider>
+        <ListaChats />
+      </ChatProvider>,
+    );
+    expect(await screen.findByText("Canal general")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

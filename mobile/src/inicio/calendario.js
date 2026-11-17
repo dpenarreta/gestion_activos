@@ -1,4 +1,4 @@
-import { colores } from "../tema/colores";
+import { paletaActiva } from "../tema/colores";
 
 /**
  * El calendario de Inicio en la app (16/11/2026, a pedido del usuario): el
@@ -11,17 +11,34 @@ import { colores } from "../tema/colores";
 /** Cada tipo con su nombre, ícono y color. El tipo nunca va solo en el
  * color: la cuadrícula lleva el ícono y la lista lo dice en texto. */
 export const TIPOS_EN_CALENDARIO = {
-  feriado: { nombre: "Feriado", icono: "flag", color: colores.malTexto },
-  evento: { nombre: "Evento", icono: "star", color: colores.infoTexto },
+  feriado: {
+    nombre: "Feriado",
+    icono: "flag",
+    // El color, del modo que se ve (US-026).
+    get color() {
+      return paletaActiva().malTexto;
+    },
+  },
+  evento: {
+    nombre: "Evento",
+    icono: "star",
+    get color() {
+      return paletaActiva().infoTexto;
+    },
+  },
   cumpleanos: {
     nombre: "Cumpleaños",
     icono: "gift",
-    color: colores.avisoTexto,
+    get color() {
+      return paletaActiva().avisoTexto;
+    },
   },
   aniversario: {
     nombre: "Aniversario",
     icono: "medal",
-    color: colores.bienTexto,
+    get color() {
+      return paletaActiva().bienTexto;
+    },
   },
 };
 

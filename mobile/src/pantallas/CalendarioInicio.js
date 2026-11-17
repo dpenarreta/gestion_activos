@@ -20,7 +20,8 @@ import {
   unicas,
 } from "../inicio/calendario";
 import { diaEnZona } from "../matriz/formato";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 
 /** La empresa trabaja en hora de Ecuador: «hoy» es el de allá, no el del
@@ -51,6 +52,7 @@ const Dia = memo(function Dia({
   hoy,
   onElegir,
 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const tipos = [...new Set(eventos.map((e) => e.tipo))];
   const feriado = tipos.includes("feriado");
   return (
@@ -99,6 +101,7 @@ const Dia = memo(function Dia({
 /** Una fecha en la lista: ícono del tipo, título y, en texto, el tipo y la
  * duración (o el día, en «Próximas fechas»). */
 function Fecha({ evento, conDia }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const tipo = tipoDe(evento);
   return (
     <View
@@ -129,6 +132,8 @@ function Fecha({ evento, conDia }) {
  * de Inicio y `version` con la empresa activa.
  */
 export function CalendarioInicio({ recarga = 0, version = 0, ahora }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const hoy = useMemo(
     () => diaEnZona(ahora ?? new Date(), ZONA),
     [ahora, recarga],
@@ -419,7 +424,7 @@ export function CalendarioInicio({ recarga = 0, version = 0, ahora }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   contenedor: { gap: 10 },
   pestanas: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   pestana: {

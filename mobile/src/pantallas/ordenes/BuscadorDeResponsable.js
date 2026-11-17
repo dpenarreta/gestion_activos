@@ -8,8 +8,8 @@ import { BotonIcono, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { ErrorDeCampo } from "../../componentes/Selectores";
 import { ESPERA_BUSCAR_MS, mensajeDeOrdenes, opcionesDeResponsables } from "../../ordenes/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { normalizar } from "../../utils/texto";
 import { useMontado } from "../activos/piezas";
@@ -22,6 +22,8 @@ function detalleDe(opcion) {
 
 /** Las opciones de un grupo, cada una un botón que la elige. */
 function Grupo({ titulo, opciones, onElegir, deshabilitado, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!opciones.length) return null;
   return (
     <View style={estilos.grupo}>
@@ -88,6 +90,8 @@ export function BuscadorDeResponsable({
   deshabilitado = false,
   testID = "responsable",
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [texto, setTexto] = useState("");
   const [abierta, setAbierta] = useState(false);
   const [vez, setVez] = useState(0);
@@ -283,7 +287,7 @@ export function BuscadorDeResponsable({
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   campo: { gap: 6 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   obligatorio: { color: colores.malTexto },

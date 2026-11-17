@@ -21,7 +21,7 @@ import {
   validarCampos,
 } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { AbrirEnLaWeb } from "../permisos/piezas";
 import { FormularioDelTicket } from "./FormularioDelTicket";
@@ -52,13 +52,16 @@ export function textoFaltanDatos(faltan) {
   return `Antes de pedir soporte, complete en «Mi perfil»: ${unirConY(faltan)}. La app no edita su perfil: hágalo en el navegador y vuelva.`;
 }
 
-/** Lo que se sabe de quien pide, en una línea (como la web). */
-function textoDeSusDatos(d) {
+/** Lo que se sabe de quien pide, en una línea (como la web). US-028
+ * (CA-3): la extensión de la línea fija va junto a los teléfonos, solo si
+ * respondió que la tiene y la escribió (`NuevoTicket.jsx`, 16/11/2026). */
+export function textoDeSusDatos(d) {
   return [
     d.nombre,
     d.correo,
     d.telefono_corporativo && `corporativo ${d.telefono_corporativo}`,
     d.telefono && `personal ${d.telefono}`,
+    d.tiene_linea_fija === true && String(d.linea_fija_extension ?? "").trim() && `extensión ${String(d.linea_fija_extension).trim()}`,
     d.area?.nombre,
     d.agencia?.nombre,
   ]
@@ -67,6 +70,7 @@ function textoDeSusDatos(d) {
 }
 
 export function NuevoTicket() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
@@ -391,15 +395,9 @@ export function NuevoTicket() {
             Le contactaremos como <Text style={estilos.negrita}>{textoDeSusDatos(datos.mis_datos ?? {})}</Text>.
           </Text>
         </View>
-        <AbrirEnLaWeb
-          testID="cambiar-mis-datos"
-          ruta="/admin/perfil"
-          empresa={empresa}
-          titulo="Cambiar mis datos en el navegador"
-          nombre="Cambiar mis datos"
-          icono="account-edit-outline"
-          familia="perfil"
-        />
+        {/* Sin «Cambiar mis datos» (igual que la web, commit cb099ce): tras la
+            validación inicial, nombres, área, agencia y cargo quedan
+            bloqueados; solo los teléfonos se cambian, desde Mi perfil. */}
         <Boton
           testID="crear-ticket"
           titulo={enviando ? "Enviando…" : "Crear ticket"}
@@ -414,7 +412,7 @@ export function NuevoTicket() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   titulo: { fontSize: 22, fontWeight: "700", color: colores.titulo },

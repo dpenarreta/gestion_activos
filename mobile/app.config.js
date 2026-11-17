@@ -39,9 +39,11 @@ module.exports = () => ({
     // #1E1E1E. El logotipo LAARCOURIER no va en el ícono: los dos no se
     // combinan en una misma composición.
     icon: "./assets/icon.png",
-    // Fase 1 solo en tema claro: los colores están medidos para contraste AA
-    // sobre fondo claro (ver src/tema/colores.js).
-    userInterfaceStyle: "light",
+    // US-026 (17/11/2026): modo claro y oscuro. «automatic» para que «Sistema»
+    // siga al teléfono (`useColorScheme`); las dos paletas están medidas para
+    // AA en src/tema/colores.js. En iOS cambia el Info.plist: hay que
+    // recompilar la app de desarrollo para que «Sistema» siga al teléfono.
+    userInterfaceStyle: "automatic",
     ios: {
       bundleIdentifier: IDENTIFICADOR,
       supportsTablet: false,
@@ -115,6 +117,14 @@ module.exports = () => ({
         },
       ],
       "@react-native-community/datetimepicker",
+      // US-026 (ronda QA, 17/11/2026): en Android, `expo-system-ui` aplica el
+      // `userInterfaceStyle` («automatic») y deja fijar el fondo raíz según el
+      // modo; `expo-navigation-bar` sin el velo de contraste del sistema (que
+      // en oscuro se veía gris claro) para que la barra de navegación muestre
+      // el fondo de la app y sus botones sigan el modo
+      // (`src/app/_layout.js`). Son nativos: hay que recompilar el dev client.
+      "expo-system-ui",
+      ["expo-navigation-bar", { enforceContrast: false }],
       // Pantalla de inicio de la marca (12/11/2026): el ícono LCE sobre
       // #1E1E1E. La app la oculta cuando cargan Poppins y la sesión
       // (`src/app/_layout.js`).

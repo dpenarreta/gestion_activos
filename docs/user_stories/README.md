@@ -29,3 +29,6 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-023](US-023-app-movil-registrar-y-editar-activos.md) | App móvil: registrar y editar activos | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
 | [US-024](US-024-app-movil-grupos-del-chat.md) | App móvil: crear, editar y salir de grupos del chat | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
 | [US-025](US-025-app-movil-ordenes-de-trabajo.md) | App móvil: módulo Órdenes de trabajo (panel, mis órdenes, nueva orden y flujo completo) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
+| [US-026](US-026-app-movil-modo-claro-y-oscuro.md) | App móvil: modo claro y modo oscuro (Claro, Oscuro y Sistema desde la cabecera) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
+| [US-027](US-027-app-movil-para-hoy-contraido.md) | App móvil: «Para hoy» contraído con los avisos sin leer (módulo, título y resumen) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
+| [US-028](US-028-app-movil-paridad-con-la-web.md) | App móvil: paridad con la web (Mi perfil, Mesa de ayuda, pantalla de acceso y Activos) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |

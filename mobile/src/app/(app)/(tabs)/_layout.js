@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { BarraDeFuncionalidades } from "../../../navegacion/BarraDeFuncionalidades";
 import { CabeceraDeModulos } from "../../../navegacion/CabeceraDeModulos";
 import { ProveedorDeModulos, PublicarEstadoDeModulos } from "../../../navegacion/EstadoDeModulos";
-import { colores } from "../../../tema/colores";
+import { useColores } from "../../../tema/apariencia";
 
 /**
  * La navegación por módulos (US-016, 13/11/2026), como la app de Uber:
@@ -36,9 +36,10 @@ import { colores } from "../../../tema/colores";
  * y cada pantalla envuelve su contenido en `SoloConFoco`.
  */
 export default function ModulosLayout() {
+  const colores = useColores();
   return (
     <ProveedorDeModulos>
-      <View style={estilos.marco}>
+      <View style={[estilos.marco, { backgroundColor: colores.fondo }]}>
         <CabeceraDeModulos />
         <Tabs
           backBehavior="firstRoute"
@@ -66,4 +67,4 @@ export default function ModulosLayout() {
   );
 }
 
-const estilos = { marco: { flex: 1, backgroundColor: colores.fondo } };
+const estilos = { marco: { flex: 1 } };

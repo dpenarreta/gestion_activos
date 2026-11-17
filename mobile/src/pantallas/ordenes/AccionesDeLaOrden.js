@@ -35,7 +35,7 @@ import {
   valoresDeCorreccion,
 } from "../../ordenes/formato";
 import { opcionesDe, opcionesDeNombres, opcionesDeSedes } from "../../ordenes/useCatalogos";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { errorDeGuardado, textoRevise, useCandado, useReenvioConfirmado } from "../activos/formularios";
@@ -168,6 +168,7 @@ const EXPLICACION_DEL_PASO = {
  * que entonces se escriben en la nota.
  */
 export function VentanaCambioDeEstado({ orden, destino, onCerrar, onGuardado, onRechazo }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const actual = orden?.estado;
   const [hoy] = useState(() => hoyIso());
   const [nota, setNota] = useState("");
@@ -297,6 +298,7 @@ const CAMPOS_ASIGNAR = { tecnico: "Técnico", proveedor: "Proveedor", fecha_prog
  * lo carga la ficha una sola vez (`useCatalogosDeOrdenes`).
  */
 export function VentanaAsignar({ orden, catalogos, onCerrar, onGuardado, onRechazo }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [hoy] = useState(() => hoyIso());
   const [iniciales] = useState(() => valoresDeAsignacion(orden));
   const [valores, setValores] = useState(iniciales);
@@ -447,6 +449,7 @@ export function VentanaAsignar({ orden, catalogos, onCerrar, onGuardado, onRecha
  * decimal; se envían con punto.
  */
 export function VentanaCosto({ orden, tipo, onCerrar, onGuardado, onRechazo }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const config = TIPOS_DE_COSTO[tipo];
   const campos = Object.fromEntries(config.campos.map((c) => [c.clave, c.nombre]));
   const [valores, setValores] = useState(() => Object.fromEntries(config.campos.map((c) => [c.clave, ""])));
@@ -570,6 +573,7 @@ const CAMPOS_CORREGIR = {
  * ficha una sola vez.
  */
 export function VentanaCorregir({ orden, catalogos, onCerrar, onGuardado, onRechazo }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [iniciales] = useState(() => valoresDeCorreccion(orden));
   const [valores, setValores] = useState(iniciales);
   const desplazable = useRef(null);
@@ -730,7 +734,7 @@ export function VentanaCorregir({ orden, catalogos, onCerrar, onGuardado, onRech
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   explicacion: { fontSize: 15, color: colores.tintaSuave },
   subtotal: { fontSize: 16, fontWeight: "700", color: colores.titulo },
 });

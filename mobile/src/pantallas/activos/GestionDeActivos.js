@@ -9,8 +9,7 @@ import { useContextoDeNavegacion } from "../../navegacion/useContextoDeNavegacio
 import { anunciar } from "../../accesibilidad/anunciar";
 import { Alerta } from "../../componentes/comunes";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Inventario } from "./Inventario";
 import { Mantenimientos } from "./Mantenimientos";
@@ -93,6 +92,7 @@ export function useEmpresaDelAviso(empresa, vez) {
  * en la pila (`/mantenimientos/…`, `/solicitudes/…`).
  */
 export function GestionDeActivos() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const parametros = useLocalSearchParams();
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
@@ -183,7 +183,7 @@ export function GestionDeActivos() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   tituloVista: CONTROLES.tituloVista,
   aviso: { paddingHorizontal: 16, paddingTop: 8 },

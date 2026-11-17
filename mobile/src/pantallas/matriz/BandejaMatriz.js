@@ -1,13 +1,15 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { matrizService } from "../../api/servicios";
 import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { ESTADOS_DE_LA_BANDEJA, horaDeLaZona, mensajeDeMatriz } from "../../matriz/formato";
 import { TONOS } from "../../soporte/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 import { FilaPeriodo, MatrizEnElNavegador, SinRolMatriz } from "./piezas";
@@ -15,6 +17,7 @@ import { FilaPeriodo, MatrizEnElNavegador, SinRolMatriz } from "./piezas";
 /** Una tarjeta del resumen (CA-2): ícono, título, cifra y detalle, con el
  * borde y el ícono del tono. El color nunca es lo único que la distingue. */
 function Tarjeta({ estado, counts, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const tono = TONOS[estado.tono];
   const cifra = Number(estado.cifra(counts)) || 0;
   // H-19 (ronda 1): con algo incumplido, esa tarjeta va primero, a todo el
@@ -56,6 +59,7 @@ function Tarjeta({ estado, counts, onAbrir }) {
  * hacia abajo; un refresco fallido no borra lo que se ve.
  */
 export function BandejaMatriz({ matriz, permisos, empresaActiva, onAbrirEstado, onAbrirPeriodo }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
   const montado = useRef(true);
@@ -186,7 +190,7 @@ export function BandejaMatriz({ matriz, permisos, empresaActiva, onAbrirEstado, 
       testID="bandeja-matriz"
       style={estilos.lista}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {lista ? (
         <View style={estilos.empresa}>
@@ -205,7 +209,7 @@ export function BandejaMatriz({ matriz, permisos, empresaActiva, onAbrirEstado, 
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32, gap: 16 },
   empresa: { gap: 2 },

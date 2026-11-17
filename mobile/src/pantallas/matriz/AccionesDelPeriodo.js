@@ -19,7 +19,7 @@ import {
   TEXTO_PUEDE_HABERSE_GUARDADO,
 } from "../../matriz/formato";
 import { sinRespuestaClara } from "../../soporte/formato";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 
@@ -408,6 +408,7 @@ export function validarFecha({ fecha, motivo }) {
 }
 
 export function FormularioFecha({ periodo, empresa, onCerrar, onGuardado, onRespuesta }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState(HORA_POR_DEFECTO);
   const [motivo, setMotivo] = useState("");
@@ -551,6 +552,7 @@ export function FormularioFecha({ periodo, empresa, onCerrar, onGuardado, onResp
 // --- Reenviar recordatorio ------------------------------------------------------------
 
 export function ConfirmarRecordatorio({ periodo, empresa, onCerrar, onEnviado, onRespuesta }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
   const montado = useMontado();
@@ -606,7 +608,7 @@ export function ConfirmarRecordatorio({ periodo, empresa, onCerrar, onEnviado, o
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   etiqueta: { fontSize: 13, color: colores.tintaSuave },
   valor: { fontSize: 16, fontWeight: "600", color: colores.tinta },
   texto: { fontSize: 15, color: colores.tinta },

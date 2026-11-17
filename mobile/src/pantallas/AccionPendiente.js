@@ -8,7 +8,7 @@ import { Alerta, Boton } from "../componentes/comunes";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useSesion } from "../sesion/SesionContext";
 import { useCerrarSesion } from "../sesion/useCerrarSesion";
-import { colores } from "../tema/colores";
+import { useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 
 export const TEXTO_CONTRASENA =
@@ -29,6 +29,7 @@ export const TEXTO_CONSENTIMIENTO =
  * en la siguiente petición (revisión de QA-UX, 12/11/2026).
  */
 export function AccionPendiente() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { usuario, empresaActiva, recargarUsuario } = useSesion();
   const { cerrando, confirmarCierre } = useCerrarSesion();
   const [comprobando, setComprobando] = useState(false);
@@ -97,7 +98,7 @@ export function AccionPendiente() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 16 },
   titulo: { fontSize: 22, fontWeight: "700", color: colores.tinta },

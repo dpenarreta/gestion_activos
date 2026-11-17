@@ -5,7 +5,6 @@ import {
   FlatList,
   Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -15,13 +14,14 @@ import {
 import { anunciar } from "../../accesibilidad/anunciar";
 import { soporteService } from "../../api/servicios";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { SelectorDeLista } from "../../componentes/Selectores";
 import { useSesion } from "../../sesion/SesionContext";
 import { ESTADOS, esModuloApagado, mensajeDeSoporte, PRIORIDADES, textoDeVence, TONOS } from "../../soporte/formato";
 import { SONDEO_LISTAS_MS, useSondeo } from "../../soporte/useSondeo";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { ESPERA_BUSCAR_MS } from "../../utils/busqueda";
 import { EstadoTicket, Pildora, PrioridadTicket, Separador, VenceTicket } from "./piezas";
@@ -73,6 +73,7 @@ function mismaTarjeta(antes, ahora) {
 
 /** Una fila de la bandeja en unas cuatro líneas (H-12). */
 export const TarjetaTicket = memo(function TarjetaTicket({ ticket: t, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const vence = textoDeVence(t.sla);
   const nombre = [
     t.numero,
@@ -139,6 +140,8 @@ const SIN_FILTROS = { q: "", estado: "", prioridad: "", vencidos: false };
 const LISTA_VACIA = { estado: "inactiva", items: [], total: 0, hayMas: false, error: null, aviso: null };
 
 export function Bandeja({ onAbrir, onNoEsDelEquipo, pie = null, alActualizar }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { versionEmpresa } = useSesion();
   const [cabecera, setCabecera] = useState({ estado: "cargando", datos: null, error: null });
@@ -679,12 +682,12 @@ export function Bandeja({ onAbrir, onNoEsDelEquipo, pie = null, alActualizar }) 
       onEndReachedThreshold={0.4}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32 },
   encabezado: { marginBottom: 10 },

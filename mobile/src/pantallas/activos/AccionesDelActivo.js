@@ -21,8 +21,8 @@ import { confirmarDescarte } from "../../componentes/confirmarDescarte";
 import { Icono } from "../../componentes/Icono";
 import { ErrorDeCampo, OpcionesEnLinea, SelectorDeLista } from "../../componentes/Selectores";
 import { Ventana } from "../../componentes/Ventana";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { errorDeGuardado, textoRevise, useCandado, useReenvioConfirmado } from "./formularios";
@@ -67,6 +67,8 @@ function resultados(datos) {
 
 /** Una persona elegida, con «Quitar». */
 function Elegida({ persona, onQuitar, deshabilitado }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.elegida} testID={`responsable-${persona.id}`}>
       <Icono nombre="account-check-outline" size={20} color={colores.tinta} />
@@ -98,6 +100,8 @@ export function personaDeEmpleado(e) {
 
 /** El buscador de empleados: escribir, esperar 400 ms y elegir. */
 function BuscadorDeEmpleados({ excluidos, onElegir, deshabilitado, refFoco, error, compartido }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [texto, setTexto] = useState("");
   const [estado, setEstado] = useState({ cargando: false, lista: [], error: null });
   const [vez, setVez] = useState(0);
@@ -203,6 +207,7 @@ function opcionesCon(lista, actual) {
  * devolverlo a bodega. Envía `POST activos/{id}/asignar/`.
  */
 export function FormularioAsignar({ activo, onCerrar, onGuardado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [iniciales] = useState(() => valoresDeAsignacion(activo));
   const [valores, setValores] = useState(iniciales);
   const [personas, setPersonas] = useState(() =>
@@ -463,6 +468,7 @@ export function confirmarSalidaDelInventario(estado, activo) {
  * `POST activos/{id}/cambiar-estado/`.
  */
 export function FormularioCambiarEstado({ activo, onCerrar, onGuardado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [estado, setEstado] = useState("");
   const [motivo, setMotivo] = useState("");
   const [errores, setErrores] = useState({});
@@ -594,7 +600,7 @@ export function FormularioCambiarEstado({ activo, onCerrar, onGuardado }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   campo: { gap: 6 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   subtitulo: { fontSize: 16, fontWeight: "700", color: colores.titulo },

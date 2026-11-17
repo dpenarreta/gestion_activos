@@ -1,9 +1,10 @@
 import { useFocusEffect } from "expo-router";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { FlatList, Pressable, Text, View } from "react-native";
 
 import { soporteService } from "../../api/servicios";
 import { Alerta, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { useSesion } from "../../sesion/SesionContext";
 import {
@@ -13,7 +14,8 @@ import {
   queSigue,
 } from "../../soporte/formato";
 import { SONDEO_LISTAS_MS, useSondeo } from "../../soporte/useSondeo";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 import { EstadoTicket, PrioridadTicket, Separador } from "./piezas";
@@ -32,6 +34,8 @@ export function textoPendientes(n) {
 }
 
 export const TarjetaMiTicket = memo(function TarjetaMiTicket({ ticket: t, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const sigue = queSigue(t);
   const nombre = [
     `${t.numero}. ${t.caso}, ${t.categoria}`,
@@ -70,6 +74,7 @@ export const TarjetaMiTicket = memo(function TarjetaMiTicket({ ticket: t, onAbri
 });
 
 export function MisTickets({ onAbrir, cabecera = null, pie = null, alActualizar, alCargar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const [estado, setEstado] = useState("cargando");
   const [lista, setLista] = useState([]);
@@ -175,12 +180,12 @@ export function MisTickets({ onAbrir, cabecera = null, pie = null, alActualizar,
       ListFooterComponent={pie ? <View style={estilos.pie}>{pie}</View> : null}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32 },
   cabecera: { gap: 10, marginBottom: 10 },

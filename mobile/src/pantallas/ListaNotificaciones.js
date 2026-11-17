@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  RefreshControl,
   Text,
   View,
 } from "react-native";
@@ -18,20 +17,15 @@ import {
   ErrorConReintento,
   Vacio,
 } from "../componentes/comunes";
+import { Refresco } from "../componentes/Refresco";
 import { Icono } from "../componentes/Icono";
-import { volverAlModulo } from "../navegacion/abrir";
-import { esRutaDeModulo } from "../navegacion/modulos";
-import {
-  destinoDeNotificacion,
-  estaLeida,
-  iconoDe,
-} from "../notificaciones/abrir";
+import { estaLeida, iconoDe } from "../notificaciones/abrir";
+import { abrirNotificacion } from "../notificaciones/abrirNotificacion";
 import { coloresDe } from "../notificaciones/coloresDeModulo";
 import { useContador } from "../notificaciones/ContadorContext";
-import { rutaEnApp } from "../notificaciones/modulosEnApp";
 import { useSesion } from "../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { AREA_TACTIL } from "../tema/colores";
+import { useApariencia, useColores, useEstilos } from "../tema/apariencia";
 import {
   claveDeDia,
   fechaCompleta,
@@ -69,6 +63,8 @@ export function agruparPorDia(notificaciones, ahora = new Date()) {
 }
 
 export function ListaNotificaciones({ mapa } = {}) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { versionEmpresa } = useSesion();
   const { noLeidas, recargar: recargarContador } = useContador();
@@ -212,27 +208,22 @@ export function ListaNotificaciones({ mapa } = {}) {
     }
   }
 
-  async function abrir(notificacion) {
-    if (!estaLeida(notificacion)) {
-      // Se ve leída enseguida; el detalle (o aquí, si va a otra pantalla de
-      // la app) la marca en el servidor.
-      setItems((actuales) =>
-        actuales.map((n) =>
-          n.id === notificacion.id ? { ...n, leida: true } : n,
+  // US-027 (17/11/2026): la misma lógica que «Para hoy» del Inicio. Se ve
+  // leída enseguida; el detalle (o `abrirNotificacion`, si va a otra
+  // pantalla de la app) la marca en el servidor.
+  function abrir(notificacion) {
+    abrirNotificacion({
+      notificacion,
+      router,
+      mapa,
+      recargarContador,
+      alMarcarLeida: () =>
+        setItems((actuales) =>
+          actuales.map((n) =>
+            n.id === notificacion.id ? { ...n, leida: true } : n,
+          ),
         ),
-      );
-      if (rutaEnApp(notificacion, mapa)) {
-        notificacionesService
-          .leer(notificacion.id)
-          .then(() => recargarContador())
-          .catch(() => {});
-      }
-    }
-    const destino = destinoDeNotificacion(notificacion, mapa);
-    // US-016: Avisos es una pantalla del Stack; lo que lleva a un módulo
-    // vuelve a los de debajo en lugar de apilar otra copia.
-    if (esRutaDeModulo(destino)) volverAlModulo(router, destino);
-    else router.push(destino);
+    });
   }
 
   // El día de hoy en las dependencias: tras la medianoche, el siguiente
@@ -400,7 +391,7 @@ export function ListaNotificaciones({ mapa } = {}) {
       onEndReached={() => cargarMas()}
       onEndReachedThreshold={0.4}
       refreshControl={
-        <RefreshControl
+        <Refresco
           refreshing={refrescando}
           onRefresh={() => {
             cargar({ refrescar: true });
@@ -413,10 +404,12 @@ export function ListaNotificaciones({ mapa } = {}) {
 }
 
 export function ElementoNotificacion({ notificacion, onAbrir }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const leida = estaLeida(notificacion);
   const fecha = haceCuantoLlego(notificacion.created_at);
   const dia = fechaCompleta(notificacion.created_at);
-  const color = coloresDe(notificacion);
+  const color = coloresDe(notificacion, oscuro);
   const etiqueta = [
     leida ? null : "Sin leer",
     notificacion.modulo_nombre,
@@ -465,7 +458,7 @@ export function ElementoNotificacion({ notificacion, onAbrir }) {
             style={[estilos.etiqueta, { backgroundColor: color.etiqueta }]}
             testID={`etiqueta-${notificacion.id}`}
           >
-            <Text style={estilos.etiquetaTexto}>
+            <Text style={[estilos.etiquetaTexto, { color: color.sobreEtiqueta }]}>
               {notificacion.modulo_nombre}
             </Text>
           </View>
@@ -497,7 +490,7 @@ export function ElementoNotificacion({ notificacion, onAbrir }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 8, flexGrow: 1 },
   cabecera: { gap: 12, marginBottom: 8 },
@@ -551,7 +544,8 @@ const estilos = crearEstilos({
     paddingVertical: 2,
     borderRadius: 6,
   },
-  etiquetaTexto: { fontSize: 12, fontWeight: "600", color: "#FFFFFF" },
+  // El color del texto va con el del módulo (`sobreEtiqueta`, US-026).
+  etiquetaTexto: { fontSize: 12, fontWeight: "600" },
   contador: {
     position: "absolute",
     top: -6,
@@ -560,13 +554,13 @@ const estilos = crearEstilos({
     height: 22,
     paddingHorizontal: 5,
     borderRadius: 11,
-    backgroundColor: colores.malTexto,
+    backgroundColor: colores.insignia,
     borderWidth: 2,
     borderColor: colores.fondo,
     alignItems: "center",
     justifyContent: "center",
   },
-  contadorTexto: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
+  contadorTexto: { fontSize: 11, fontWeight: "700", color: colores.sobreInsignia },
   modulo: { fontSize: 13, color: colores.tintaTenue, flexShrink: 1 },
   titulo: { fontSize: 16, color: colores.tinta },
   tituloNuevo: { fontWeight: "700" },
@@ -601,9 +595,9 @@ const estilos = crearEstilos({
     borderRadius: 6,
     // Ámbar dorado (16/11/2026, prueba pedida por el usuario) con borde
     // ámbar oscuro: sobre el gris, el amarillo solo no llega al 3:1.
-    backgroundColor: "#F59E0B",
+    backgroundColor: colores.puntoNuevo,
     borderWidth: 2,
-    borderColor: "#B45309",
+    borderColor: colores.bordePuntoNuevo,
   },
   pie: { padding: 16 },
 });

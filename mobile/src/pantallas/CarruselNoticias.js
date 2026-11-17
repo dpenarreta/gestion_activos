@@ -5,7 +5,8 @@ import { anunciar } from "../accesibilidad/anunciar";
 import { api } from "../api/api";
 import { inicioService } from "../api/servicios";
 import { Icono } from "../componentes/Icono";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 
 /** Lo mínimo que se deja una noticia antes de pasar (igual que la web). */
@@ -58,6 +59,8 @@ function useSistemaDetieneElCarrusel() {
  * un lector de pantalla activo.
  */
 export function CarruselNoticias({ noticias, segundos }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [ancho, setAncho] = useState(0);
   const [indice, setIndice] = useState(0);
   const [pausado, setPausado] = useState(false);
@@ -215,7 +218,7 @@ export function CarruselNoticias({ noticias, segundos }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   marco: {
     backgroundColor: colores.superficie,
     borderRadius: 10,

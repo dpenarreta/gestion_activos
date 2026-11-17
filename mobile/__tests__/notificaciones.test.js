@@ -11,6 +11,7 @@ import {
   textoSinEnlace,
 } from "../src/pantallas/DetalleNotificacion";
 import { agruparPorDia, ListaNotificaciones, TEXTO_TODAS_LEIDAS } from "../src/pantallas/ListaNotificaciones";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() };
 jest.mock("expo-router", () => {
@@ -460,5 +461,18 @@ describe("colores por módulo (16/11/2026)", () => {
     expect(coloresDe({ modulo: "descargas" })).toBe(COLORES_DE_MODULO.auditoria);
     expect(coloresDe({ tipo: "matriz.recordatorio" })).toBe(COLORES_DE_MODULO.matriz);
     expect(coloresDe({ modulo: "otro" })).toBe(COLORES_DE_MODULO.sistema);
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la lista de notificaciones en oscuro (CA-5)", async () => {
+    notificacionesService.listar.mockResolvedValue(
+      pagina([notificacion(), notificacion({ id: 11, titulo: "Otra", leida: true })]),
+    );
+    const vista = await renderEnOscuro(<ListaNotificaciones />);
+    expect(await screen.findByText("Le asignaron un ticket")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

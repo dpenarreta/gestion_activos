@@ -5,7 +5,6 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Platform,
-  RefreshControl,
   Text,
   useWindowDimensions,
   View,
@@ -14,11 +13,12 @@ import {
 import { anunciar } from "../../accesibilidad/anunciar";
 import { soporteService } from "../../api/servicios";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
 import { mensajeDeSoporte } from "../../soporte/formato";
 import { SONDEO_LISTAS_MS, useSondeo } from "../../soporte/useSondeo";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
@@ -51,6 +51,7 @@ function confirmar({ titulo, mensaje, accion }) {
 }
 
 const TarjetaAprobacion = memo(function TarjetaAprobacion({ aprobacion, onDecidir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { fontScale } = useWindowDimensions();
   const [nota, setNota] = useState("");
   const [errorNota, setErrorNota] = useState(null);
@@ -225,6 +226,7 @@ const TarjetaAprobacion = memo(function TarjetaAprobacion({ aprobacion, onDecidi
 });
 
 export function Aprobaciones({ pie = null, alActualizar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const alturaCabecera = useAlturaCabecera();
   const [estado, setEstado] = useState("cargando");
@@ -358,13 +360,13 @@ export function Aprobaciones({ pie = null, alActualizar }) {
       ListFooterComponent={pie ? <View style={estilos.pie}>{pie}</View> : null}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
     </KeyboardAvoidingView>
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32 },
   cabecera: { gap: 10, marginBottom: 10 },

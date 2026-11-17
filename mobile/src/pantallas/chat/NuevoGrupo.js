@@ -25,7 +25,7 @@ import { Alerta, Boton, ErrorConReintento } from "../../componentes/comunes";
 import { OpcionesEnLinea, SelectorDeLista } from "../../componentes/Selectores";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { useCandado, useReenvioConfirmado, useSalirConCambios } from "../activos/formularios";
 import { CampoTexto } from "../permisos/piezas";
@@ -68,6 +68,8 @@ export function textoElegidasSinUso(n) {
  * la misma de la lista de chats.
  */
 export function NuevoGrupo() {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
@@ -305,7 +307,7 @@ export function NuevoGrupo() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 24 },
   campo: { gap: 10 },

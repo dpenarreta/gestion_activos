@@ -7,16 +7,16 @@ import { Poppins_700Bold } from "@expo-google-fonts/poppins/700Bold";
 import { useFonts } from "expo-font";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
-import { Stack } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import { useEffect, useMemo } from "react";
 import { Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 import { comportamientoDelAviso } from "../chat/avisoEnPrimerPlano";
 import { Boton, Cargando } from "../componentes/comunes";
+import { BarrasDelSistema } from "../navegacion/BarrasDelSistema";
 import { SesionProvider, useSesion } from "../sesion/SesionContext";
-import { colores } from "../tema/colores";
+import { ProveedorDeApariencia, useApariencia, useEstilos } from "../tema/apariencia";
 import { crearEstilos, usarFuenteDelSistema } from "../tema/tipografia";
 
 // Con la app abierta, el push también se muestra (y el contador se refresca
@@ -45,9 +45,36 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 });
 const respaldoSplash = setTimeout(ocultarSplash, ESPERA_MAXIMA_SPLASH_MS);
 
+/**
+ * El tema de la navegación (US-026, CA-6): el fondo detrás de las pantallas
+ * mientras se abren y se cierran, para que en oscuro no destelle blanco. En
+ * claro, el de siempre.
+ */
+function temaDeNavegacion(oscuro, colores) {
+  if (!oscuro) return DefaultTheme;
+  // Sobre `DarkTheme` (ronda QA, P3-3): lo que no se fija aquí ya es oscuro.
+  return {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      primary: colores.acento,
+      background: colores.fondo,
+      card: colores.cabecera,
+      text: colores.tinta,
+      border: colores.borde,
+      notification: colores.malTexto,
+    },
+  };
+}
+
 function Navegacion({ fuentesListas }) {
+  const estilos = useEstilos(fabricaDeEstilos);
+  const { colores, oscuro, lista: aparienciaLista } = useApariencia();
+  const tema = useMemo(() => temaDeNavegacion(oscuro, colores), [oscuro, colores]);
   const { estado, reintentar } = useSesion();
-  const listo = estado !== "cargando" && fuentesListas;
+  // La pantalla de inicio sigue también hasta saber el modo guardado: que la
+  // primera pantalla no salga clara y luego cambie (US-026, CA-2).
+  const listo = estado !== "cargando" && fuentesListas && aparienciaLista;
 
   useEffect(() => {
     if (!listo) return;
@@ -57,7 +84,7 @@ function Navegacion({ fuentesListas }) {
 
   // La pantalla de carga sigue hasta que está Poppins (marca LAARCOURIER):
   // si no, el primer cuadro sale con la fuente del sistema y salta.
-  if (estado === "cargando" || !fuentesListas) {
+  if (estado === "cargando" || !fuentesListas || !aparienciaLista) {
     return (
       <SafeAreaView style={estilos.pantalla}>
         <Cargando texto="Abriendo Intranet LCE…" />
@@ -83,14 +110,16 @@ function Navegacion({ fuentesListas }) {
 
   const autenticado = estado === "autenticado";
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={autenticado}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!autenticado}>
-        <Stack.Screen name="login" />
-      </Stack.Protected>
-    </Stack>
+    <ThemeProvider value={tema}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={autenticado}>
+          <Stack.Screen name="(app)" />
+        </Stack.Protected>
+        <Stack.Protected guard={!autenticado}>
+          <Stack.Screen name="login" />
+        </Stack.Protected>
+      </Stack>
+    </ThemeProvider>
   );
 }
 
@@ -108,15 +137,19 @@ export default function RootLayout() {
   const fuentesListas = fuentesCargadas || Boolean(errorFuentes);
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <SesionProvider>
-        <Navegacion fuentesListas={fuentesListas} />
-      </SesionProvider>
+      {/* US-026: Claro, Oscuro o Sistema, antes que la sesión: el inicio de
+          sesión ya respeta lo elegido. */}
+      <ProveedorDeApariencia>
+        <BarrasDelSistema />
+        <SesionProvider>
+          <Navegacion fuentesListas={fuentesListas} />
+        </SesionProvider>
+      </ProveedorDeApariencia>
     </SafeAreaProvider>
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo, justifyContent: "center" },
   centro: { padding: 24, gap: 16, alignItems: "stretch" },
   titulo: { fontSize: 22, fontWeight: "700", color: colores.tinta, textAlign: "center" },

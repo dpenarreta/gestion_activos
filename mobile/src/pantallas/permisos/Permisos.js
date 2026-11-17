@@ -1,6 +1,6 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FlatList, RefreshControl, Text, View } from "react-native";
+import { FlatList, Text, View } from "react-native";
 
 import { mensajeDeError } from "../../api/errores";
 import { licenciasService } from "../../api/servicios";
@@ -12,9 +12,10 @@ import {
   ErrorConReintento,
   Vacio,
 } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { TEXTO_SIN_ROL, useResumenPermisos } from "../../permisos/ResumenPermisosContext";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { MisVacaciones } from "./MisVacaciones";
 import { AbrirEnLaWeb, TarjetaSolicitud } from "./piezas";
 import { crearEstilos } from "../../tema/tipografia";
@@ -45,6 +46,7 @@ function primero(valor) {
 }
 
 export function Permisos() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const parametros = useLocalSearchParams();
   const seccion = seccionDeLaRuta(primero(parametros.seccion));
@@ -130,6 +132,7 @@ export function Permisos() {
  * lo dice.
  */
 export function ListaSolicitudes({ vista, foco = 0, onAbrir, cabecera = null, pie = null, alActualizar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const [estado, setEstado] = useState("cargando");
   const [lista, setLista] = useState([]);
@@ -236,16 +239,17 @@ export function ListaSolicitudes({ vista, foco = 0, onAbrir, cabecera = null, pi
       ListFooterComponent={pie ? <View style={estilos.pie}>{pie}</View> : null}
       renderItem={renderItem}
       ItemSeparatorComponent={Separador}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     />
   );
 }
 
 function Separador() {
+  const estilos = useEstilos(fabricaDeEstilos);
   return <View style={estilos.separador} />;
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   tituloVista: { paddingHorizontal: 16, paddingTop: 12, fontSize: 15, fontWeight: "700", color: colores.tintaSuave },
   lista: { flex: 1 },

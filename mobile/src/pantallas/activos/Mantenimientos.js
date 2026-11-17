@@ -17,7 +17,8 @@ import {
 } from "../../activos/mantenimientos";
 import { useBusquedaConEspera, useListaPaginada } from "../../activos/useListaPaginada";
 import { Boton } from "../../componentes/comunes";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Pildora } from "../soporte/piezas";
 import { BuscadorDeLista, ChipsDeFiltro, ListaPaginada } from "./listas";
@@ -39,6 +40,7 @@ export function rutaDelMantenimiento(m, empresa) {
  * `conActivo`: en la ficha ya se sabe de qué equipo es.
  */
 export const FilaDeMantenimiento = memo(function FilaDeMantenimiento({ m, onAbrir, conActivo = true }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const estado = estadoDelMantenimiento(m);
   const dias = diasFuera(m);
   return (
@@ -160,7 +162,7 @@ export function Mantenimientos({ filtro: filtroPedido, vez, permisos = [], empre
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   fila: {
     minHeight: AREA_TACTIL,
     padding: 14,

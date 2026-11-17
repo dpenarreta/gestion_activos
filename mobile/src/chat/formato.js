@@ -5,6 +5,7 @@ import {
   diasAtras,
   haceCuanto,
 } from "../utils/fechas";
+import { COLOR_DE_ESTADO, COLOR_DE_ESTADO_OSCURO, ESTADO_NEUTRO, ESTADO_NEUTRO_OSCURO } from "../tema/familias";
 
 export { claveDeDia };
 
@@ -157,23 +158,11 @@ export const ICONO_DE_ESTADO = {
   fuera_oficina: "exit-run",
 };
 
-/**
- * El color de cada estado (16/11/2026, a pedido del usuario): disponible en
- * verde, almuerzo en naranja, no disponible en rojo, vacaciones en cian con
- * la playa… Tonos -700, ≥ 4,5:1 sobre blanco y sobre su `fondo`, para el
- * ícono y para el texto. Siempre con su ícono y su nombre (CA-8).
- */
-export const COLOR_DE_ESTADO = {
-  disponible: { color: "#15803D", fondo: "#DCFCE7" },
-  almuerzo: { color: "#C2410C", fondo: "#FFEDD5" },
-  reunion: { color: "#1D4ED8", fondo: "#DBEAFE" },
-  no_disponible: { color: "#B91C1C", fondo: "#FEE2E2" },
-  vacaciones: { color: "#0E7490", fondo: "#CFFAFE" },
-  fuera_oficina: { color: "#7E22CE", fondo: "#F3E8FF" },
-};
-
-export function colorDeEstado(clave) {
-  return COLOR_DE_ESTADO[clave] ?? { color: "#444444", fondo: "#EBEBEB" };
+/** El color de un estado del chat (`tema/familias.js`); `oscuro`, el del modo
+ * oscuro (US-026). Lo desconocido, neutro. */
+export function colorDeEstado(clave, oscuro = false) {
+  if (oscuro) return COLOR_DE_ESTADO_OSCURO[clave] ?? ESTADO_NEUTRO_OSCURO;
+  return COLOR_DE_ESTADO[clave] ?? ESTADO_NEUTRO;
 }
 
 export function iconoDePresencia(presencia) {

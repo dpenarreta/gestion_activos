@@ -33,8 +33,8 @@ import { Casilla, ErrorDeCampo, OpcionesEnLinea, SelectorDeLista } from "../../c
 import { SelectorFecha } from "../../componentes/SelectorFecha";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { personaDeEmpleado } from "./AccionesDelActivo";
@@ -155,6 +155,8 @@ function confirmarCambioDeTipo(nombre) {
  * anterior (la persona elegida o el buscador).
  */
 function ElegirEmpleado({ etiqueta, ayuda, pedir, elegida, onElegir, onQuitar, onPendiente, error, refFoco, deshabilitado, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [texto, setTexto] = useState("");
   const [estado, setEstado] = useState({ cargando: false, lista: [], error: null });
   const [vez, setVez] = useState(0);
@@ -304,6 +306,8 @@ function ElegirEmpleado({ etiqueta, ayuda, pedir, elegida, onElegir, onQuitar, o
 
 /** Un par «Característica: valor» con «Quitar». */
 function Par({ nombre, valor, error, onQuitar, deshabilitado, prefijo }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.par} testID={`${prefijo}-${nombre}`}>
       <View style={estilos.parFila}>
@@ -332,6 +336,7 @@ function Par({ nombre, valor, error, onQuitar, deshabilitado, prefijo }) {
  * pierde en silencio; `error` va junto al campo «Característica».
  */
 function EspecificacionesLibres({ valor, onCambio, onPendiente, error, refFoco, deshabilitado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [clave, setClave] = useState("");
   const [contenido, setContenido] = useState("");
   const entradas = Object.entries(valor ?? {});
@@ -415,6 +420,8 @@ function EspecificacionesLibres({ valor, onCambio, onPendiente, error, refFoco, 
  * el siguiente envío lo confirma; salir con cambios pregunta.
  */
 export function FormularioActivo({ id = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const esEdicion = Boolean(id);
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
@@ -1327,7 +1334,7 @@ export function FormularioActivo({ id = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   centro: { padding: 16 },

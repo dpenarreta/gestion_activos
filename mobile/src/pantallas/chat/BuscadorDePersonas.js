@@ -7,8 +7,9 @@ import { directorioService } from "../../api/servicios";
 import { BotonIcono, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { ErrorDeCampo } from "../../componentes/Selectores";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useColores, useEstilos } from "../../tema/apariencia";
+
+
 import { crearEstilos } from "../../tema/tipografia";
 import { ESPERA_BUSCAR_MS, MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
 
@@ -33,6 +34,8 @@ export function BuscadorDePersonas({
   testID = "buscar-personas",
   children,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [texto, setTexto] = useState("");
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
@@ -181,6 +184,8 @@ export function BuscadorDePersonas({
  * anuncia una vez (UX H-15).
  */
 export function PersonasElegidas({ personas, onQuitar, deshabilitado = false, testID = "elegidas" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!personas.length) return null;
   return (
     <View style={estilos.elegidas} testID={testID}>
@@ -205,7 +210,7 @@ export function PersonasElegidas({ personas, onQuitar, deshabilitado = false, te
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   campo: { gap: 6 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   obligatorio: { color: colores.malTexto },

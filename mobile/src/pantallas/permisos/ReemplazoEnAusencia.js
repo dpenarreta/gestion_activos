@@ -6,8 +6,8 @@ import { mensajeDeError } from "../../api/errores";
 import { directorioService } from "../../api/servicios";
 import { Boton, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import {
   ESPERA_BUSCAR_MS,
@@ -39,6 +39,8 @@ export const TEXTO_SIN_JEFE =
  * pregunta «¿Quién aprueba por usted?»; mientras carga, el título.
  */
 export function ReemplazoEnAusencia({ reemplazo, deshabilitado = false, refFoco }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const { datos, errorCarga, cargar, modo, setModo, persona, setPersona, error, guardando } = reemplazo;
   const bloqueado = deshabilitado || guardando;
   const enBuscador = Boolean(datos) && modo === "persona" && !persona;
@@ -122,6 +124,8 @@ export function ReemplazoEnAusencia({ reemplazo, deshabilitado = false, refFoco 
 }
 
 function ErrorDelCampo({ texto }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.filaError}>
       <Icono nombre="alert-circle-outline" size={16} color={colores.malTexto} />
@@ -133,6 +137,8 @@ function ErrorDelCampo({ texto }) {
 /** «Persona que aprobará por usted» (obligatoria con «Otra persona»): la
  * elegida, o un buscador por nombre con una pausa al escribir. */
 function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [texto, setTexto] = useState("");
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
@@ -286,7 +292,7 @@ function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco })
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   bloque: {
     gap: 8,
     padding: 12,

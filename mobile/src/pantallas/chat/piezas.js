@@ -13,8 +13,8 @@ import {
   textoSinLeer,
 } from "../../chat/formato";
 import { Icono } from "../../componentes/Icono";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useApariencia, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 
 /**
@@ -23,17 +23,19 @@ import { crearEstilos } from "../../tema/tipografia";
  */
 
 /** El color del ícono de presencia; el texto siempre lo acompaña. */
-function colorDePresencia(presencia) {
+function colorDePresencia(presencia, colores, oscuro) {
   const clave = presencia?.estado?.clave;
   // Cada estado con su color (16/11/2026).
   if (clave && clave !== "vacaciones_proximas")
-    return colorDeEstado(clave).color;
+    return colorDeEstado(clave, oscuro).color;
   return presencia?.en_linea ? colores.bienTexto : colores.tintaTenue;
 }
 
 /** La presencia con ícono y texto (CA-8: nunca solo el color). `compacta`
  * muestra solo el texto principal; lo demás va en la etiqueta accesible. */
 export function Presencia({ presencia, compacta = false, testID }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!presencia) return null;
   const texto = textoPresencia(presencia);
   const extras = extrasDePresencia(presencia);
@@ -48,7 +50,7 @@ export function Presencia({ presencia, compacta = false, testID }) {
       <Icono
         nombre={iconoDePresencia(presencia)}
         size={14}
-        color={colorDePresencia(presencia)}
+        color={colorDePresencia(presencia, colores, oscuro)}
       />
       <Text style={estilos.presenciaTexto}>{compacta ? texto : completo}</Text>
     </View>
@@ -57,6 +59,8 @@ export function Presencia({ presencia, compacta = false, testID }) {
 
 /** «Carla está en almuerzo hasta las 13:30: verá su mensaje al volver.» */
 export function AvisoDeEstado({ nombre, estado, testID }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const texto = textoAvisoDeEstado(nombre, estado);
   if (!texto) return null;
   const icono = ICONO_DE_ESTADO[estado.clave] ?? "calendar-clock";
@@ -72,7 +76,7 @@ export function AvisoDeEstado({ nombre, estado, testID }) {
         size={18}
         color={
           ICONO_DE_ESTADO[estado.clave]
-            ? colorDeEstado(estado.clave).color
+            ? colorDeEstado(estado.clave, oscuro).color
             : colores.avisoTexto
         }
       />
@@ -83,6 +87,7 @@ export function AvisoDeEstado({ nombre, estado, testID }) {
 
 /** El número de no leídos: se ve el número y se oye «3 mensajes sin leer». */
 export function InsigniaSinLeer({ cantidad }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!cantidad) return null;
   return (
     <View
@@ -127,6 +132,8 @@ export function ResumenMiEstado({
   testID = "resumen-mi-estado",
   compacta = false,
 }) {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [datos, setDatos] = useState(null);
   const montado = useRef(true);
 
@@ -175,13 +182,13 @@ export function ResumenMiEstado({
       <View
         style={[
           estilos.miEstadoIcono,
-          { backgroundColor: colorDeEstado(clave).fondo },
+          { backgroundColor: colorDeEstado(clave, oscuro).fondo },
         ]}
       >
         <Icono
           nombre={ICONO_DE_ESTADO[clave]}
           size={20}
-          color={colorDeEstado(clave).color}
+          color={colorDeEstado(clave, oscuro).color}
         />
       </View>
       {compacta ? (
@@ -209,7 +216,7 @@ export function ResumenMiEstado({
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   presencia: {
     flexDirection: "row",
     alignItems: "center",

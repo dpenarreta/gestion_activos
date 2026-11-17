@@ -1,7 +1,8 @@
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { useAnunciar } from "../accesibilidad/anunciar";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useEstilos } from "../tema/apariencia";
 import { Icono } from "./Icono";
 import { crearEstilos } from "../tema/tipografia";
 
@@ -23,6 +24,8 @@ export function Boton({
   testID,
   expandido,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const inactivo = deshabilitado || cargando;
   const esPrimario = variante === "primario";
   // `sobreOscuro`: contorno y texto claros sobre el negro de la marca (el
@@ -103,6 +106,8 @@ export function BotonIcono({
   tamano = 24,
   expandido,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const inactivo = deshabilitado || cargando;
   const colorIcono =
     color ?? (variante === "oscuro" ? colores.sobreCabecera : variante === "peligro" ? colores.malTexto : colores.primario);
@@ -142,6 +147,8 @@ export function BotonIcono({
  * dice lo mismo sin depender del color.
  */
 export function Desplegable({ titulo, abierto, onCambiar, children, testID, estiloTitulo }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.desplegable}>
       <Pressable
@@ -161,6 +168,8 @@ export function Desplegable({ titulo, abierto, onCambiar, children, testID, esti
 }
 
 export function Cargando({ texto = "Cargando…" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.centro} accessible accessibilityRole="progressbar" accessibilityLabel={texto}>
       <ActivityIndicator size="large" color={colores.primario} />
@@ -170,6 +179,8 @@ export function Cargando({ texto = "Cargando…" }) {
 }
 
 export function Vacio({ texto, icono = "information-outline" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.centro} accessible accessibilityLabel={texto}>
       <Icono nombre={icono} size={32} color={colores.tintaTenue} />
@@ -180,6 +191,8 @@ export function Vacio({ texto, icono = "information-outline" }) {
 
 /** Un error con «Reintentar» (CA-5). Se anuncia al lector de pantalla. */
 export function ErrorConReintento({ texto, onReintentar }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   useAnunciar(texto);
   return (
     <View style={estilos.alertaMal} accessibilityRole="alert">
@@ -194,12 +207,14 @@ export function ErrorConReintento({ texto, onReintentar }) {
 
 /** Cómo se ve cada tipo de aviso: color, fondo e ícono (el tipo nunca se
  * transmite solo con color). */
-const TIPOS_DE_ALERTA = {
-  mal: { fondo: colores.malFondo, color: colores.malTexto, icono: "close-octagon-outline" },
-  aviso: { fondo: colores.avisoFondo, color: colores.avisoTexto, icono: "alert-outline" },
-  info: { fondo: colores.infoFondo, color: colores.infoTexto, icono: "information-outline" },
-  bien: { fondo: colores.bienFondo, color: colores.bienTexto, icono: "check-circle-outline" },
-};
+function tiposDeAlerta(colores) {
+  return {
+    mal: { fondo: colores.malFondo, color: colores.malTexto, icono: "close-octagon-outline" },
+    aviso: { fondo: colores.avisoFondo, color: colores.avisoTexto, icono: "alert-outline" },
+    info: { fondo: colores.infoFondo, color: colores.infoTexto, icono: "information-outline" },
+    bien: { fondo: colores.bienFondo, color: colores.bienTexto, icono: "check-circle-outline" },
+  };
+}
 
 /**
  * Un aviso en la pantalla. Los de tipo `mal`, `aviso` y `bien` (el resultado
@@ -208,9 +223,12 @@ const TIPOS_DE_ALERTA = {
  * interrumpir.
  */
 export function Alerta({ texto, tipo = "aviso", clave, testID }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const esAlerta = tipo !== "info";
   useAnunciar(texto, esAlerta, clave);
-  const { fondo, color, icono } = TIPOS_DE_ALERTA[tipo] ?? TIPOS_DE_ALERTA.aviso;
+  const tipos = tiposDeAlerta(colores);
+  const { fondo, color, icono } = tipos[tipo] ?? tipos.aviso;
   return (
     <View
       testID={testID}
@@ -223,7 +241,7 @@ export function Alerta({ texto, tipo = "aviso", clave, testID }) {
   );
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores) => crearEstilos({
   boton: {
     minHeight: AREA_TACTIL,
     minWidth: AREA_TACTIL,

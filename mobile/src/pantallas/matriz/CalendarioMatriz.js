@@ -1,10 +1,11 @@
 import { useFocusEffect } from "expo-router";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { anunciar } from "../../accesibilidad/anunciar";
 import { matrizService } from "../../api/servicios";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import {
   cuantas,
   DIAS_SEMANA,
@@ -19,7 +20,8 @@ import {
   tituloDelMes,
   tonoDeGrupo,
 } from "../../matriz/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { SinRolMatriz } from "./piezas";
 
@@ -51,6 +53,7 @@ export function nombreDelDia(dia, lista, hoy) {
  * Sin obligaciones no lleva a ningún lado.
  */
 const Dia = memo(function Dia({ dia, lista, hoy, onAbrir, ancho }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const cuenta = lista.length;
   const grupo = grupoMasUrgente(lista);
   const tono = grupo ? tonoDeGrupo(grupo) : null;
@@ -92,6 +95,7 @@ const Dia = memo(function Dia({ dia, lista, hoy, onAbrir, ancho }) {
  * nativas): 7 columnas, de domingo a sábado.
  */
 export function CalendarioMatriz({ matriz, onAbrirDia }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const zona = matriz.zona;
   const hoy = diaEnZona(new Date(), zona);
   const [mes, setMes] = useState(() => {
@@ -227,7 +231,7 @@ export function CalendarioMatriz({ matriz, onAbrirDia }) {
       testID="calendario-matriz"
       style={estilos.lista}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       <View style={estilos.navegacion}>
         <BotonIcono
@@ -318,7 +322,7 @@ export function CalendarioMatriz({ matriz, onAbrirDia }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   // 4 a los lados y los días sin margen: 7 columnas de 50 dp en 360 dp
   // ((360 − 8 − 2) / 7, medido con `onLayout`), por encima de los 48 dp de

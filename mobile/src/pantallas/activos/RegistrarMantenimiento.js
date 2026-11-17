@@ -40,8 +40,8 @@ import { SelectorFecha } from "../../componentes/SelectorFecha";
 import { Ventana } from "../../componentes/Ventana";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
@@ -131,6 +131,8 @@ function useBusquedaRemota(pedir, { inicial = false, mensaje }) {
 /** Sin `?activo=` (desde la lista, CA-14): un buscador de los activos
  * operativos (`GET activos/?operativos=true&q=`). */
 function BuscadorDeActivo({ onElegir, error, refFoco, deshabilitado }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const pedir = useCallback((q) => activosService.buscarOperativos(q), []);
   const { texto, setTexto, estado, reintentar } = useBusquedaRemota(pedir, { mensaje: "No se pudo buscar el equipo." });
   return (
@@ -197,6 +199,8 @@ const CAMPOS_COMPONENTE = { nombre: "Nombre", codigo: "Código", descripcion: "D
  * (`POST mantenimientos/componentes/`), que lo deja elegido.
  */
 function VentanaDeComponente({ puedeCrear, onElegir, onCerrar }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const pedir = useCallback((q) => mantenimientosService.componentes(q), []);
   const { texto, setTexto, estado, reintentar } = useBusquedaRemota(pedir, {
     inicial: true,
@@ -390,6 +394,8 @@ function VentanaDeComponente({ puedeCrear, onElegir, onCerrar }) {
 // --- Una línea de repuesto ----------------------------------------------------------
 
 function LineaDeRepuesto({ linea, indice, errores = {}, onCambio, onQuitar, deshabilitado, refFoco }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const nombre = `${linea.nombre}${linea.codigo ? ` (${linea.codigo})` : ""}`;
   return (
     <View style={estilos.repuesto} testID={`linea-${indice}`}>
@@ -480,6 +486,8 @@ function LineaDeRepuesto({ linea, indice, errores = {}, onCambio, onQuitar, desh
  * cambios pregunta. Al guardar se abre el detalle del mantenimiento.
  */
 export function RegistrarMantenimiento({ activoId = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
   const { usuario } = useSesion();
@@ -977,7 +985,7 @@ export function RegistrarMantenimiento({ activoId = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   centro: { padding: 16 },

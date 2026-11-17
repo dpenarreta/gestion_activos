@@ -1,13 +1,15 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View } from "react-native";
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 
 import { ordenesService } from "../../api/servicios";
 import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { kpisDelPanel, mensajeDeOrdenes, ordenesEnLaWeb, TEXTO_NADA_PENDIENTE, TEXTO_SIN_ACTIVIDAD } from "../../ordenes/formato";
 import { TONOS } from "../../soporte/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 import { ActivosEnElNavegador, useMontado } from "../activos/piezas";
@@ -22,6 +24,7 @@ import { FilaOrden } from "./piezas";
  * con la letra grande (más del 130 %) todas van una por fila. El orden es el
  * de la web. */
 function Tarjeta({ kpi, ancha }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const tono = TONOS[kpi.tono];
   return (
     <View
@@ -49,6 +52,8 @@ function Tarjeta({ kpi, ancha }) {
 /** Un movimiento de «Actividad reciente» (CA-5): el número de la orden
  * (UX H-06), qué pasó, quién y cuándo. Abre la ficha de su orden. */
 function FilaDeActividad({ movimiento, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const cuando = fechaYHora(movimiento.created_at);
   const conOrden = Boolean(movimiento.orden?.id);
   const contenido = (
@@ -98,6 +103,8 @@ function FilaDeActividad({ movimiento, onAbrir }) {
  * borra lo que se ve. Al cambiar de empresa se vuelve a pedir.
  */
 export function PanelOrdenes({ permisos, empresa, versionEmpresa, onAbrirOrden }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
   const { fontScale } = useWindowDimensions();
@@ -207,7 +214,7 @@ export function PanelOrdenes({ permisos, empresa, versionEmpresa, onAbrirOrden }
       testID="panel-ordenes"
       style={estilos.lista}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {contenido}
       <View style={estilos.pie}>
@@ -222,7 +229,7 @@ export function PanelOrdenes({ permisos, empresa, versionEmpresa, onAbrirOrden }
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   lista: { flex: 1 },
   contenido: { padding: 16, paddingTop: 8, paddingBottom: 32, gap: 16 },
   tenue: { fontSize: 14, color: colores.tintaSuave },

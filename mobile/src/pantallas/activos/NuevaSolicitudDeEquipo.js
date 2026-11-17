@@ -24,7 +24,7 @@ import { ErrorDeCampo, OpcionesEnLinea, SelectorDeLista } from "../../componente
 import { SelectorFecha } from "../../componentes/SelectorFecha";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { errorDeGuardado, textoRevise, useCandado, useReenvioConfirmado, useSalirConCambios } from "./formularios";
@@ -57,6 +57,7 @@ const SI_NO = [
  * `EspecificacionesDelTipo` de la web): número, sí/no, lista, fecha o texto.
  * La usa también el alta y la edición de un activo (US-023, CA-3). */
 export function CampoDeCaracteristica({ c, valor, error, onCambio, deshabilitado, refFoco }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const etiqueta = `${c.nombre}${c.unidad ? ` (${c.unidad})` : ""}`;
   const comun = { etiqueta, obligatorio: Boolean(c.obligatoria), opcional: !c.obligatoria, error, deshabilitado };
   if (c.dato === "booleano") {
@@ -138,6 +139,7 @@ export function CampoDeCaracteristica({ c, valor, error, onCambio, deshabilitado
  * detalle, que dice si al encargado no le llegó el correo.
  */
 export function NuevaSolicitudDeEquipo() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
   const { usuario } = useSesion();
@@ -501,7 +503,7 @@ export function NuevaSolicitudDeEquipo() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   centro: { padding: 16 },

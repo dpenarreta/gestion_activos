@@ -1,6 +1,6 @@
 import { useNavigation, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { tamanoLegible } from "../../adjuntos/seleccion";
 import { adjuntosService, mantenimientosService } from "../../api/servicios";
@@ -9,10 +9,12 @@ import { tomarResultado } from "../../activos/avisoPendiente";
 import { dinero, mensajeDeActivos } from "../../activos/formato";
 import { diasFuera, estadoDelMantenimiento, fechasDelMantenimiento } from "../../activos/mantenimientos";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { VisorDeImagen } from "../../componentes/VisorDeImagen";
 import { useSesion } from "../../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta, fechaYHora } from "../../utils/fechas";
 import { Dato, Pildora, Seccion } from "../soporte/piezas";
@@ -29,6 +31,8 @@ function resultados(datos) {
 /** Un repuesto del desglose: nombre, cantidad, costo, serie y si es pieza
  * crítica (con texto, no solo color). */
 function Repuesto({ c }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const partes = [
     `Cantidad: ${c.cantidad}`,
     c.costo_unitario ? `Costo unitario: ${dinero(c.costo_unitario)}` : null,
@@ -63,6 +67,8 @@ function Repuesto({ c }) {
 /** Un adjunto: un botón que lo abre (imagen en el visor de la app; lo demás
  * con el sistema). */
 function FilaAdjunto({ a, abriendo, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const cargando = abriendo === a.id;
   const tamano = tamanoLegible(a.tamano_bytes);
   const detalle = [a.tipo_display, tamano, a.subido_por_nombre ? `subió ${a.subido_por_nombre}` : null, fechaYHora(a.created_at)]
@@ -103,6 +109,7 @@ function FilaAdjunto({ a, abriendo, onAbrir }) {
  * activa, como en la ficha del activo.
  */
 export function DetalleMantenimiento({ id, empresa = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
@@ -218,7 +225,7 @@ export function DetalleMantenimiento({ id, empresa = null }) {
       testID="detalle-mantenimiento"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}
       {resultado?.texto ? <Alerta tipo="bien" texto={resultado.texto} clave={resultado.clave} testID="resultado-mantenimiento" /> : null}
@@ -328,7 +335,7 @@ export function DetalleMantenimiento({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 40, gap: 16 },
   centro: { padding: 16 },

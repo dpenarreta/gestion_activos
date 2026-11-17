@@ -21,7 +21,8 @@ import {
 } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
 import { SONDEO_FICHAS_MS, useSondeo } from "../../soporte/useSondeo";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { aHora, fechaCorta, fechaYHora } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
@@ -59,6 +60,8 @@ const HECHO = {
 };
 
 function Encuesta({ ticket, onResponder, enviando, error }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [calificacion, setCalificacion] = useState(0);
   const [resuelto, setResuelto] = useState(null);
   const [comentario, setComentario] = useState("");
@@ -165,6 +168,7 @@ function Encuesta({ ticket, onResponder, enviando, error }) {
 }
 
 export function MiTicket({ id, empresa = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
@@ -559,7 +563,7 @@ export function MiTicket({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   cabecera: { gap: 2 },

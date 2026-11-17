@@ -15,12 +15,23 @@ import { anunciar } from "../accesibilidad/anunciar";
 import { mensajeDeError } from "../api/errores";
 import { Alerta, Boton } from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
+import { Casilla } from "../componentes/Selectores";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useSesion } from "../sesion/SesionContext";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { useTextosDeAcceso } from "../sesion/textosDeAcceso";
+import {
+  DIAS_RECORDADO,
+  leerUsuarioRecordado,
+  olvidarUsuario,
+  recordarUsuario,
+} from "../sesion/usuarioRecordado";
+import { AREA_TACTIL } from "../tema/colores";
+import { useApariencia, useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 
 const LOGOTIPO = require("../../assets/marca/laarcourier-positivo.png");
+// US-026 (CA-7): en oscuro, el negativo, como la web (`marca.css`).
+const LOGOTIPO_NEGATIVO = require("../../assets/marca/laarcourier-negativo.png");
 /** Proporción del logotipo LAARCOURIER (709 × 118): nunca se deforma. */
 const PROPORCION_LOGOTIPO = 709 / 118;
 /** El Brand Book pide al menos 3 cm de ancho (~113 px). */
@@ -28,6 +39,7 @@ const ANCHO_MINIMO_LOGOTIPO = 113;
 
 export const FALTA_USUARIO = "Escriba su usuario, correo o código de empleado.";
 export const FALTA_CONTRASENA = "Escriba su contraseña.";
+export const TEXTO_RECORDAR_USUARIO = `Recordar mi usuario en este teléfono (${DIAS_RECORDADO} días)`;
 
 /** La etiqueta del campo con su error: la pista (`accessibilityHint`) se
  * lee tarde o no se lee según la configuración del lector, y el error tiene
@@ -39,6 +51,8 @@ export function etiquetaConError(etiqueta, error) {
 /** Un campo con su etiqueta y, si hay, su error debajo: el borde cambia y el
  * lector de pantalla oye el error junto con el nombre del campo. */
 function Campo({ etiqueta, error, children, id }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.campo}>
       <Text style={estilos.etiqueta} nativeID={`etiqueta-${id}`}>
@@ -63,13 +77,22 @@ function Campo({ etiqueta, error, children, id }) {
  * botón no admite un segundo envío mientras el primero no termina: el estado
  * de React tarda un render en deshabilitarlo, así que además hay un candado
  * síncrono (`enviando`).
+ *
+ * US-028 (17/11/2026), como la web: el título y el subtítulo salen del tema
+ * (CA-4) y el usuario se recuerda 30 días con «Recordar mi usuario», marcado
+ * por defecto (CA-5). La contraseña nunca se guarda.
  */
 export function Login() {
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const { iniciarSesion, aviso } = useSesion();
   const { width } = useWindowDimensions();
   // Hasta 260 pt y nunca por debajo del mínimo de la marca.
   const anchoLogotipo = Math.max(ANCHO_MINIMO_LOGOTIPO, Math.min(260, (width || 360) - 96));
-  const [identificador, setIdentificador] = useState("");
+  const textos = useTextosDeAcceso();
+  // El usuario recordado en este teléfono (30 días), ya leído al arrancar.
+  const [identificador, setIdentificador] = useState(() => leerUsuarioRecordado());
+  const [recordar, setRecordar] = useState(true);
   const [contrasena, setContrasena] = useState("");
   const [mostrar, setMostrar] = useState(false);
   const [cargando, setCargando] = useState(false);
@@ -95,6 +118,10 @@ export function Login() {
     setError(null);
     try {
       await iniciarSesion(identificador, contrasena);
+      // Como la web: solo tras entrar con éxito, y sin esperar (la pantalla
+      // ya se está yendo).
+      if (recordar) recordarUsuario(identificador);
+      else olvidarUsuario();
       // Al entrar, el guard de la navegación lleva al Inicio y esta pantalla
       // se desmonta: no se toca más el estado.
     } catch (e) {
@@ -127,13 +154,14 @@ export function Login() {
       <KeyboardAvoidingView style={estilos.flex} behavior="padding">
         <ScrollView contentContainerStyle={estilos.contenido} keyboardShouldPersistTaps="handled">
           <View style={estilos.marca}>
-            {/* Logotipo LAARCOURIER en positivo sobre el fondo claro, con su
-                área de protección (el `padding` del contenedor). El ícono LCE
-                no va junto a él (Brand Book 2026). */}
+            {/* Logotipo LAARCOURIER en positivo sobre el fondo claro (en
+                negativo sobre el oscuro, US-026), con su área de protección
+                (el `padding` del contenedor). El ícono LCE no va junto a él
+                (Brand Book 2026). */}
             <View style={estilos.areaLogotipo}>
               <Image
                 testID="logotipo-laarcourier"
-                source={LOGOTIPO}
+                source={oscuro ? LOGOTIPO_NEGATIVO : LOGOTIPO}
                 style={{ width: anchoLogotipo, height: anchoLogotipo / PROPORCION_LOGOTIPO }}
                 resizeMode="contain"
                 accessible
@@ -144,8 +172,14 @@ export function Login() {
             <Text style={estilos.nombreApp} accessibilityRole="header">
               Intranet LCE
             </Text>
-            <Text style={estilos.titulo}>Acceso al sistema</Text>
-            <Text style={estilos.subtitulo}>Ingrese con su usuario corporativo.</Text>
+            <Text style={estilos.titulo} testID="titulo-acceso">
+              {textos.titulo}
+            </Text>
+            {textos.subtitulo ? (
+              <Text style={estilos.subtitulo} testID="subtitulo-acceso">
+                {textos.subtitulo}
+              </Text>
+            ) : null}
           </View>
 
           {aviso && !error && <Alerta texto={aviso} tipo="aviso" />}
@@ -202,6 +236,15 @@ export function Login() {
             </View>
           </Campo>
 
+          <Casilla
+            testID="recordar-usuario"
+            etiqueta={TEXTO_RECORDAR_USUARIO}
+            ayuda="Solo el usuario, nunca la contraseña."
+            marcada={recordar}
+            onCambio={setRecordar}
+            deshabilitado={cargando}
+          />
+
           <Boton testID="boton-entrar" titulo="Entrar" onPress={enviar} cargando={cargando} />
 
           <Pressable
@@ -221,7 +264,7 @@ export function Login() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   flex: { flex: 1 },
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 16 },

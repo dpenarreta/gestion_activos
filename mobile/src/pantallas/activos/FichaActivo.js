@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { activosService } from "../../api/servicios";
+import { conActaDeEntrega, TEXTO_ABRIENDO_ACTA, TITULO_ACTA_ENTREGA, useActaDeEntrega } from "../../activos/actaEntrega";
 import { tomarResultado } from "../../activos/avisoPendiente";
 import {
   cambiosDelMovimiento,
@@ -16,9 +17,10 @@ import {
   TEXTO_NO_DISPONIBLE,
 } from "../../activos/formato";
 import { Alerta, Boton, Cargando, Desplegable, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { Icono } from "../../componentes/Icono";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta, fechaYHora } from "../../utils/fechas";
 import { Dato, Pildora, Seccion } from "../soporte/piezas";
@@ -43,8 +45,10 @@ export function rutaDeEditarActivo(activo) {
 export const MOVIMIENTOS_A_LA_VISTA = 5;
 
 /** Un movimiento de la bitácora (CA-7): qué pasó, cuándo, quién y qué
- * cambió. */
-function FilaMovimiento({ m }) {
+ * cambió. US-028 (CA-7): en una asignación, quien tiene
+ * `activos.acta_entrega` ve el acta AEE-LC-01 (`conActa`), como la web. */
+function FilaMovimiento({ m, conActa = false, abriendoActa = false, ocupado = false, onActa }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const cambios = cambiosDelMovimiento(m);
   return (
     <View style={estilos.fila} testID={`movimiento-${m.id}`}>
@@ -58,6 +62,29 @@ function FilaMovimiento({ m }) {
         </Text>
       ))}
       {m.motivo ? <Text style={estilos.dato}>{`Motivo: ${m.motivo}`}</Text> : null}
+      {conActa ? (
+        <Boton
+          testID={`acta-entrega-${m.id}`}
+          titulo={abriendoActa ? TEXTO_ABRIENDO_ACTA : TITULO_ACTA_ENTREGA}
+          // Mientras se abre, el nombre accesible es el texto visible (QA,
+          // 17/11/2026).
+          etiqueta={
+            abriendoActa
+              ? TEXTO_ABRIENDO_ACTA
+              : `Acta de recepción de equipo AEE-LC-01 de la entrega a ${m.custodio_nuevo_nombre}`
+          }
+          pista="Abre el PDF del acta; si todavía no se generó, lleva a la web"
+          icono="file-document-outline"
+          variante="secundario"
+          cargando={abriendoActa}
+          deshabilitado={ocupado && !abriendoActa}
+          // Sin devolver la promesa: el candado de `useActaDeEntrega` evita
+          // el segundo toque.
+          onPress={() => {
+            onActa?.(m);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -76,6 +103,8 @@ function FilaMovimiento({ m }) {
  * en la empresa activa: los permisos y los catálogos son los de ella.
  */
 export function FichaActivo({ id, empresa = null }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
   const permisos = usuario?.permissions ?? [];
@@ -89,6 +118,7 @@ export function FichaActivo({ id, empresa = null }) {
   const consulta = useRef(0);
   const cargaRef = useRef(carga);
   cargaRef.current = carga;
+  const acta = useActaDeEntrega({ activoId: id, empresa: empresa ?? empresaActiva?.id });
 
   const cargar = useCallback(
     async ({ silenciosa = false } = {}) => {
@@ -186,7 +216,7 @@ export function FichaActivo({ id, empresa = null }) {
       testID="ficha-activo"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}
       {resultado ? <Alerta tipo="bien" texto={resultado.texto} clave={resultado.clave} testID="resultado-accion" /> : null}
@@ -324,11 +354,21 @@ export function FichaActivo({ id, empresa = null }) {
       </Seccion>
 
       <Seccion titulo="Movimientos" testID="bitacora-movimientos">
+        {acta.aviso ? (
+          <Alerta tipo={acta.aviso.tipo} texto={acta.aviso.texto} clave={acta.aviso.clave} testID="aviso-acta-entrega" />
+        ) : null}
         {movimientos.length === 0 ? (
           <Vacio icono="history" texto="Sin movimientos registrados." />
         ) : (
           (todosLosMovimientos ? movimientos : movimientos.slice(0, MOVIMIENTOS_A_LA_VISTA)).map((m) => (
-            <FilaMovimiento key={m.id} m={m} />
+            <FilaMovimiento
+              key={m.id}
+              m={m}
+              conActa={enLaActiva && conActaDeEntrega(m, permisos)}
+              abriendoActa={acta.abriendo === m.id}
+              ocupado={acta.abriendo !== null}
+              onActa={acta.abrir}
+            />
           ))
         )}
         {movimientos.length > MOVIMIENTOS_A_LA_VISTA ? (
@@ -369,7 +409,7 @@ export function FichaActivo({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 40, gap: 16 },
   centro: { padding: 16 },

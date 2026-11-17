@@ -12,8 +12,8 @@ import {
   URGENCIAS_LLANAS,
 } from "../../soporte/formato";
 import { MINIMO_PARA_SUGERIR, sugerirCasos } from "../../soporte/sugerirCaso";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 
@@ -38,6 +38,8 @@ const TECLADOS = { numero: "decimal-pad", correo: "email-address", telefono: "ph
 const LARGOS = { texto: 200, parrafo: 2000, correo: 254, telefono: 20, numero: 30 };
 
 function Sugerencias({ datos, valores, onBase, deshabilitado }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const descripcion = valores.descripcion ?? "";
   // La descripción con la que se sugiere: la de cuando se dejó de escribir.
   const [pausada, setPausada] = useState(descripcion);
@@ -173,6 +175,7 @@ export function FormularioDelTicket({
   refFoco = () => undefined,
   deshabilitado = false,
 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const visibles = camposVisibles(datos.campos, valores.categoria, describirPrimero);
   const categorias = datos.categorias ?? [];
   const categoria = categorias.find((c) => String(c.id) === String(valores.categoria));
@@ -286,7 +289,7 @@ export function FormularioDelTicket({
   });
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   grupo: { gap: 6 },
   texto: { fontSize: 15, color: colores.tinta },
   negrita: { fontWeight: "700" },

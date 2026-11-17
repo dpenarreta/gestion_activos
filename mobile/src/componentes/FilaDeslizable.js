@@ -2,7 +2,7 @@ import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "
 import { ScrollView, View } from "react-native";
 
 import { useMenosMovimiento } from "../accesibilidad/useMenosMovimiento";
-import { colores } from "../tema/colores";
+import { useColores } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { Icono } from "./Icono";
 
@@ -58,14 +58,18 @@ function Desvanecido({ lado, fondo, colorChevron }) {
 export const FilaDeslizable = forwardRef(function FilaDeslizable(
   {
     children,
-    fondo = colores.cabecera,
-    colorChevron = colores.tintaInactivaOscuro,
+    fondo: fondoPedido,
+    colorChevron: chevronPedido,
     style,
     contentContainerStyle,
     ...resto
   },
   ref,
 ) {
+  // Por defecto, la cabecera y su gris (US-026: los del modo que se ve).
+  const colores = useColores();
+  const fondo = fondoPedido ?? colores.cabecera;
+  const colorChevron = chevronPedido ?? colores.tintaInactivaOscuro;
   const desplazable = useRef(null);
   const menosMovimiento = useMenosMovimiento();
   const [medidas, setMedidas] = useState({ desplazamiento: 0, ancho: 0, contenido: 0 });

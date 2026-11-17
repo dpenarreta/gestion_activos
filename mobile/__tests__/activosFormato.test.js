@@ -283,11 +283,29 @@ describe("ficha (CA-7)", () => {
       "/admin/activos/42",
     ]);
     expect(fichaEnLaWeb({ id: "x" }, ["activos.ver"])).toEqual([]);
-    expect(activosEnLaWeb(["activos.ver"]).map((a) => a.nombre)).toEqual(["Tipos de dispositivo"]);
+    expect(activosEnLaWeb(["activos.ver"]).map((a) => a.nombre)).toEqual(["Categorías", "Tipos de dispositivo"]);
     expect(activosEnLaWeb(["activos.crear", "alertas.ver"]).map((a) => a.nombre)).toEqual([
       "Carga masiva",
       "Alertas",
     ]);
+  });
+});
+
+describe("US-028 · CA-6: Categorías, Componentes y Políticas en la web", () => {
+  it("cada uno con el permiso con que lo muestra el menú web", () => {
+    const rutas = (permisos) => activosEnLaWeb(permisos).map((a) => a.ruta);
+    expect(rutas(["activos.ver"])).toEqual(["/admin/activos/categorias", "/admin/activos/tipos"]);
+    expect(rutas(["mantenimientos.ver"])).toEqual(["/admin/mantenimientos/componentes"]);
+    expect(rutas(["politicas.ver"])).toEqual(["/admin/renovacion/sugerencias", "/admin/politicas"]);
+    expect(activosEnLaWeb(["activos.ver", "mantenimientos.ver", "politicas.ver"]).map((a) => a.nombre)).toEqual([
+      "Renovación",
+      "Políticas",
+      "Categorías",
+      "Tipos de dispositivo",
+      "Componentes",
+    ]);
+    // Sin el permiso, no aparecen.
+    expect(rutas(["solicitudes.ver"])).toEqual([]);
   });
 });
 

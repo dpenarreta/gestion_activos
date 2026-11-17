@@ -11,7 +11,7 @@ import { AccionPendiente } from "../../pantallas/AccionPendiente";
 import { ResumenPermisosProvider } from "../../permisos/ResumenPermisosContext";
 import { useSesion } from "../../sesion/SesionContext";
 import { ResumenSoporteProvider } from "../../soporte/ResumenSoporteContext";
-import { colores } from "../../tema/colores";
+import { useColores } from "../../tema/apariencia";
 import { familia } from "../../tema/tipografia";
 
 /**
@@ -23,8 +23,9 @@ import { familia } from "../../tema/tipografia";
  */
 export const unstable_settings = { anchor: "(tabs)" };
 
-/** Una función y no una constante: la familia depende de si Poppins cargó. */
-function cabecera() {
+/** Una función y no una constante: la familia depende de si Poppins cargó,
+ * y los colores, del modo (US-026; en oscuro, el negro del menú de la web). */
+function cabecera(colores) {
   return {
     headerBackTitle: "Volver",
     headerStyle: { backgroundColor: colores.cabecera },
@@ -45,6 +46,7 @@ function tituloDeLaLista(estado) {
 }
 
 export default function AppLayout() {
+  const colores = useColores();
   const { usuario } = useSesion();
   // Lo que la web exige antes de entrar (cambio de contraseña obligatorio o
   // aviso de privacidad sin aceptar) se completa en la web: la app no
@@ -67,53 +69,54 @@ export default function AppLayout() {
         <ChatProvider>
           {/* US-014: lo pendiente de la Mesa de ayuda («Para hoy»). */}
           <ResumenSoporteProvider>
-            {/* Las cabeceras son #1E1E1E (marca): la barra de estado, en blanco. */}
+            {/* Las cabeceras son negras (marca, en los dos modos): la barra de
+                estado, en blanco. */}
             <StatusBar style="light" />
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               {/* US-016: Avisos y Cuenta salen de la barra y se abren desde la
                   cabecera de los módulos, con su cabecera y «Volver». */}
-              <Stack.Screen name="notificaciones" options={{ ...cabecera(), title: "Notificaciones" }} />
-              <Stack.Screen name="cuenta" options={{ ...cabecera(), title: "Mi perfil" }} />
-              <Stack.Screen name="notificacion/[id]" options={{ ...cabecera(), title: "Notificación" }} />
-              <Stack.Screen name="permisos/nueva" options={{ ...cabecera(), title: "Nueva solicitud" }} />
-              <Stack.Screen name="permisos/solicitud/[id]" options={{ ...cabecera(), title: "Solicitud de permiso" }} />
-              <Stack.Screen name="chat/conversacion/[id]" options={{ ...cabecera(), title: "Conversación" }} />
+              <Stack.Screen name="notificaciones" options={{ ...cabecera(colores), title: "Notificaciones" }} />
+              <Stack.Screen name="cuenta" options={{ ...cabecera(colores), title: "Mi perfil" }} />
+              <Stack.Screen name="notificacion/[id]" options={{ ...cabecera(colores), title: "Notificación" }} />
+              <Stack.Screen name="permisos/nueva" options={{ ...cabecera(colores), title: "Nueva solicitud" }} />
+              <Stack.Screen name="permisos/solicitud/[id]" options={{ ...cabecera(colores), title: "Solicitud de permiso" }} />
+              <Stack.Screen name="chat/conversacion/[id]" options={{ ...cabecera(colores), title: "Conversación" }} />
               {/* US-024 (UX H-01): de un grupo, «Información del grupo». */}
               <Stack.Screen
                 name="chat/participantes/[id]"
-                options={({ route }) => ({ ...cabecera(), title: tituloDeParticipantes(route?.params?.grupo) })}
+                options={({ route }) => ({ ...cabecera(colores), title: tituloDeParticipantes(route?.params?.grupo) })}
               />
-              <Stack.Screen name="chat/contacto/[id]" options={{ ...cabecera(), title: "Contacto" }} />
-              <Stack.Screen name="chat/nuevo" options={{ ...cabecera(), title: "Nuevo mensaje" }} />
+              <Stack.Screen name="chat/contacto/[id]" options={{ ...cabecera(colores), title: "Contacto" }} />
+              <Stack.Screen name="chat/nuevo" options={{ ...cabecera(colores), title: "Nuevo mensaje" }} />
               {/* US-024: crear un grupo en la app (antes, en la web). */}
-              <Stack.Screen name="chat/grupo-nuevo" options={{ ...cabecera(), title: "Nuevo grupo" }} />
-              <Stack.Screen name="chat/mi-estado" options={{ ...cabecera(), title: "Mi estado" }} />
-              <Stack.Screen name="soporte/nuevo" options={{ ...cabecera(), title: "Nuevo ticket" }} />
-              <Stack.Screen name="soporte/registrar" options={{ ...cabecera(), title: "Registrar ticket" }} />
-              <Stack.Screen name="soporte/mi-ticket/[id]" options={{ ...cabecera(), title: "Mi ticket" }} />
-              <Stack.Screen name="soporte/ticket/[id]" options={{ ...cabecera(), title: "Ticket" }} />
+              <Stack.Screen name="chat/grupo-nuevo" options={{ ...cabecera(colores), title: "Nuevo grupo" }} />
+              <Stack.Screen name="chat/mi-estado" options={{ ...cabecera(colores), title: "Mi estado" }} />
+              <Stack.Screen name="soporte/nuevo" options={{ ...cabecera(colores), title: "Nuevo ticket" }} />
+              <Stack.Screen name="soporte/registrar" options={{ ...cabecera(colores), title: "Registrar ticket" }} />
+              <Stack.Screen name="soporte/mi-ticket/[id]" options={{ ...cabecera(colores), title: "Mi ticket" }} />
+              <Stack.Screen name="soporte/ticket/[id]" options={{ ...cabecera(colores), title: "Ticket" }} />
               {/* US-019: la Matriz de obligaciones. */}
               <Stack.Screen
                 name="matriz/estado/[estado]"
-                options={({ route }) => ({ ...cabecera(), title: tituloDeLaLista(route?.params?.estado) })}
+                options={({ route }) => ({ ...cabecera(colores), title: tituloDeLaLista(route?.params?.estado) })}
               />
-              <Stack.Screen name="matriz/dia/[fecha]" options={{ ...cabecera(), title: "Vencimientos del día" }} />
-              <Stack.Screen name="matriz/periodo/[id]" options={{ ...cabecera(), title: "Obligación" }} />
+              <Stack.Screen name="matriz/dia/[fecha]" options={{ ...cabecera(colores), title: "Vencimientos del día" }} />
+              <Stack.Screen name="matriz/periodo/[id]" options={{ ...cabecera(colores), title: "Obligación" }} />
               {/* US-022: Gestión de Activos (la ficha, el escáner, la bitácora
                   de mantenimientos y las solicitudes de equipos). */}
-              <Stack.Screen name="activos/[id]" options={{ ...cabecera(), title: "Activo" }} />
-              <Stack.Screen name="activos/escanear" options={{ ...cabecera(), title: "Escanear" }} />
+              <Stack.Screen name="activos/[id]" options={{ ...cabecera(colores), title: "Activo" }} />
+              <Stack.Screen name="activos/escanear" options={{ ...cabecera(colores), title: "Escanear" }} />
               {/* US-023: registrar un activo y editar su ficha técnica. */}
-              <Stack.Screen name="activos/nuevo" options={{ ...cabecera(), title: "Registrar activo" }} />
-              <Stack.Screen name="activos/[id]/editar" options={{ ...cabecera(), title: "Editar activo" }} />
-              <Stack.Screen name="mantenimientos/nuevo" options={{ ...cabecera(), title: "Registrar mantenimiento" }} />
-              <Stack.Screen name="mantenimientos/[id]" options={{ ...cabecera(), title: "Mantenimiento" }} />
-              <Stack.Screen name="solicitudes/nueva" options={{ ...cabecera(), title: "Nueva solicitud de equipo" }} />
-              <Stack.Screen name="solicitudes/[id]" options={{ ...cabecera(), title: "Solicitud de equipo" }} />
+              <Stack.Screen name="activos/nuevo" options={{ ...cabecera(colores), title: "Registrar activo" }} />
+              <Stack.Screen name="activos/[id]/editar" options={{ ...cabecera(colores), title: "Editar activo" }} />
+              <Stack.Screen name="mantenimientos/nuevo" options={{ ...cabecera(colores), title: "Registrar mantenimiento" }} />
+              <Stack.Screen name="mantenimientos/[id]" options={{ ...cabecera(colores), title: "Mantenimiento" }} />
+              <Stack.Screen name="solicitudes/nueva" options={{ ...cabecera(colores), title: "Nueva solicitud de equipo" }} />
+              <Stack.Screen name="solicitudes/[id]" options={{ ...cabecera(colores), title: "Solicitud de equipo" }} />
               {/* US-025: Órdenes de trabajo (la ficha y el alta). */}
-              <Stack.Screen name="ordenes/[id]" options={{ ...cabecera(), title: "Orden de trabajo" }} />
-              <Stack.Screen name="ordenes/nueva" options={{ ...cabecera(), title: "Nueva orden" }} />
+              <Stack.Screen name="ordenes/[id]" options={{ ...cabecera(colores), title: "Orden de trabajo" }} />
+              <Stack.Screen name="ordenes/nueva" options={{ ...cabecera(colores), title: "Nueva orden" }} />
             </Stack>
           </ResumenSoporteProvider>
         </ChatProvider>

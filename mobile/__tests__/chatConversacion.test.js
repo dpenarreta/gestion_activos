@@ -24,6 +24,7 @@ import {
   TEXTO_NO_ENCONTRADA,
   TEXTO_SIN_MENSAJES,
 } from "../src/pantallas/chat/Conversacion";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 /**
  * La pantalla de una conversación (US-011: CA-2, CA-3, CA-6, CA-7, CA-9,
@@ -1379,5 +1380,19 @@ describe("correcciones de la ronda 2 de QA", () => {
     expect(screen.getByRole("header", { name: "Ayer" })).toBeTruthy();
     expect(screen.queryByRole("header", { name: "Hoy" })).toBeNull();
     await unmount();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la conversación en oscuro: burbujas propias y ajenas legibles (CA-5)", async () => {
+    const { StyleSheet } = require("react-native");
+    const vista = await renderEnOscuro(<Conversacion id="5" />);
+    expect(await screen.findByText("Mensaje 11")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+    const { paletaOscura } = require("../src/tema/colores");
+    expect(StyleSheet.flatten(screen.getByText("Mensaje 11").props.style).color).toBe(paletaOscura.sobreBurbujaPropia);
+    expect(StyleSheet.flatten(screen.getByText("Mensaje 10").props.style).color).toBe(paletaOscura.tinta);
   });
 });

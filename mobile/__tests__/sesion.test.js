@@ -380,3 +380,20 @@ describe("cambio de empresa", () => {
     expect(SecureStore.__datos.get("ilce_empresa")).toBe("5");
   });
 });
+
+describe("al arrancar la app (QA US-028, punto 9)", () => {
+  it("borra un acta o adjunto de activos que quedó de una ejecución que terminó a la fuerza", async () => {
+    const FileSystem = require("expo-file-system");
+    const { carpetaDeDescargas, CARPETAS_DE_DESCARGAS } = require("../src/adjuntos/descargas");
+    expect(CARPETAS_DE_DESCARGAS).toContain("activos-adjuntos");
+    const carpeta = carpetaDeDescargas("activos-adjuntos");
+    const acta = new FileSystem.File(carpeta, "acta-entrega-31.pdf");
+    FileSystem.__existentes.add(acta.uri);
+    expect(acta.exists).toBe(true);
+    backend();
+    await montar();
+    await waitFor(() => expect(sesion?.estado).toBe("anonimo"));
+    expect(acta.exists).toBe(false);
+    expect(carpeta.exists).toBe(false);
+  });
+});

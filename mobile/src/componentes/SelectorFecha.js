@@ -3,8 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, Text, View } from "react-native";
 
 import { aHora, aIso, deHora, deIso, fechaCorta, fechaLarga } from "../utils/fechas";
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { estilos as comunes } from "./comunes";
+import { AREA_TACTIL } from "../tema/colores";
+import { useApariencia, useEstilos } from "../tema/apariencia";
+import { fabricaDeEstilos as fabricaDeComunes } from "./comunes";
 import { Icono } from "./Icono";
 import { crearEstilos } from "../tema/tipografia";
 
@@ -51,6 +52,11 @@ export function SelectorFecha({
   // El botón del selector, para llevarle el foco con un error (R-03).
   refFoco,
 }) {
+  // US-026: la rueda y el calendario de iOS siguen el modo de la app; en
+  // Android el diálogo nativo sigue el modo que fija `ProveedorDeApariencia`.
+  const { colores, oscuro } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
+  const comunes = useEstilos(fabricaDeComunes);
   const [abiertoEnIos, setAbiertoEnIos] = useState(false);
   const esFecha = modo === "date";
   const inicial = valor || porDefecto;
@@ -167,7 +173,7 @@ export function SelectorFecha({
               if (esFecha) elegido(fecha);
             }}
             accentColor={colores.primario}
-            themeVariant="light"
+            themeVariant={oscuro ? "dark" : "light"}
           />
           <View style={estilos.accionesIos}>
           <Pressable
@@ -195,7 +201,7 @@ export function SelectorFecha({
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   campo: { gap: 4, flexGrow: 1, flexBasis: 140 },
   // Con el calendario o la rueda de iOS abiertos, el campo ocupa toda la
   // fila (revisión UX, A-1): la fila que lo contiene lleva `flexWrap`.

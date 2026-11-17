@@ -325,6 +325,36 @@ describe("nuevo ticket: faltan datos del perfil (CA-5)", () => {
   });
 });
 
+describe("US-028 · CA-3: la extensión en «Sus datos»", () => {
+  const { textoDeSusDatos } = require("../src/pantallas/soporte/NuevoTicket");
+
+  it("va junto a los teléfonos, solo si tiene línea fija y la escribió (como la web)", () => {
+    const base = formulario().mis_datos;
+    expect(textoDeSusDatos({ ...base, tiene_linea_fija: true, linea_fija_extension: "1234" })).toBe(
+      "Ana Pérez · ana@grupolaar.com · corporativo 022345678 · extensión 1234 · Cartera · Matriz",
+    );
+    expect(textoDeSusDatos({ ...base, tiene_linea_fija: false, linea_fija_extension: "1234" })).not.toMatch(/extensión/);
+    expect(textoDeSusDatos({ ...base, tiene_linea_fija: true, linea_fija_extension: " " })).not.toMatch(/extensión/);
+    expect(textoDeSusDatos({ ...base })).not.toMatch(/extensión/);
+  });
+
+  it("se ve y se oye en el formulario del ticket propio", async () => {
+    soporteService.formularioPropio.mockResolvedValue(
+      formulario({ mis_datos: { ...formulario().mis_datos, tiene_linea_fija: true, linea_fija_extension: "1234" } }),
+    );
+    await render(<NuevoTicket />);
+    await screen.findByTestId("campo-descripcion");
+    expect(
+      screen.getByLabelText(
+        "Le contactaremos como Ana Pérez · ana@grupolaar.com · corporativo 022345678 · extensión 1234 · Cartera · Matriz.",
+      ),
+    ).toBeTruthy();
+    // Igual que la web (cb099ce): tras confirmarse, los datos no se cambian
+    // desde aquí; ya no hay «Cambiar mis datos en el navegador».
+    expect(screen.queryByTestId("cambiar-mis-datos")).toBeNull();
+  });
+});
+
 /** Con la forma de `tickets/personas/` (`contacto.de`). */
 function persona(campos = {}) {
   return {

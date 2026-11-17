@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Pressable,
-  RefreshControl,
   ScrollView,
   Text,
   useWindowDimensions,
@@ -10,28 +9,26 @@ import {
 } from "react-native";
 
 import { inicioService } from "../api/servicios";
-import { useChat } from "../chat/ChatContext";
-import { textoSinLeer } from "../chat/formato";
 import {
   Alerta,
   Cargando,
   ErrorConReintento,
   Vacio,
 } from "../componentes/comunes";
+import { Refresco } from "../componentes/Refresco";
 import { BotonRedondo } from "../componentes/BotonRedondo";
 import { Icono, nombreDeIcono } from "../componentes/Icono";
 import { abrirEnNavegador, urlWeb } from "../navegador/enlaceWeb";
 import { useContador } from "../notificaciones/ContadorContext";
-import { useResumenPermisos } from "../permisos/ResumenPermisosContext";
 import { useSesion } from "../sesion/SesionContext";
 import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
-import { useResumenSoporte } from "../soporte/ResumenSoporteContext";
-import { AREA_TACTIL, colores } from "../tema/colores";
+import { AREA_TACTIL } from "../tema/colores";
+import { useApariencia, useEstilos } from "../tema/apariencia";
 import { CalendarioInicio } from "./CalendarioInicio";
 import { CarruselNoticias } from "./CarruselNoticias";
+import { ParaHoy } from "./ParaHoy";
 import { crearEstilos } from "../tema/tipografia";
 import { diaEnZona } from "../matriz/formato";
-import { coloresDeFamilia } from "../notificaciones/coloresDeModulo";
 
 /** Las pestañas del bloque de noticias de Inicio. */
 export const PESTANAS_DE_INICIO = [
@@ -108,107 +105,6 @@ export const ACCESOS = [
   },
 ];
 
-/**
- * «Para hoy» (auditoría UX, H-09): lo que espera a la persona, con su número y
- * el plural correcto. Solo lo que tiene algo; vacío, el bloque no se muestra.
- */
-/**
- * N-15: el chat deja en la campana un aviso sin leer por conversación
- * (`chat.services.avisar`) y `/notificaciones/resumen/` solo da el total.
- * Para no contarlos dos veces, a los avisos se les restan las conversaciones
- * con algo sin leer. Es una aproximación: si la persona marcó leídos los
- * avisos en la campana pero no abrió el chat, el resultado puede quedar por
- * debajo (nunca negativo).
- */
-export function avisosDeOtrosModulos(noLeidas, noLeidosChat = {}) {
-  const conversaciones = Object.values(noLeidosChat).filter(
-    (n) => Number(n) > 0,
-  ).length;
-  return Math.max(0, (Number(noLeidas) || 0) - conversaciones);
-}
-
-export function pendientesDeHoy({
-  porAprobar = 0,
-  mensajes = 0,
-  avisos = 0,
-  ticketsAsignados = 0,
-  ticketsMios = 0,
-  ticketsPorAprobar = 0,
-} = {}) {
-  const lista = [];
-  // US-014 (CA-2): la Mesa de ayuda, cada uno a su vista.
-  if (ticketsAsignados > 0) {
-    lista.push({
-      clave: "soporte-asignados",
-      familia: "soporte",
-      icono: "headset",
-      texto:
-        ticketsAsignados === 1
-          ? "1 ticket asignado a usted"
-          : `${ticketsAsignados} tickets asignados a usted`,
-      ruta: { pathname: "/soporte", params: { vista: "bandeja" } },
-    });
-  }
-  if (ticketsMios > 0) {
-    lista.push({
-      clave: "soporte-mios",
-      familia: "soporte",
-      icono: "ticket-outline",
-      texto:
-        ticketsMios === 1
-          ? "1 ticket suyo necesita algo de usted"
-          : `${ticketsMios} tickets suyos necesitan algo de usted`,
-      ruta: { pathname: "/soporte", params: { vista: "mis" } },
-    });
-  }
-  if (ticketsPorAprobar > 0) {
-    lista.push({
-      clave: "soporte-aprobaciones",
-      familia: "soporte",
-      icono: "clipboard-check-outline",
-      texto:
-        ticketsPorAprobar === 1
-          ? "1 ticket por aprobar"
-          : `${ticketsPorAprobar} tickets por aprobar`,
-      ruta: { pathname: "/soporte", params: { vista: "aprobaciones" } },
-    });
-  }
-  if (porAprobar > 0) {
-    lista.push({
-      clave: "por-aprobar",
-      familia: "permisos",
-      icono: "calendar-check-outline",
-      texto:
-        porAprobar === 1
-          ? "1 solicitud por aprobar"
-          : `${porAprobar} solicitudes por aprobar`,
-      ruta: { pathname: "/permisos", params: { seccion: "por_aprobar" } },
-    });
-  }
-  if (mensajes > 0) {
-    lista.push({
-      clave: "mensajes",
-      familia: "chat",
-      icono: "chat-processing-outline",
-      texto: textoSinLeer(mensajes),
-      ruta: { pathname: "/chat", params: {} },
-    });
-  }
-  if (avisos > 0) {
-    lista.push({
-      clave: "avisos",
-      familia: "sistema",
-      icono: "bell-badge-outline",
-      texto:
-        avisos === 1
-          ? "1 aviso de otros módulos"
-          : `${avisos} avisos de otros módulos`,
-      ruta: { pathname: "/notificaciones", params: {} },
-    });
-  }
-  return lista;
-}
-
 /** Sin permiso para crear tickets, la Mesa de ayuda sirve para seguir los
  * propios (decisión de la web, 09/11/2026); al equipo se le dice que ahí
  * atiende (US-014). */
@@ -224,8 +120,11 @@ export function accesosPara(permisos = []) {
 }
 
 export function Inicio() {
+  const { colores } = useApariencia();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
+  const { recargar: recargarContador } = useContador();
   // El perfil solo adorna el saludo: mientras carga o si falla no se dice
   // «no tiene cargo», que sería falso (CA-5; auditoría UX web, 28/10/2026).
   const [perfil, setPerfil] = useState({ estado: "cargando", datos: null });
@@ -328,10 +227,13 @@ export function Inicio() {
     const numero = ++consulta.current;
     setRefrescando(true);
     setRecarga((r) => r + 1);
+    // QA (17/11/2026): también el contador de la campana, que «Para hoy»
+    // usa mientras carga.
     await Promise.all([
       cargarPerfil(numero),
       cargarNoticias(numero, { silenciosa: true }),
       cargarHoy(numero),
+      Promise.resolve(recargarContador?.()).catch(() => {}),
     ]);
     if (montado.current) setRefrescando(false);
   }
@@ -340,18 +242,6 @@ export function Inicio() {
     usuario?.first_name || perfil.datos?.nombres || usuario?.username || "";
   const cargo = perfil.datos?.cargo?.nombre;
   const empresa = empresaActiva?.id;
-  const { porAprobar } = useResumenPermisos();
-  const { totalNoLeidos, noLeidos: noLeidosChat } = useChat();
-  const { noLeidas } = useContador();
-  const soporte = useResumenSoporte();
-  const paraHoy = pendientesDeHoy({
-    porAprobar,
-    mensajes: totalNoLeidos,
-    avisos: avisosDeOtrosModulos(noLeidas, noLeidosChat),
-    ticketsAsignados: soporte.asignados,
-    ticketsMios: soporte.misPendientes,
-    ticketsPorAprobar: soporte.aprobaciones,
-  });
   // Con letra grande (más del 130 %) los nombres no entran en 4 columnas.
   const { fontScale } = useWindowDimensions();
   const columnas = fontScale > 1.3 ? 3 : 4;
@@ -376,7 +266,7 @@ export function Inicio() {
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
       refreshControl={
-        <RefreshControl refreshing={refrescando} onRefresh={refrescar} />
+        <Refresco refreshing={refrescando} onRefresh={refrescar} />
       }
     >
       <View style={estilos.saludo}>
@@ -405,46 +295,9 @@ export function Inicio() {
           ))}
       </View>
 
-      {paraHoy.length > 0 ? (
-        <View style={estilos.paraHoy} testID="para-hoy">
-          <Text style={estilos.subtitulo} accessibilityRole="header">
-            Para hoy
-          </Text>
-          {paraHoy.map((p) => (
-            <Pressable
-              key={p.clave}
-              testID={`para-hoy-${p.clave}`}
-              onPress={() => irA(p.ruta)}
-              accessibilityRole="button"
-              accessibilityLabel={p.texto}
-              style={({ pressed }) => [
-                estilos.pendiente,
-                pressed && estilos.presionada,
-              ]}
-            >
-              {/* El ícono con el color de su módulo (16/11/2026). */}
-              <View
-                style={[
-                  estilos.pendienteIcono,
-                  { backgroundColor: coloresDeFamilia(p.familia).fondo },
-                ]}
-              >
-                <Icono
-                  nombre={p.icono}
-                  size={20}
-                  color={coloresDeFamilia(p.familia).icono}
-                />
-              </View>
-              <Text style={estilos.pendienteTexto}>{p.texto}</Text>
-              <Icono
-                nombre="chevron-right"
-                size={22}
-                color={colores.tintaTenue}
-              />
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
+      {/* US-027 (17/11/2026): contraído, con los avisos sin leer de la
+          campana; reemplaza las líneas agrupadas de antes. */}
+      <ParaHoy recarga={recarga} version={versionEmpresa} />
 
       {/* Noticias y calendario como pestañas (16/11/2026, a pedido del
           usuario): se ve uno a la vez para ahorrar espacio. Al cambiar, el
@@ -597,7 +450,7 @@ function Acceso({ a, onAbrir, columnas = 4 }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 20, paddingBottom: 32 },
   saludo: { gap: 4 },
@@ -609,22 +462,6 @@ const estilos = crearEstilos({
   ayudaTexto: { fontSize: 14, color: colores.tintaTenue, flexShrink: 1 },
   cuadricula: { flexDirection: "row", flexWrap: "wrap", rowGap: 12 },
   tituloNavegador: { flexDirection: "row", alignItems: "center", gap: 8 },
-  paraHoy: {
-    gap: 6,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: colores.superficie,
-    borderLeftWidth: 4,
-    borderLeftColor: colores.acento,
-  },
-  pendiente: {
-    minHeight: AREA_TACTIL,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 4,
-    borderRadius: 8,
-  },
   pestanas: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -664,17 +501,4 @@ const estilos = crearEstilos({
     flexShrink: 1,
   },
   pestanaTextoActiva: { fontWeight: "700", color: colores.tinta },
-  pendienteIcono: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pendienteTexto: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: colores.tinta,
-  },
 });

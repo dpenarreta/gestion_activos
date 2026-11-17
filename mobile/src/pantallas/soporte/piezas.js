@@ -12,7 +12,8 @@ import {
   tomarFotoParaElTicket,
 } from "../../soporte/adjuntos";
 import { textoDeVence, tonoDeEstado, tonoDePrioridad, TONOS } from "../../soporte/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 
@@ -24,6 +25,7 @@ import { fechaYHora } from "../../utils/fechas";
 
 /** Una pastilla con ícono y texto. `tono`: `{fondo, color, icono}`. */
 export function Pildora({ texto, tono = TONOS.neutro, testID }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={[estilos.pildora, { backgroundColor: tono.fondo }]} testID={testID}>
       {tono.icono ? <Icono nombre={tono.icono} size={16} color={tono.color} /> : null}
@@ -45,6 +47,7 @@ export function PrioridadTicket({ ticket }) {
 
 /** El plazo que importa ahora, con su fecha. */
 export function VenceTicket({ sla, ahora }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const vence = textoDeVence(sla, ahora);
   return (
     <View style={estilos.vence}>
@@ -56,6 +59,7 @@ export function VenceTicket({ sla, ahora }) {
 
 /** Un dato de una ficha: nombre y valor, leídos juntos. */
 export function Dato({ nombre, valor, children }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!children && (valor === undefined || valor === null || valor === "")) return null;
   return (
     <View
@@ -71,6 +75,7 @@ export function Dato({ nombre, valor, children }) {
 
 /** Una sección con su encabezado. */
 export function Seccion({ titulo, children, testID, derecha = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   return (
     <View style={estilos.seccion} testID={testID}>
       <View style={estilos.seccionCabecera}>
@@ -86,6 +91,8 @@ export function Seccion({ titulo, children, testID, derecha = null }) {
 
 /** Los adjuntos de un ticket o de un mensaje: un botón por archivo. */
 export const ListaDeAdjuntos = memo(function ListaDeAdjuntos({ lista, abriendo, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!lista?.length) return null;
   return (
     <View style={estilos.adjuntos}>
@@ -140,6 +147,7 @@ function marcaDe(mensaje, modo) {
  * ancho; el lado nunca es lo único que dice quién habló (la pastilla lo
  * dice). */
 export const MensajeDelTicket = memo(function MensajeDelTicket({ mensaje, modo = "equipo", abriendo, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const marca = marcaDe(mensaje, modo);
   const propio = modo === "propio" ? mensaje.del_solicitante : !mensaje.del_solicitante && !mensaje.interno;
   const autor = modo === "propio" && mensaje.del_solicitante ? "" : mensaje.autor;
@@ -177,6 +185,8 @@ export const MensajeDelTicket = memo(function MensajeDelTicket({ mensaje, modo =
  * del chat. Lo que no vale se dice antes de enviar (CA-18).
  */
 export function AdjuntosPorEnviar({ adjuntos, deshabilitado = false, testID = "adjuntos", refFoco, errorExterno }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [opciones, setOpciones] = useState(false);
   const { lista, error, agregar, quitar } = adjuntos;
   const lleno = lista.length >= MAX_ADJUNTOS;
@@ -274,10 +284,11 @@ export function AdjuntosPorEnviar({ adjuntos, deshabilitado = false, testID = "a
 
 /** El espacio entre las filas de una lista. */
 export function Separador() {
+  const estilos = useEstilos(fabricaDeEstilos);
   return <View style={estilos.separador} />;
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores) => crearEstilos({
   pildora: {
     flexDirection: "row",
     alignItems: "center",

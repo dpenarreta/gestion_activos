@@ -12,8 +12,7 @@ import { useSesion } from "../../sesion/SesionContext";
 import { tomarAviso } from "../../soporte/avisoPendiente";
 import { accesosEnElNavegador, rutaDeAltaPropia } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
-import { colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Aprobaciones } from "./Aprobaciones";
 import { Bandeja } from "./Bandeja";
@@ -47,6 +46,8 @@ function primero(valor) {
 /** CA-20: reportes, configuración, formulario, «Mi horario» y horas, en la
  * web. */
 export function MasEnElNavegador({ permisos, empresa }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [error, setError] = useState(null);
   const accesos = accesosEnElNavegador(permisos);
   if (accesos.length === 0) return null;
@@ -87,6 +88,7 @@ export function MasEnElNavegador({ permisos, empresa }) {
 }
 
 export function MesaDeAyuda() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const parametros = useLocalSearchParams();
   const { usuario, empresaActiva } = useSesion();
@@ -165,7 +167,7 @@ export function MesaDeAyuda() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   tituloVista: CONTROLES.tituloVista,
   aviso: { paddingHorizontal: 16 },

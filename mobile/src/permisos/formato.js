@@ -1,4 +1,4 @@
-import { colores } from "../tema/colores";
+import { paletaActiva } from "../tema/colores";
 import { fechaCorta, fechaLarga } from "../utils/fechas";
 
 export { aHora, aIso, deHora, deIso, fechaCorta, fechaLarga, fechaYHora } from "../utils/fechas";
@@ -11,31 +11,48 @@ export { aHora, aIso, deHora, deIso, fechaCorta, fechaLarga, fechaYHora } from "
  */
 
 /** El estado de una solicitud, con texto e ícono además del color (CA-3 y
- * CA-14: el estado nunca se transmite solo con color). */
+ * CA-14: el estado nunca se transmite solo con color). Los colores salen del
+ * modo que se ve (US-026), por eso son getters. */
 export const ESTADOS = {
   pendiente: {
     texto: "Pendiente",
     icono: "clock-outline",
-    color: colores.avisoTexto,
-    fondo: colores.avisoFondo,
+    get color() {
+      return paletaActiva().avisoTexto;
+    },
+    get fondo() {
+      return paletaActiva().avisoFondo;
+    },
   },
   aprobada: {
     texto: "Aprobada",
     icono: "check-circle-outline",
-    color: colores.bienTexto,
-    fondo: colores.bienFondo,
+    get color() {
+      return paletaActiva().bienTexto;
+    },
+    get fondo() {
+      return paletaActiva().bienFondo;
+    },
   },
   rechazada: {
     texto: "Rechazada",
     icono: "close-circle-outline",
-    color: colores.malTexto,
-    fondo: colores.malFondo,
+    get color() {
+      return paletaActiva().malTexto;
+    },
+    get fondo() {
+      return paletaActiva().malFondo;
+    },
   },
   cancelada: {
     texto: "Cancelada",
     icono: "cancel",
-    color: colores.tintaSuave,
-    fondo: colores.hundido,
+    get color() {
+      return paletaActiva().tintaSuave;
+    },
+    get fondo() {
+      return paletaActiva().hundido;
+    },
   },
 };
 
@@ -44,8 +61,12 @@ export function estadoDe(solicitud) {
     ESTADOS[solicitud?.estado] ?? {
       texto: solicitud?.estado_display || "Sin estado",
       icono: "help-circle-outline",
-      color: colores.tintaSuave,
-      fondo: colores.hundido,
+      get color() {
+        return paletaActiva().tintaSuave;
+      },
+      get fondo() {
+        return paletaActiva().hundido;
+      },
     }
   );
 }
@@ -53,14 +74,45 @@ export function estadoDe(solicitud) {
 /** El estado de cada regla de la evaluación (CA-4), como en la web: ✔ cumple,
  * ✖ no cumple, ⚠ atención e ℹ informa. */
 export const ESTADOS_REGLA = {
-  ok: { nombre: "Cumple", icono: "check-circle", color: colores.bienTexto, fondo: colores.bienFondo },
-  falla: { nombre: "No cumple", icono: "close-circle", color: colores.malTexto, fondo: colores.malFondo },
-  aviso: { nombre: "Atención", icono: "alert", color: colores.avisoTexto, fondo: colores.avisoFondo },
+  ok: {
+    nombre: "Cumple",
+    icono: "check-circle",
+    get color() {
+      return paletaActiva().bienTexto;
+    },
+    get fondo() {
+      return paletaActiva().bienFondo;
+    },
+  },
+  falla: {
+    nombre: "No cumple",
+    icono: "close-circle",
+    get color() {
+      return paletaActiva().malTexto;
+    },
+    get fondo() {
+      return paletaActiva().malFondo;
+    },
+  },
+  aviso: {
+    nombre: "Atención",
+    icono: "alert",
+    get color() {
+      return paletaActiva().avisoTexto;
+    },
+    get fondo() {
+      return paletaActiva().avisoFondo;
+    },
+  },
   info: {
     nombre: "Para tener en cuenta",
     icono: "information",
-    color: colores.infoTexto,
-    fondo: colores.infoFondo,
+    get color() {
+      return paletaActiva().infoTexto;
+    },
+    get fondo() {
+      return paletaActiva().infoFondo;
+    },
   },
 };
 

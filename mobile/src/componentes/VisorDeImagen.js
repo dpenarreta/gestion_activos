@@ -4,7 +4,7 @@ import { Image, Modal, Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { abrirConElSistema } from "../adjuntos/descargas";
-import { colores } from "../tema/colores";
+import { useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { Alerta, Boton, BotonIcono } from "./comunes";
 
@@ -33,6 +33,7 @@ export function VisorDeImagen({
   testIDCerrar = "cerrar-documento",
   testIDImagen = "imagen-documento",
 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [errorAmpliar, setErrorAmpliar] = useState(null);
   // Ocupado mientras el sistema abre la imagen: un segundo toque no abre
   // otro visor (QA-TECH, N-18).
@@ -113,7 +114,7 @@ export function VisorDeImagen({
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   visor: { flex: 1, backgroundColor: colores.marcaNegro },
   visorCabecera: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12 },
   visorTitulo: { flex: 1, fontSize: 16, fontWeight: "700", color: colores.sobreCabecera },

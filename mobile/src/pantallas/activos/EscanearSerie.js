@@ -7,7 +7,7 @@ import { camaraDisponible } from "../../activos/camara";
 import { serieLeida } from "../../activos/fichaTecnica";
 import { Alerta, Boton, BotonIcono, Cargando } from "../../componentes/comunes";
 import { Ventana } from "../../componentes/Ventana";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 
 /** Los códigos de las etiquetas de fabricante (`BarcodeType` de
@@ -40,6 +40,7 @@ export const TEXTO_SIN_PERMISO_CAMARA_SERIE =
  * otra vez.
  */
 function VistaDeCamaraSerie({ camara, onLeido }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { CameraView, useCameraPermissions } = camara;
   const [permiso, pedirPermiso, obtenerPermiso] = useCameraPermissions();
   const pedido = useRef(false);
@@ -114,6 +115,7 @@ function VistaDeCamaraSerie({ camara, onLeido }) {
  * montada con la ventana abierta y la pantalla enfocada (P2 de la US-022).
  */
 export function BotonEscanearSerie({ onLeido, deshabilitado = false }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const camara = camaraDisponible();
   const enfocada = useIsFocused();
   const [abierta, setAbierta] = useState(false);
@@ -147,7 +149,7 @@ export function BotonEscanearSerie({ onLeido, deshabilitado = false }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   bloque: { gap: 10 },
   instruccion: { fontSize: 16, color: colores.tinta },
   marco: { borderRadius: 12, overflow: "hidden", backgroundColor: colores.marcaNegro, aspectRatio: 3 / 4, maxHeight: 460 },

@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications";
 import { AccessibilityInfo, Alert } from "react-native";
 
 import { Cuenta } from "../src/pantallas/Cuenta";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockSesion = {
   usuario: {
@@ -174,5 +175,15 @@ describe("Cuenta con una sola empresa (16/11/2026)", () => {
     expect(screen.queryByRole("header", { name: "Empresa" })).toBeNull();
     expect(screen.queryByText("Laar Courier")).toBeNull();
     mockSesion.empresas = antes;
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la Cuenta en oscuro (CA-5)", async () => {
+    const vista = await renderEnOscuro(<Cuenta />);
+    expect(await screen.findByTestId("empresa-5")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

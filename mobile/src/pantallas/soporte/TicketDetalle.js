@@ -38,8 +38,8 @@ import {
 } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
 import { SONDEO_FICHAS_MS, useSondeo } from "../../soporte/useSondeo";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { aHora, fechaYHora } from "../../utils/fechas";
 import { AbrirEnLaWeb, CampoTexto } from "../permisos/piezas";
@@ -103,6 +103,7 @@ function confirmarDescarte() {
 
 /** CA-12, CA-14 y CA-15: la ventana de un paso, con su nota. */
 function DialogoDeAccion({ dialogo, ocupado, error, onCerrar, onConfirmar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [nota, setNota] = useState("");
   const [errorNota, setErrorNota] = useState(null);
   const notaRef = useRef(null);
@@ -166,6 +167,7 @@ function DialogoDeAccion({ dialogo, ocupado, error, onCerrar, onConfirmar }) {
 /** CA-13: elegir la prioridad o calcularla por impacto y urgencia, siempre
  * con justificación (hasta 1000). Dice en qué quedará antes de guardar. */
 function DialogoDePrioridad({ ticket, prioridades, ocupado, error, onCerrar, onCambiar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [modo, setModo] = useState("matriz");
   const [valores, setValores] = useState({
     prioridad: ticket.prioridad,
@@ -311,6 +313,8 @@ function Responder({
   refCaja,
   registrarFoco,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [verTodas, setVerTodas] = useState(false);
   // La caja es a la vez el destino del foco de «Responder» (`irA`).
   const refDeLaCaja = useCallback(
@@ -483,6 +487,7 @@ function iconoDelPaso(destino) {
 }
 
 export function TicketDetalle({ id, empresa = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
@@ -1189,7 +1194,7 @@ export function TicketDetalle({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   resumen: {

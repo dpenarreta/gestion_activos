@@ -149,13 +149,22 @@ que la web (`backend/apps/branding/migrations/0004_marca_laarcourier.py`):
   - enlaces en #6B5B00.
 
   El amarillo nunca va como texto sobre fondo claro.
+- **Modo claro y oscuro** (US-026, 17/11/2026): Claro, Oscuro o Sistema (por
+  defecto), con el botón de la cabecera junto a la campana. La elección se
+  guarda en el teléfono (`almacen.guardarApariencia`). Hay dos paletas con los
+  mismos nombres (`paletaClara` y `paletaOscura`, tomada del modo oscuro de la
+  web); las pantallas las leen con `useColores()` y crean sus estilos con
+  `useEstilos(fabrica)` (`src/tema/apariencia.js`), donde
+  `fabrica(colores, CONTROLES)` devuelve lo de `crearEstilos`. Nada de
+  hexadecimales fuera de `src/tema` (las familias de color de los módulos y
+  del chat están en `src/tema/familias.js`).
 - **Fuente:** Poppins (`@expo-google-fonts/poppins`, solo JS). Se cargan los
   pesos 400, 500, 600 y 700 en `src/app/_layout.js`. Los estilos se crean con
   `crearEstilos` (`src/tema/tipografia.js`), que elige la familia según el
   peso.
 - **Logotipo LAARCOURIER** (`assets/marca/`, copiado de
-  `frontend/src/assets/marca/`, sin alterar): el positivo en el login y el
-  negativo en la cabecera del Inicio. Siempre en su proporción (709 × 118) y
+  `frontend/src/assets/marca/`, sin alterar): el positivo en el login (el
+  negativo en modo oscuro) y el negativo en la cabecera del Inicio. Siempre en su proporción (709 × 118) y
   con al menos 113 px de ancho.
 - **Ícono «LCE»:** `assets/icon.png`, `android-icon-*.png`, `splash-icon.png`
   y `favicon.png` se generan desde `frontend/src/assets/marca/lce.png`, sobre

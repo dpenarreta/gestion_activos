@@ -15,8 +15,8 @@ import {
   pendienteDe,
   rangoDeFechas,
 } from "../../permisos/formato";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 
 /**
@@ -26,6 +26,7 @@ import { crearEstilos } from "../../tema/tipografia";
 
 /** El estado con ícono y texto, además del color (CA-14). */
 export function EstadoSolicitud({ solicitud }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const estado = estadoDe(solicitud);
   return (
     <View style={[estilos.estado, { backgroundColor: estado.fondo }]}>
@@ -38,6 +39,7 @@ export function EstadoSolicitud({ solicitud }) {
 /** Las reglas de la evaluación (CA-4): cada una con su ícono, su estado
  * dicho («No cumple: …») y su detalle, como en la web. */
 export function ReglasDelPermiso({ evaluacion, titulo = "Restricciones de este permiso", atenuadas = false }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const reglas = Array.isArray(evaluacion?.reglas) ? evaluacion.reglas : [];
   if (reglas.length === 0) return null;
   // `atenuadas`: mientras se reevalúan, las de antes se ven atenuadas y se
@@ -100,6 +102,8 @@ export function CampoTexto({
   returnKeyType,
   onSubmitEditing,
 }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const etiquetaAccesible = [
     `${etiqueta}${obligatorio ? " (obligatorio)" : ""}`,
     ayuda,
@@ -153,6 +157,7 @@ export function CampoTexto({
  * quién está pendiente (CA-3 y CA-10). Toda la tarjeta es un botón con un
  * nombre que lo dice todo. */
 export const TarjetaSolicitud = memo(function TarjetaSolicitud({ solicitud: s, conSolicitante = false, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const horas = s.unidad === "horas" ? horario(s.hora_desde, s.hora_hasta) : "";
   const pendiente = s.estado === "pendiente" ? pendienteDe(s) : "";
   const porPersona = conSolicitante && Boolean(s.solicitante?.nombre);
@@ -201,6 +206,7 @@ export function AbrirEnLaWeb({
   texto,
   testID,
 }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [error, setError] = useState(null);
   const url = urlWeb(ruta, { empresa });
   if (!url) return null;
@@ -227,7 +233,7 @@ export function AbrirEnLaWeb({
   );
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   estado: {
     flexDirection: "row",
     alignItems: "center",

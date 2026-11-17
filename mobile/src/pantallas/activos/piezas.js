@@ -6,7 +6,8 @@ import { Alerta } from "../../componentes/comunes";
 import { BotonRedondo, CuadriculaRedonda } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
 import { abrirEnNavegador, TEXTO_NAVEGADOR_FALLO, urlWeb } from "../../navegador/enlaceWeb";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Pildora } from "../soporte/piezas";
 
@@ -41,6 +42,8 @@ export function EstadoDelActivo({ activo, testID }) {
  * nombre que lo dice todo.
  */
 export const FilaActivo = memo(function FilaActivo({ activo, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const lugar = lugarDe(activo);
   return (
     <Pressable
@@ -79,6 +82,8 @@ export const FilaActivo = memo(function FilaActivo({ activo, onAbrir }) {
  * (las órdenes de trabajo usan el suyo, US-025).
  */
 export function ActivosEnElNavegador({ accesos, empresa, titulo = "Más opciones en el navegador", testID, familia = "activos" }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [error, setError] = useState(null);
   if (!accesos?.length) return null;
   async function abrir(ruta) {
@@ -116,7 +121,7 @@ export function ActivosEnElNavegador({ accesos, empresa, titulo = "Más opciones
   );
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores) => crearEstilos({
   fila: {
     minHeight: AREA_TACTIL,
     padding: 14,

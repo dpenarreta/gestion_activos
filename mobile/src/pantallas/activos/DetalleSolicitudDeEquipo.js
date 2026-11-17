@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { useIrAlBloque } from "../../accesibilidad/irAlBloque";
 import { solicitudesService } from "../../api/servicios";
@@ -19,10 +19,11 @@ import {
   valorDeEspecificacion,
 } from "../../activos/solicitudes";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import { confirmarDescarte } from "../../componentes/confirmarDescarte";
 import { Ventana } from "../../componentes/Ventana";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta, fechaYHora } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
@@ -41,6 +42,7 @@ const CAMPOS_PASO = { nota: "Nota", estado: "Estado" };
  * explica con el mensaje del servidor (CA-2).
  */
 function FormularioPaso({ solicitud, estado, empresa, onCerrar, onGuardado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const paso = PASOS[estado];
   const pregunta = confirmacionDelPaso(estado, solicitud);
   const [nota, setNota] = useState("");
@@ -147,6 +149,7 @@ function FormularioPaso({ solicitud, estado, empresa, onCerrar, onGuardado }) {
  * activa; `empresa`, la de un aviso (CA-21).
  */
 export function DetalleSolicitudDeEquipo({ id, empresa = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { usuario, empresaActiva, versionEmpresa } = useSesion();
   const permisos = usuario?.permissions ?? [];
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
@@ -235,7 +238,7 @@ export function DetalleSolicitudDeEquipo({ id, empresa = null }) {
       testID="detalle-solicitud-equipo"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}
       {resultado?.texto ? <Alerta tipo="bien" texto={resultado.texto} clave={resultado.clave} testID="resultado-solicitud" /> : null}
@@ -339,7 +342,7 @@ export function DetalleSolicitudDeEquipo({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 40, gap: 16 },
   centro: { padding: 16 },

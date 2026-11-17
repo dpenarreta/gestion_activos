@@ -25,6 +25,17 @@ export const authService = {
   },
 };
 
+/**
+ * El tema de la marca (US-028, CA-4): `GET /theme/current/` es público
+ * (`CurrentThemeView`, `AllowAny`), así que va sin token y sin renovar: en el
+ * acceso no hay sesión, y un token viejo no debe convertirlo en un 401.
+ */
+export const temaService = {
+  actual() {
+    return api.get("/theme/current/", { sinToken: true, sinRenovar: true });
+  },
+};
+
 export const empresasService = {
   /** `{empresas, activa, multiempresa}`: lo que alimenta el selector. */
   mias() {
@@ -60,10 +71,16 @@ export const inicioService = {
 
 export const notificacionesService = {
   /** El historial paginado. El filtro de no leídas es `estado=no_leidas`
-   * (así lo lee `NotificacionViewSet.get_queryset`). */
-  listar({ pagina = 1, soloNoLeidas = false } = {}) {
+   * (así lo lee `NotificacionViewSet.get_queryset`).
+   * `tamano` (opcional, «Para hoy» de la US-027): `page_size`; sin él, el
+   * del servidor, como la campana. */
+  listar({ pagina = 1, soloNoLeidas = false, tamano } = {}) {
     return api.get("/notificaciones/", {
-      params: { page: pagina, estado: soloNoLeidas ? "no_leidas" : undefined },
+      params: {
+        page: pagina,
+        estado: soloNoLeidas ? "no_leidas" : undefined,
+        page_size: tamano ? String(tamano) : undefined,
+      },
     });
   },
   /** `empresa`: la del push. Va como `X-Empresa` solo en esta petición: la
@@ -719,6 +736,29 @@ export const adjuntosService = {
   },
   urlDescarga(id) {
     return api.url(`/adjuntos/${idSeguro(id)}/descargar/`);
+  },
+};
+
+/**
+ * El acta de recepción de equipo AEE-LC-01 (US-028, CA-7), como
+ * `actasEntregaService` de la web (`backend/apps/activos/
+ * views_acta_entrega.py`, commit 1fa8531). Todo pide `activos.acta_entrega`.
+ * La app no crea ni corrige el acta (lleva la prueba de funcionalidad que
+ * marca el técnico): eso se hace en la web.
+ */
+export const actasEntregaService = {
+  /** `{movimiento, fecha, custodio, candidatos, acta, pruebas}`: `acta` es
+   * `null` si todavía no se ha generado. 400 si el movimiento no es una
+   * asignación a una persona. */
+  preparar(movimiento, { empresa } = {}) {
+    return api.get("/activos/actas-entrega/preparar/", {
+      ...conEmpresa(empresa),
+      params: { movimiento: String(movimiento) },
+    });
+  },
+  /** El documento: `formato` «pdf» (para imprimir) o «docx» (Word). */
+  urlDocumento(id, formato = "pdf") {
+    return api.url(`/activos/actas-entrega/${idSeguro(id)}/documento/?formato=${formato === "docx" ? "docx" : "pdf"}`);
   },
 };
 

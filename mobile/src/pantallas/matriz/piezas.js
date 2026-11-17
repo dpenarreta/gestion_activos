@@ -14,7 +14,8 @@ import {
   tonoDeGrupo,
 } from "../../matriz/formato";
 import { abrirEnNavegador, TEXTO_NAVEGADOR_FALLO, urlWeb } from "../../navegador/enlaceWeb";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Pildora } from "../soporte/piezas";
 
@@ -37,6 +38,8 @@ export function EstadoDelPeriodo({ estado, testID }) {
  * nombre que lo dice todo.
  */
 export const FilaPeriodo = memo(function FilaPeriodo({ periodo, zona, onAbrir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const dias = textoDeDias(periodo.estado);
   const lugar = [periodo.entidad, periodo.area].filter(Boolean).join(" · ");
   return (
@@ -74,6 +77,7 @@ export const FilaPeriodo = memo(function FilaPeriodo({ periodo, zona, onAbrir })
 /** Sin rol de la Matriz en la empresa activa (H-20, ronda 1): el aviso y la
  * salida, «Cambiar de empresa» en «Cuenta». */
 export function SinRolMatriz({ texto = TEXTO_SIN_ROL }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   return (
     <View style={estilos.sinRol} testID="sin-rol-matriz">
@@ -92,6 +96,8 @@ export function SinRolMatriz({ texto = TEXTO_SIN_ROL }) {
 /** Lo de la Matriz que se hace en la web, abierto en el navegador del
  * teléfono con la empresa activa (decisión del usuario, 13/11/2026). */
 export function MatrizEnElNavegador({ permisos, empresa }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [error, setError] = useState(null);
   const accesos = matrizEnElNavegador(permisos);
   if (accesos.length === 0) return null;
@@ -131,7 +137,7 @@ export function MatrizEnElNavegador({ permisos, empresa }) {
   );
 }
 
-export const estilos = crearEstilos({
+export const fabricaDeEstilos = (colores) => crearEstilos({
   fila: {
     minHeight: AREA_TACTIL,
     padding: 14,

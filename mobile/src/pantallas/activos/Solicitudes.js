@@ -16,7 +16,8 @@ import {
 } from "../../activos/solicitudes";
 import { useBusquedaConEspera, useListaPaginada } from "../../activos/useListaPaginada";
 import { Boton } from "../../componentes/comunes";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta } from "../../utils/fechas";
 import { Pildora } from "../soporte/piezas";
@@ -36,6 +37,7 @@ export function rutaDeLaSolicitud(s, empresa) {
  * las fechas. Toda la fila abre su detalle.
  */
 export const FilaDeSolicitud = memo(function FilaDeSolicitud({ s, ambito, onAbrir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const estado = estadoDeSolicitud(s.estado, s.estado_display);
   const prioridad = prioridadDe(s);
   const persona = ambito === "recibidas" ? `Pidió: ${s.solicitante_nombre || "—"}` : `Encargado: ${s.encargado_nombre || "—"}`;
@@ -144,7 +146,7 @@ export function ListaDeSolicitudes({ ambito = "mias", permisos = [], empresa, ve
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   fila: {
     minHeight: AREA_TACTIL,
     padding: 14,

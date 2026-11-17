@@ -31,7 +31,8 @@ import { Icono } from "../../componentes/Icono";
 import { ErrorDeCampo, OpcionesEnLinea, SelectorDeLista } from "../../componentes/Selectores";
 import { SelectorFecha } from "../../componentes/SelectorFecha";
 import { Ventana } from "../../componentes/Ventana";
-import { AREA_TACTIL, colores } from "../../tema/colores";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { errorDeGuardado, textoRevise, useCandado, useReenvioConfirmado } from "./formularios";
@@ -59,6 +60,7 @@ const CAMPOS_CIERRE = { fecha_salida: "Fecha de salida", solucion: "Solución ap
  * estado anterior, salvo con «No reparable» o «Dado de baja».
  */
 export function FormularioCerrarMantenimiento({ mantenimiento, onCerrar, onGuardado }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const [hoy] = useState(() => hoyIso());
   const [iniciales] = useState(() => valoresDeCierre(mantenimiento, hoy));
   const [valores, setValores] = useState(iniciales);
@@ -201,6 +203,8 @@ const CAMPOS_ADJUNTO = { tipo: "Tipo de documento", archivo: "Archivo", descripc
  * elegido y no enviado se borra de la caché al cerrar (LOPDP).
  */
 export function FormularioAdjuntar({ mantenimiento, onCerrar, onGuardado }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const [tipo, setTipo] = useState("foto");
   const [descripcion, setDescripcion] = useState("");
   const [errores, setErrores] = useState({});
@@ -387,7 +391,7 @@ export function FormularioAdjuntar({ mantenimiento, onCerrar, onGuardado }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   campo: { gap: 8 },
   leyenda: { fontSize: 14, color: colores.tintaSuave },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },

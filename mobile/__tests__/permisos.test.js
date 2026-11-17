@@ -39,6 +39,7 @@ import {
   TEXTO_REVISANDO,
 } from "../src/pantallas/permisos/NuevaSolicitud";
 import { Permisos } from "../src/pantallas/permisos/Permisos";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) };
 const mockParametros = {};
@@ -1073,7 +1074,7 @@ describe("Mis vacaciones (CA-2)", () => {
     vacacionesService.mias.mockResolvedValue(DATOS);
     await render(conResumen(<MisVacaciones />));
     await screen.findByLabelText("Disponibles para pedir: 7 días");
-    expect(screen.getByText("De cada período deben salir al menos 2 sábados y 2 domingos.")).toBeTruthy();
+    expect(screen.getByText("Se recomienda que de cada período salgan al menos 2 sábados y 2 domingos.")).toBeTruthy();
     expect(screen.queryByText(TEXTO_FINES_DETALLE)).toBeNull();
 
     const mas = screen.getByRole("button", { name: "Más información" });
@@ -1248,5 +1249,20 @@ describe("pestaña Permisos (CA-1, CA-3, CA-10 y CA-13)", () => {
 
     expect(screen.getByTestId("solicitud-70")).toBeTruthy();
     expect(screen.getByText(/Se muestran las anteriores/)).toBeTruthy();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("Solicitud de permisos en oscuro (CA-5)", async () => {
+    licenciasService.resumen.mockResolvedValue({ por_aprobar: 2, puede_solicitar: true });
+    licenciasService.solicitudes.mockImplementation(async (vista) =>
+      vista === "por_aprobar" ? [detalle({ id: 50, solicitante: { id: 8, nombre: "Pedro Gil" } })] : [],
+    );
+    mockParametros.seccion = "por_aprobar";
+    const vista = await renderEnOscuro(conResumen(<Permisos />));
+    expect(await screen.findByText("Pedro Gil")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

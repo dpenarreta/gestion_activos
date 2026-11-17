@@ -28,7 +28,7 @@ import {
 } from "../../permisos/formato";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useResumenPermisos } from "../../permisos/ResumenPermisosContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { AbrirEnLaWeb, CampoTexto, EstadoSolicitud, ReglasDelPermiso } from "./piezas";
 import { crearEstilos } from "../../tema/tipografia";
 
@@ -71,6 +71,7 @@ function confirmar({ titulo, mensaje, accion, destructiva = false }) {
 
 /** Un id que no es un número (un enlace profundo mal formado). */
 export function SolicitudNoEncontrada() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   return (
     <View style={estilos.contenido}>
@@ -86,6 +87,7 @@ function volver(router) {
 }
 
 export function DetalleSolicitud({ id, empresa = null, creada = false }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   // Antes de cualquier `return` temprano (revisión UX, M-1).
   const alturaCabecera = useAlturaCabecera();
@@ -523,6 +525,7 @@ function resumenDe(s) {
 }
 
 function Dato({ nombre, valor, extra }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!valor) return null;
   return (
     <View style={estilos.dato} accessible accessibilityLabel={`${nombre}: ${valor}${extra ? `. ${extra}` : ""}`}>
@@ -533,7 +536,7 @@ function Dato({ nombre, valor, extra }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   cabecera: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },

@@ -5,8 +5,8 @@ import { Pressable, Text, View } from "react-native";
 import { useTecladoAbierto } from "../accesibilidad/teclado";
 import { FilaDeslizable } from "../componentes/FilaDeslizable";
 import { Icono } from "../componentes/Icono";
-import { AREA_TACTIL, colores } from "../tema/colores";
-import { CONTROLES } from "../tema/controles";
+import { AREA_TACTIL } from "../tema/colores";
+import { useColores, useControles, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { abrirFuncionalidad, recordarPantalla } from "./abrir";
 import { funcionalidadesVisibles, moduloDePantalla, nombreAccesible, vistaActiva, vistasDelEstado } from "./modulos";
@@ -27,6 +27,9 @@ export function navegacionActiva(state, descriptors) {
 
 /** Un botón de la barra: vista (pestaña) o acción (botón con contorno). */
 function Elemento({ f, seleccionada, comoPestana, onPress, onLayout }) {
+  const colores = useColores();
+  const CONTROLES = useControles();
+  const estilos = useEstilos(fabricaDeEstilos);
   const accion = f.tipo !== "vista";
   const color = seleccionada ? colores.marcaNegro : accion ? colores.sobreCabecera : colores.tintaInactivaOscuro;
   return (
@@ -62,6 +65,8 @@ function Elemento({ f, seleccionada, comoPestana, onPress, onLayout }) {
  * llevan el id del módulo en su clave.
  */
 function FilaDelModulo({ modulo, elementos, activa, onElegir }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const fila = useRef(null);
   const posiciones = useRef({});
   const clave = (id) => `${modulo.id}:${id}`;
@@ -140,6 +145,7 @@ function FilaDelModulo({ modulo, elementos, activa, onElegir }) {
  * `descriptors`, `emitter`, `navigateToTab` e `insets` (sin `navigation`).
  */
 export function BarraDeFuncionalidades({ state, descriptors, insets }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const teclado = useTecladoAbierto();
   const ruta = state?.routes?.[state.index];
@@ -174,7 +180,7 @@ export function BarraDeFuncionalidades({ state, descriptors, insets }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   // El fondo de las pantallas de los módulos: la barra parece flotar sobre él.
   contenedor: { backgroundColor: colores.fondo, paddingHorizontal: 12, paddingTop: 6 },
   barra: {

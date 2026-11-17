@@ -17,6 +17,7 @@ import { colores } from "../src/tema/colores";
 import { MesaDeAyuda } from "../src/pantallas/soporte/MesaDeAyuda";
 import { textoPendientes } from "../src/pantallas/soporte/MisTickets";
 import { TEXTO_SIN_PERMISO_PARA_CREAR } from "../src/pantallas/soporte/NuevoTicket";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) };
 const mockParametros = {};
@@ -688,5 +689,15 @@ describe("Aprobaciones (CA-17)", () => {
     await render(<MesaDeAyuda />);
     await fireEvent.press(await screen.findByRole("button", { name: "Aprobar" }));
     expect(await screen.findByText(`TCK-2026-3: ${TEXTO_FALTAN_OTRAS}`)).toBeTruthy();
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la Mesa de ayuda en oscuro (CA-5)", async () => {
+    const vista = await renderEnOscuro(<MesaDeAyuda />);
+    expect(await screen.findByText("Todavía no ha pedido ayuda.")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

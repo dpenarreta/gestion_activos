@@ -22,7 +22,7 @@ import {
 } from "../../ordenes/formato";
 import { opcionesDe, opcionesDeSedes, useCatalogosDeOrdenes } from "../../ordenes/useCatalogos";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { CampoTexto } from "../permisos/piezas";
 import { useSalirConCambios } from "../activos/formularios";
@@ -63,6 +63,7 @@ const CAMPOS = {
  * su campo; salir con cambios pregunta.
  */
 export function NuevaOrden() {
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
   const { usuario } = useSesion();
@@ -408,7 +409,7 @@ export function NuevaOrden() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   centro: { padding: 16 },

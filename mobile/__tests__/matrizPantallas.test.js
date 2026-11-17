@@ -17,6 +17,7 @@ import { Matriz } from "../src/pantallas/matriz/Matriz";
 import PantallaDia from "../src/app/(app)/matriz/dia/[fecha]";
 import PantallaEstado from "../src/app/(app)/matriz/estado/[estado]";
 import PantallaPeriodo from "../src/app/(app)/matriz/periodo/[id]";
+import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn() };
 const mockNavegacion = { setOptions: jest.fn() };
@@ -822,5 +823,15 @@ describe("ronda 1 de correcciones", () => {
     expect(estilo.width).toBe(50);
     expect(estilo.width * 7).toBeLessThanOrEqual(352 - 2);
     expect(dia.props.accessibilityLabel).toMatch(/^(domingo|lunes|martes|miércoles|jueves|viernes|sábado) \d+ de /);
+  });
+});
+
+describe("US-026: modo oscuro", () => {
+  afterEach(olvidarApariencia);
+
+  it("la Bandeja de la Matriz en oscuro (CA-5)", async () => {
+    const vista = await renderEnOscuro(<Matriz />);
+    expect(await screen.findByRole("button", { name: "Incumplidas: 2. Vencidas sin cierre validado" })).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

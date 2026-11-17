@@ -10,8 +10,8 @@ import { iniciales, textoPresencia } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
 import { ESPERA_BUSCAR_MS, MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
 import { Alerta, ErrorConReintento } from "../../componentes/comunes";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Presencia } from "./piezas";
 
@@ -27,6 +27,8 @@ import { Presencia } from "./piezas";
 export { ESPERA_BUSCAR_MS };
 
 export function NuevoMensaje() {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
   const router = useRouter();
   const { cargarConversaciones } = useChat();
@@ -193,7 +195,7 @@ export function NuevoMensaje() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 6, flexGrow: 1 },
   cabecera: { gap: 8, marginBottom: 8 },
@@ -217,7 +219,7 @@ const estilos = crearEstilos({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colores.primario,
+    backgroundColor: colores.avatar,
     alignItems: "center",
     justifyContent: "center",
   },

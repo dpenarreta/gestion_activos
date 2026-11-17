@@ -20,8 +20,8 @@ import {
   validarCampos,
 } from "../../soporte/formato";
 import { useRecargarResumenSoporte } from "../../soporte/ResumenSoporteContext";
-import { AREA_TACTIL, colores } from "../../tema/colores";
-import { CONTROLES } from "../../tema/controles";
+import { AREA_TACTIL } from "../../tema/colores";
+import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import {
   ESPERA_BUSCAR_MS,
@@ -67,6 +67,7 @@ export function faltanDeLaPersona(persona) {
 }
 
 const FilaPersona = memo(function FilaPersona({ persona: p, onElegir }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const incompleta = Object.values(faltanDeLaPersona(p)).some(Boolean);
   const detalle = [p.area?.nombre, p.agencia?.nombre, p.correo].filter(Boolean).join(" · ");
   return (
@@ -86,6 +87,8 @@ const FilaPersona = memo(function FilaPersona({ persona: p, onElegir }) {
 });
 
 export function RegistrarTicket() {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
@@ -592,7 +595,7 @@ export function RegistrarTicket() {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 14, paddingBottom: 40 },
   titulo: { fontSize: 22, fontWeight: "700", color: colores.titulo },

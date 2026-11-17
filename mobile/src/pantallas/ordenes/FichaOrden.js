@@ -1,10 +1,11 @@
 import * as Linking from "expo-linking";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshControl, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 
 import { ordenesService } from "../../api/servicios";
 import { tomarResultado } from "../../activos/avisoPendiente";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento } from "../../componentes/comunes";
+import { Refresco } from "../../componentes/Refresco";
 import {
   contactoDe,
   detalleDelCosto,
@@ -19,7 +20,7 @@ import {
 } from "../../ordenes/formato";
 import { useCatalogosDeOrdenes } from "../../ordenes/useCatalogos";
 import { useSesion } from "../../sesion/SesionContext";
-import { colores } from "../../tema/colores";
+import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaCorta, fechaYHora } from "../../utils/fechas";
 import { useMontado } from "../activos/piezas";
@@ -37,6 +38,7 @@ export { TEXTO_NO_DISPONIBLE };
 
 /** Las filas de materiales o de mano de obra, con «Quitar» si se puede. */
 function FilasDeCosto({ tipo, filas, puede, quitando, onQuitar }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   if (!filas.length) return <Text style={estilos.tenue}>Nada registrado.</Text>;
   return filas.map((fila) => {
     const detalle = detalleDelCosto(tipo, fila);
@@ -86,6 +88,7 @@ function FilasDeCosto({ tipo, filas, puede, quitando, onQuitar }) {
  * empresa activa, como en Gestión de Activos.
  */
 export function FichaOrden({ id, empresa = null }) {
+  const estilos = useEstilos(fabricaDeEstilos);
   const { empresaActiva, versionEmpresa } = useSesion();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
@@ -238,7 +241,7 @@ export function FichaOrden({ id, empresa = null }) {
       testID="ficha-orden"
       style={estilos.pantalla}
       contentContainerStyle={estilos.contenido}
-      refreshControl={<RefreshControl refreshing={refrescando} onRefresh={refrescar} />}
+      refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}
       {resultado?.texto ? <Alerta tipo="bien" texto={resultado.texto} clave={resultado.clave} testID="resultado-orden" /> : null}
@@ -436,7 +439,7 @@ export function FichaOrden({ id, empresa = null }) {
   );
 }
 
-const estilos = crearEstilos({
+const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, paddingBottom: 40, gap: 16 },
   centro: { padding: 16 },
