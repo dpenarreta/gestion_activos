@@ -49,7 +49,7 @@ SECRET_KEY = env.str("SECRET_KEY")
 DEBUG = env.bool("DEBUG", default=False)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 
-SYSTEM_NAME = env.str("SYSTEM_NAME", default="Gestión de Activos")
+SYSTEM_NAME = env.str("SYSTEM_NAME", default="Intranet LCE")
 FRONTEND_URL = env.str("FRONTEND_URL", default="http://localhost:5173")
 BACKEND_PORT = env.int("BACKEND_PORT", default=8000)
 # URL pública por la que se accede a esta API (no necesariamente FRONTEND_URL
