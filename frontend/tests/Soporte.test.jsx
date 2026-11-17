@@ -350,17 +350,14 @@ describe("Soporte TI a prueba de errores (auditoría UX/UI, 30/10/2026)", () => 
     await waitFor(() => expect(aviso).toHaveFocus());
   });
 
-  it("«Cambiar mis datos» se puede cancelar sin perder lo escrito", async () => {
+  it("no ofrece «Cambiar mis datos»: ya confirmados, no se cambian desde aquí (17/11/2026)", async () => {
     servicio.solicitar.mockResolvedValue(FORMULARIO);
     pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
-    fireEvent.change(await screen.findByLabelText(/^Describa el problema/), {
-      target: { value: "No prende" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Cambiar mis datos" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
-    expect(screen.getByLabelText(/^Describa el problema/)).toHaveValue(
-      "No prende",
-    );
+    await screen.findByLabelText(/^Describa el problema/);
+    expect(screen.getByText(/Le contactaremos como/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Cambiar mis datos" }),
+    ).not.toBeInTheDocument();
   });
 });
 

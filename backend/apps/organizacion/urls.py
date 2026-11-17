@@ -30,6 +30,7 @@ from .views import (
     NoticiaInicioViewSet,
     OrganigramaView,
     PerfilCargoView,
+    PerfilDePersonaView,
     PlantillaPersonasView,
     ProveedorViewSet,
     RevertirVersionView,
@@ -64,6 +65,7 @@ urlpatterns = [
     path("organigrama/", OrganigramaView.as_view(), name="organigrama"),
     path("asignaciones/", AsignacionesView.as_view(), name="asignaciones"),
     path("asignaciones/area/", AreaDePersonaView.as_view(), name="asignaciones-area"),
+    path("personas/<int:pk>/perfil/", PerfilDePersonaView.as_view(), name="persona-perfil"),
     path(
         "carga-personas/plantilla/",
         PlantillaPersonasView.as_view(),

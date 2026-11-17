@@ -158,6 +158,12 @@ export function FormularioMisDatos({
   // marca del servidor y no si `area` viene vacía: puede venir de nómina sin
   // que la persona la haya guardado.
   const areaFija = Boolean(datos.area_fija);
+  // Tras confirmar su perfil (17/11/2026), el nombre y la agencia tampoco
+  // los cambia la persona: solo sus teléfonos. Los corrige Talento Humano.
+  const bloqueados = new Set(datos.bloqueados ?? []);
+  const nombreBloqueado =
+    bloqueados.has("nombres") || bloqueados.has("apellidos");
+  const agenciaBloqueada = bloqueados.has("agencia");
   // El área que hay en el campo es la del cargo (el elegido ahora o el que ya
   // tenía asignado): se dice con una nota, que desaparece si la persona la
   // cambia.
@@ -416,6 +422,8 @@ export function FormularioMisDatos({
           autoComplete="given-name"
           value={valores.nombres}
           onChange={fijar("nombres")}
+          disabled={nombreBloqueado}
+          aria-describedby={nombreBloqueado ? "md-confirmados" : undefined}
         />
       </div>
       <div className="col-12 col-md-6">
@@ -431,8 +439,22 @@ export function FormularioMisDatos({
           autoComplete="family-name"
           value={valores.apellidos}
           onChange={fijar("apellidos")}
+          disabled={nombreBloqueado}
+          aria-describedby={nombreBloqueado ? "md-confirmados" : undefined}
         />
       </div>
+      {datos.confirmado && bloqueados.size > 0 && (
+        <div className="col-12">
+          <div id="md-confirmados" className="mz-alert mz-alert--info">
+            <Icon name="lock" />
+            <span>
+              Sus datos ya están confirmados: su nombre, área, agencia y cargo
+              no los puede cambiar usted. Si hay algo que corregir, pídaselo a
+              Talento Humano. Sus teléfonos sí puede actualizarlos.
+            </span>
+          </div>
+        </div>
+      )}
       <div className="col-12 col-md-6">
         <label className="form-label" htmlFor="md-correo">
           Correo institucional
@@ -920,6 +942,8 @@ export function FormularioMisDatos({
               required
               value={valores.agencia}
               onChange={fijar("agencia")}
+              disabled={agenciaBloqueada}
+              aria-describedby={agenciaBloqueada ? "md-confirmados" : undefined}
             >
               <option value="">Elija su agencia</option>
               {(datos.agencias ?? []).map((a) => (

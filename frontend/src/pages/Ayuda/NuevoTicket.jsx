@@ -36,7 +36,7 @@ const VACIO = {
 
 /** Lo que se sabe de quien pide, en una línea al final (antes ocupaba la
  * primera pantalla y el botón de enviar quedaba fuera de la vista). */
-function SusDatos({ datos, onEditar }) {
+function SusDatos({ datos }) {
   const partes = [
     datos.nombre,
     datos.correo,
@@ -54,14 +54,10 @@ function SusDatos({ datos, onEditar }) {
   return (
     <p className="soporte-sus-datos mz-small mb-0">
       <Icon name="person-badge" /> Le contactaremos como{" "}
-      <strong>{partes.join(" · ")}</strong>.{" "}
-      <button
-        type="button"
-        className="btn btn-link btn-sm p-0 align-baseline"
-        onClick={onEditar}
-      >
-        Cambiar mis datos
-      </button>
+      <strong>{partes.join(" · ")}</strong>.
+      {/* Sin «Cambiar mis datos» (17/11/2026): una vez confirmados, los
+          datos no se cambian desde aquí; los teléfonos se actualizan en
+          Mi perfil y lo demás lo corrige Talento Humano. */}
     </p>
   );
 }
@@ -372,7 +368,7 @@ export function NuevoTicket({ irAlCreado = alDetalle, desdeLaMesa = false }) {
             )}
           </div>
           <div className="col-12">
-            <SusDatos datos={misDatos} onEditar={() => setEditando(true)} />
+            <SusDatos datos={misDatos} />
           </div>
           {error && (
             <div className="col-12">

@@ -52,6 +52,7 @@ leen el chat, la Mesa de ayuda y «Mis datos».
 """
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from apps.empresas.contexto import SIN_EMPRESA, empresa_actual
@@ -110,6 +111,16 @@ SIN_EXTENSION = "Escriba la extensión de su línea fija."
 #: Para quien llama a `guardar` sin la respuesta del teléfono corporativo: se
 #: conserva lo que ya estaba guardado (ni se borra ni se da por respondido).
 SIN_CAMBIOS = object()
+
+#: Lo que la persona ya no cambia tras confirmar su perfil (17/11/2026).
+#: El área y el cargo ya se elegían una sola vez (US-005); se suman el nombre
+#: y la agencia. Los corrige quien tenga `usuarios.corregir_perfil` (agencia y
+#: área, en la ficha del usuario) o `usuarios.editar` (nombres).
+BLOQUEADOS_TRAS_CONFIRMAR = ("nombres", "apellidos", "agencia", "area", "cargo")
+DATOS_CONFIRMADOS = (
+    "Sus datos ya están confirmados y no puede cambiarlos usted. Si hay algo que "
+    "corregir, pídaselo a Talento Humano o a la administración del sistema."
+)
 
 CARGO_FIJO = (
     "Su cargo ya está elegido y no puede cambiarlo usted. "
@@ -207,6 +218,13 @@ def de(usuario) -> dict:
         or bool(datos["tiene_linea_fija"] and datos["linea_fija_extension"]),
     }
     datos["faltan"] = [clave for clave in OBLIGATORIOS if not presentes[clave]]
+    # Confirmado (17/11/2026): ya lo dejó completo alguna vez. Un perfil que
+    # ya estaba completo antes de este cambio cuenta como confirmado.
+    confirmado = bool(propios and propios.confirmado_en) or not datos["faltan"]
+    datos["confirmado"] = confirmado
+    datos["bloqueados"] = (
+        [clave for clave in BLOQUEADOS_TRAS_CONFIRMAR if presentes[clave]] if confirmado else []
+    )
     return datos
 
 
@@ -321,6 +339,18 @@ def guardar(
     - El área (US-005) y el cargo se eligen una sola vez: si ya tiene uno y
       llega otro, `ValidationError` en `area` o `cargo`."""
     with transaction.atomic():
+        # Tras confirmar su perfil, el nombre y la agencia ya no los cambia ella
+        # (17/11/2026); el área y el cargo ya se fijaban solos, más abajo.
+        previo = de(usuario)
+        bloqueados = set(previo["bloqueados"])
+        if ("nombres" in bloqueados and nombres.strip() != usuario.first_name.strip()) or (
+            "apellidos" in bloqueados and apellidos.strip() != usuario.last_name.strip()
+        ):
+            raise ValidationError({"nombres": [DATOS_CONFIRMADOS]})
+        if "agencia" in bloqueados and getattr(sede, "pk", None) != (previo["agencia"] or {}).get(
+            "id"
+        ):
+            raise ValidationError({"agencia": [DATOS_CONFIRMADOS]})
         usuario.first_name = nombres.strip()[:150]
         usuario.last_name = apellidos.strip()[:150]
         usuario.save(update_fields=["first_name", "last_name", "updated_at"])
@@ -415,6 +445,10 @@ def guardar(
         from .roles_de_cargo import sincronizar
 
         sincronizar(propios.empresa, [usuario])
+        # La primera vez que queda completo, queda confirmado.
+        if not propios.confirmado_en and not de(usuario)["faltan"]:
+            propios.confirmado_en = timezone.now()
+            propios.save(update_fields=["confirmado_en", "updated_at"])
     return de(usuario)
 
 

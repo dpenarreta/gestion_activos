@@ -109,7 +109,11 @@ def test_quien_no_esta_en_nomina_completa_sus_datos_y_la_ficha_no_se_toca(db):
     assert bueno.json()["faltan"] == []
     usuario.refresh_from_db()
     assert usuario.get_full_name() == "Rosa Vera"
-    assert not Empleado.objects.todas().filter(usuario=usuario).exists()
+    # Desde el 16/11/2026 toda persona tiene su ficha de empleado, creada
+    # desde su cuenta al guardar Mi perfil (`fichas.py`), con su área.
+    ficha = Empleado.objects.todas().get(usuario=usuario)
+    assert ficha.nombre_completo == "Rosa Vera"
+    assert ficha.departamento == area
 
 
 def test_sin_sesion_no_hay_mis_datos(db):

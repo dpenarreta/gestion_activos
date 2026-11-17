@@ -26,6 +26,7 @@ import { useMultiempresa } from "../../../components/admin/AdminSidebar/Selector
 import { CargoDelUsuario } from "./CargoDelUsuario";
 import { CodigoDesdeNomina } from "./CodigoDesdeNomina";
 import { ContrasenaDeLaCuenta } from "./ContrasenaDeLaCuenta";
+import { PerfilDeLaCuenta } from "./PerfilDeLaCuenta";
 import { ReemplazoDeLaCuenta } from "./ReemplazoDeLaCuenta";
 import { motivoDelAlta } from "./cargosDelAlta";
 import { SelectorDeCargo } from "./SelectorDeCargo";
@@ -53,6 +54,8 @@ export function UserForm() {
   const puedeCambiarPassword = usePermission("usuarios.cambiar_password");
   // US-018: quién aprueba por la persona mientras está ausente.
   const puedeConfigurarReemplazo = usePermission("usuarios.reemplazo");
+  // Corregir el área y la agencia ya confirmadas (17/11/2026).
+  const puedeCorregirPerfil = usePermission("usuarios.corregir_perfil");
   const puedeClaveTemporal = usePermission("usuarios.clave_temporal");
   // Si la cuenta que se mira es de un superusuario (para ocultar acciones).
   const [esSuperusuario, setEsSuperusuario] = useState(false);
@@ -725,6 +728,11 @@ export function UserForm() {
               puedeClaveTemporal={puedeClaveTemporal}
             />
           )}
+
+        {/* Área y agencia confirmadas en Mi perfil (17/11/2026). */}
+        {isEditing && puedeCorregirPerfil && (
+          <PerfilDeLaCuenta usuarioId={id} />
+        )}
 
         {isEditing && (
           <ReemplazoDeLaCuenta

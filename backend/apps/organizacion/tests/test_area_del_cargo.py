@@ -216,9 +216,15 @@ def test_despues_cambiar_el_area_desde_mi_perfil_da_400_y_conserva_la_guardada(a
         assert DatosDeContacto.objects.get(usuario=usuario).departamento == arbol["financiero"]
 
     # Con la misma área puede seguir actualizando lo demás.
-    mismo = cliente.put(MIS_DATOS, {**primera, "nombres": "María"}, format="json")
+    # Reenviar la misma área deja guardar lo demás. Desde el 17/11/2026, ya
+    # confirmado el perfil, lo que cambia es un teléfono y no el nombre.
+    mismo = cliente.put(
+        MIS_DATOS,
+        {**primera, "tiene_linea_fija": True, "linea_fija_extension": "321"},
+        format="json",
+    )
     assert mismo.status_code == 200, mismo.data
-    assert mismo.json()["nombres"] == "María"
+    assert mismo.json()["linea_fija_extension"] == "321"
 
 
 def test_la_primera_vez_no_vale_un_area_inactiva(arbol):
@@ -241,9 +247,15 @@ def test_si_su_area_guardada_se_desactiva_la_reenvia_y_guarda_lo_demas(arbol):
     with usando_empresa(arbol["empresa"]):
         Departamento.objects.filter(pk=arbol["logistica"].pk).update(activo=False)
 
-    mismo = cliente.put(MIS_DATOS, {**primera, "nombres": "María"}, format="json")
+    # Reenviar la misma área deja guardar lo demás. Desde el 17/11/2026, ya
+    # confirmado el perfil, lo que cambia es un teléfono y no el nombre.
+    mismo = cliente.put(
+        MIS_DATOS,
+        {**primera, "tiene_linea_fija": True, "linea_fija_extension": "321"},
+        format="json",
+    )
     assert mismo.status_code == 200, mismo.data
-    assert mismo.json()["nombres"] == "María"
+    assert mismo.json()["linea_fija_extension"] == "321"
     assert mismo.json()["area"]["nombre"] == "Logística y Distribución"
 
     otra = cliente.put(

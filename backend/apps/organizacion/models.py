@@ -713,6 +713,10 @@ class DatosDeContacto(ModeloDeEmpresa):
     tiene_linea_fija = models.BooleanField(null=True, blank=True)
     #: La extensión de su línea fija; obligatoria si respondió que sí.
     linea_fija_extension = models.CharField(max_length=10, blank=True)
+    # Cuándo la persona dejó su perfil completo por primera vez (17/11/2026):
+    # desde entonces sus nombres, área, agencia y cargo ya no los cambia ella
+    # (`contacto.guardar`); los corrige quien tenga `usuarios.corregir_perfil`.
+    confirmado_en = models.DateTimeField(null=True, blank=True)
 
     class ReemplazoModo(models.TextChoices):
         JEFE = "jefe", "Mi jefe inmediato"

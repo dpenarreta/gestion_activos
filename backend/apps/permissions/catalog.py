@@ -41,6 +41,12 @@ PERMISSION_CATALOG = {
                 "cédula), crear las cuentas de quien no la tiene y ver el reporte"
             ),
             "usuarios.ver_cedula": "Ver la cédula de las personas en la ficha del usuario",
+            # 17/11/2026: tras confirmar Mi perfil, la persona ya no cambia su
+            # nombre, área, agencia ni cargo; los corrige quien tenga esto.
+            "usuarios.corregir_perfil": (
+                "Corregir en la ficha del usuario los datos que la persona ya confirmó "
+                "en Mi perfil (área y agencia)"
+            ),
             # US-018 (13/11/2026): desde la ficha del usuario.
             "usuarios.reemplazo": (
                 "Configurar quién aprueba por otra persona mientras está ausente "

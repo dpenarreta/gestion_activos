@@ -886,6 +886,83 @@ class AreaDePersonaView(APIView):
         return Response({"usuario": usuario.id, "area": areas.como_dato(area)})
 
 
+class PerfilDePersonaView(APIView):
+    """Corregir el área y la agencia que una persona ya confirmó en Mi perfil
+    (17/11/2026), desde su ficha en Configuración › Usuarios. Pide
+    `usuarios.corregir_perfil`; los nombres se corrigen en la misma ficha con
+    `usuarios.editar`.
+
+    - `GET /organizacion/personas/<id>/perfil/` → `{area, agencia, confirmado,
+      areas, agencias}`.
+    - `PUT {area?: id|null, agencia?: id|null}` → lo mismo, ya corregido. Cada
+      cambio queda en la auditoría (`organizacion.perfil_corregido`)."""
+
+    permission_classes = [IsAuthenticated, Requiere("usuarios.corregir_perfil")]
+
+    def _persona(self, pk):
+        from apps.chat.services import personas_de_la_empresa
+
+        usuario = personas_de_la_empresa().filter(pk=pk).first()
+        if usuario is None:
+            raise ValidationError({"usuario": ["Esa persona no está registrada en esta empresa."]})
+        return usuario
+
+    def _respuesta(self, usuario):
+        datos = contacto.de(usuario)
+        opciones = contacto.opciones()
+        return {
+            "area": datos["area"],
+            "agencia": datos["agencia"],
+            "confirmado": datos["confirmado"],
+            "areas": opciones["areas"],
+            "agencias": opciones["agencias"],
+        }
+
+    def get(self, request, pk):
+        return Response(self._respuesta(self._persona(pk)))
+
+    def put(self, request, pk):
+        usuario = self._persona(pk)
+        antes = contacto.de(usuario)
+        anteriores, nuevos = {}, {}
+        with transaction.atomic():
+            if "area" in request.data and request.data["area"]:
+                area = Departamento.objects.filter(pk=request.data["area"], activo=True).first()
+                if area is None:
+                    raise ValidationError({"area": ["Elija un área activa de la empresa."]})
+                anterior, cambio = areas.cambiar_area(usuario, area)
+                if cambio:
+                    roles_de_cargo.sincronizar(_empresa_activa(), [usuario])
+                    anteriores["area"] = areas.como_dato(anterior)
+                    nuevos["area"] = areas.como_dato(area)
+            if "agencia" in request.data:
+                valor = request.data["agencia"]
+                sede = Sede.objects.filter(pk=valor, activa=True).first() if valor else None
+                if valor and sede is None:
+                    raise ValidationError({"agencia": ["Elija una agencia activa de la empresa."]})
+                propios = (
+                    DatosDeContacto.objects.select_for_update().filter(usuario=usuario).first()
+                )
+                if propios is None:
+                    propios = DatosDeContacto(usuario=usuario)
+                if propios.sede_id != getattr(sede, "pk", None):
+                    propios.sede = sede
+                    propios.save()
+                    anteriores["agencia"] = antes["agencia"]
+                    nuevos["agencia"] = {"id": sede.id, "nombre": sede.nombre} if sede else None
+            if nuevos:
+                record_audit_event(
+                    actor=request.user,
+                    action="organizacion.perfil_corregido",
+                    target=usuario,
+                    module=MODULO,
+                    previous_values=anteriores,
+                    new_values=nuevos,
+                    context=get_request_context(request),
+                )
+        return Response(self._respuesta(usuario))
+
+
 class DocumentoInstitucionalViewSet(viewsets.ModelViewSet):
     """Códigos de conducta y reglamentos de la empresa activa.
 

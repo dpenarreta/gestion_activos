@@ -77,6 +77,18 @@ export const adminUsersService = {
   },
   /** Quién aprueba por esta persona mientras está ausente (US-018):
    * `{modo, persona, jefe, ausencia}` de la empresa activa. */
+  /** Área y agencia de Mi perfil, para corregirlas (`usuarios.corregir_perfil`,
+   * 17/11/2026). → `{area, agencia, confirmado, areas, agencias}`. */
+  perfil(id) {
+    return apiClient
+      .get(`/organizacion/personas/${id}/perfil/`)
+      .then((r) => r.data);
+  },
+  corregirPerfil(id, datos) {
+    return apiClient
+      .put(`/organizacion/personas/${id}/perfil/`, datos)
+      .then((r) => r.data);
+  },
   reemplazo(id) {
     return apiClient.get(`/admin/users/${id}/reemplazo/`).then((r) => r.data);
   },
