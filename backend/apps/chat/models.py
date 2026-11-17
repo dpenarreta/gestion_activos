@@ -150,3 +150,33 @@ class EstadoChat(BaseModel):
     class Meta:
         verbose_name = "estado en el chat"
         verbose_name_plural = "estados en el chat"
+
+
+class CalendarioGoogle(BaseModel):
+    """El calendario de Google que una persona conectó (17/11/2026), para que
+    su estado pase solo a «En reunión» mientras tiene una (`calendario.py`).
+
+    Es voluntario: cada persona lo conecta y lo desconecta. Solo se pide el
+    permiso «ver su disponibilidad» (`calendar.freebusy`): la intranet sabe
+    que está ocupada de tal a tal hora, nunca el título, los invitados ni el
+    contenido de sus reuniones. La credencial de Google se guarda cifrada.
+    """
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="calendario_google"
+    )
+    credencial_cifrada = models.TextField()
+    conectado_en = models.DateTimeField()
+    ultimo_chequeo = models.DateTimeField(null=True, blank=True)
+    #: El último problema con Google (la persona retiró el permiso, p. ej.).
+    error = models.CharField(max_length=200, blank=True)
+    #: Si el estado «En reunión» lo puso el calendario, y lo que había antes,
+    #: para volver a él al terminar la reunión.
+    reunion_puesta_hasta = models.DateTimeField(null=True, blank=True)
+    estado_previo = models.CharField(max_length=14, blank=True)
+    mensaje_previo = models.CharField(max_length=140, blank=True)
+    hasta_previo = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "calendario de Google"
+        verbose_name_plural = "calendarios de Google"

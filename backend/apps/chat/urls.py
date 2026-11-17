@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import views, views_calendario
 
 urlpatterns = [
     path("conversaciones/", views.ConversacionesView.as_view(), name="chat-conversaciones"),
@@ -17,4 +17,16 @@ urlpatterns = [
     path("mi-estado/", views.MiEstadoView.as_view(), name="chat-mi-estado"),
     path("areas/", views.AreasView.as_view(), name="chat-areas"),
     path("archivos/<int:pk>/", views.ArchivoView.as_view(), name="chat-archivo"),
+    # El estado «En reunión» desde Google Calendar (17/11/2026).
+    path("calendario/", views_calendario.CalendarioView.as_view(), name="chat-calendario"),
+    path(
+        "calendario/conectar/",
+        views_calendario.ConectarCalendarioView.as_view(),
+        name="chat-calendario-conectar",
+    ),
+    path(
+        "calendario/callback/",
+        views_calendario.RetornoCalendarioView.as_view(),
+        name="chat-calendario-callback",
+    ),
 ]

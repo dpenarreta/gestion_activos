@@ -436,6 +436,11 @@ PERMISSION_CATALOG = {
             "chat.grupos_por_area": (
                 "Crear grupos por área, cuyos miembros son las personas de esa área"
             ),
+            # 17/11/2026: el estado pasa solo a «En reunión» con el calendario.
+            "chat.calendario_google": (
+                "Conectar su calendario de Google para que su estado cambie solo a "
+                "«En reunión» (solo se ve si está libre u ocupado)"
+            ),
         },
     },
     "institucional": {

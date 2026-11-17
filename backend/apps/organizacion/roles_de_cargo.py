@@ -40,6 +40,8 @@ PERMISOS_BASE = (
     "procesos.solicitar",
     # Cancelar sus vacaciones o permisos ya aprobados (US-012, 12/11/2026).
     "licencias.cancelar_aprobadas_propias",
+    # Conectar su calendario de Google al estado del chat (17/11/2026).
+    "chat.calendario_google",
 )
 # Consultar el propio rol de pagos tampoco: va persona por persona, por la
 # lista de habilitados (22/10/2026). Los permisos que da cada cargo en

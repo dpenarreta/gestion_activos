@@ -70,6 +70,16 @@ export const chatService = {
   },
   /** Mi estado (almuerzo, vacaciones…), mi horario de almuerzo y las
    * vacaciones que se proponen. */
+  /** El calendario de Google para «En reunión» (17/11/2026). */
+  calendario() {
+    return apiClient.get(`${BASE}/calendario/`).then((r) => r.data);
+  },
+  conectarCalendario() {
+    return apiClient.post(`${BASE}/calendario/conectar/`).then((r) => r.data);
+  },
+  desconectarCalendario() {
+    return apiClient.delete(`${BASE}/calendario/`).then((r) => r.data);
+  },
   miEstado() {
     return apiClient.get(`${BASE}/mi-estado/`).then((r) => r.data);
   },

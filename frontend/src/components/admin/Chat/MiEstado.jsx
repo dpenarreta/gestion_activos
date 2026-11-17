@@ -14,6 +14,7 @@ import {
   useReemplazoEnAusencia,
 } from "../../common/Ausencia/ReemplazoEnAusencia";
 import { Icon } from "../../common/Icon/Icon";
+import { CalendarioGoogle } from "./CalendarioGoogle";
 import "./Presencia.css";
 
 /** Los estados que se eligen (22/10/2026), con su ícono. */
@@ -494,6 +495,9 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
               A esa hora el chat le ofrecerá marcar que salió a almorzar.
             </small>
           </details>
+
+          {/* «En reunión» desde Google Calendar (17/11/2026). */}
+          <CalendarioGoogle />
 
           <div className="mz-actions justify-content-end">
             <button

@@ -56,6 +56,16 @@ BACKEND_PORT = env.int("BACKEND_PORT", default=8000)
 # ni BACKEND_PORT: en producción suele ser un dominio detrás de un proxy).
 PUBLIC_API_URL = env.str("PUBLIC_API_URL", default=f"http://localhost:{BACKEND_PORT}")
 
+# Google Calendar para el estado «En reunión» del chat (17/11/2026). El cliente
+# OAuth se crea en Google Cloud (tipo «Aplicación web», usuarios internos del
+# dominio) con esta URL de retorno. Sin client id, la opción no se ofrece.
+GOOGLE_CALENDAR_CLIENT_ID = env.str("GOOGLE_CALENDAR_CLIENT_ID", default="")
+GOOGLE_CALENDAR_CLIENT_SECRET = env.str("GOOGLE_CALENDAR_CLIENT_SECRET", default="")
+GOOGLE_CALENDAR_REDIRECT_URI = env.str(
+    "GOOGLE_CALENDAR_REDIRECT_URI",
+    default=f"{PUBLIC_API_URL.rstrip('/')}/api/v1/chat/calendario/callback/",
+)
+
 # Nombre de ambiente legible, explícito (no se deriva de DEBUG ni de
 # DJANGO_SETTINGS_MODULE). production.py lo fuerza a "production".
 ENVIRONMENT_NAME = env.str("ENVIRONMENT_NAME", default="development")

@@ -19,6 +19,8 @@ requests==2.34.2
 # SDK oficial de Anthropic (Claude), proveedor de IA de la intranet junto con
 # Gemini (`apps.nova.cliente`, setting IA_PROVEEDOR).
 anthropic==2.5.0
+# Cifra en el servidor las credenciales de Google Calendar (`apps.chat.calendario`).
+cryptography==44.0.0
 # Texto de los PDF de la base de conocimiento de Nova (`apps.nova.conocimiento`):
 # puro Python, sin dependencias nativas.
 pypdf==6.21.4

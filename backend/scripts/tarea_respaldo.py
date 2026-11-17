@@ -122,6 +122,9 @@ def main() -> int:
         # empezó hoy sus vacaciones o un permiso pasan a su reemplazo. Es
         # idempotente: sin ausentes con pendientes, unas pocas consultas.
         ("reasignar_por_ausencia", []),
+        # Chat (17/11/2026): «En reunión» para quien conectó su calendario de
+        # Google. Sin Google configurado no consulta nada.
+        ("estado_por_calendario", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

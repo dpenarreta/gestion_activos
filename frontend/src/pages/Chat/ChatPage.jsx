@@ -24,6 +24,18 @@ const PESTANAS = [
  * El chat a pantalla completa. Aquí llegan los enlaces de la campana
  * (`/admin/chat?c=<id>`) y es la vista del celular.
  */
+/** Lo que se dice al volver de Google al conectar el calendario. */
+const RESULTADOS_CALENDARIO = {
+  conectado:
+    "Su calendario de Google quedó conectado: durante sus reuniones su estado pasará solo a «En reunión».",
+  cancelado: "No se conectó el calendario: canceló en Google.",
+  invalido:
+    "No se pudo conectar el calendario: el enlace venció o ya se usó. Vuelva a intentarlo desde Mi estado.",
+  error:
+    "Google no concedió el permiso de ver su disponibilidad. Vuelva a intentarlo desde Mi estado.",
+  sin_permiso: "Su rol no permite conectar el calendario de Google.",
+};
+
 export function ChatPage() {
   const chat = useChat();
   const [parametros, setParametros] = useSearchParams();
@@ -56,6 +68,19 @@ export function ChatPage() {
         <div className="chat-pagina__mi-estado">
           <span className="mz-small mz-faint">Mi estado:</span> <MiEstado />
         </div>
+        {/* Al volver de Google Calendar (17/11/2026). */}
+        {RESULTADOS_CALENDARIO[parametros.get("calendario")] && (
+          <div
+            className={`mz-alert mz-small ${
+              parametros.get("calendario") === "conectado"
+                ? "mz-alert--ok"
+                : "mz-alert--warn"
+            }`}
+            role="status"
+          >
+            {RESULTADOS_CALENDARIO[parametros.get("calendario")]}
+          </div>
+        )}
         <div className="chat-panel__pestanas" role="tablist">
           {PESTANAS.map(([id, texto]) => (
             <button

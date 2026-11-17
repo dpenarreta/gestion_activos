@@ -138,7 +138,8 @@ def test_el_permiso_manda_sobre_un_estado_que_no_es_ausencia(empresa):  # noqa: 
 
 
 def test_al_quedar_ausente_por_su_estado_se_reasigna_lo_pendiente(
-    empresa, monkeypatch  # noqa: F811
+    empresa,
+    monkeypatch,  # noqa: F811
 ):
     llamadas = []
     monkeypatch.setattr(
