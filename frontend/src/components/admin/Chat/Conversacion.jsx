@@ -7,6 +7,7 @@ import { descargarBlob } from "../../../utils/descargas";
 import { Icon } from "../../common/Icon/Icon";
 import { useChat } from "./ChatContext";
 import { AvisoDeEstado, usePresencia } from "./Presencia";
+import { VisorImagenChat } from "./VisorImagenChat";
 
 /** Las iniciales de un nombre: «Carla Ordóñez» → «CO». */
 export function iniciales(nombre) {
@@ -22,6 +23,9 @@ export function tonoDe(id) {
 /** Una foto del chat: se pide con la sesión y se muestra como blob. */
 function Imagen({ archivo }) {
   const [url, setUrl] = useState(null);
+  const [imagen, setImagen] = useState(null);
+  // Pulsarla la abre a pantalla completa (17/11/2026).
+  const [ampliada, setAmpliada] = useState(false);
   useEffect(() => {
     let creada = null;
     chatService
@@ -33,13 +37,32 @@ function Imagen({ archivo }) {
         const imagen = blobDeImagen(blob, archivo.nombre);
         if (!imagen) return setUrl(null);
         creada = URL.createObjectURL(imagen);
+        setImagen(imagen);
         setUrl(creada);
       })
       .catch(() => setUrl(null));
     return () => creada && URL.revokeObjectURL(creada);
   }, [archivo.url, archivo.nombre]);
   return url ? (
-    <img className="chat-imagen" src={url} alt={archivo.nombre} />
+    <>
+      <button
+        type="button"
+        className="chat-imagen__boton"
+        onClick={() => setAmpliada(true)}
+        aria-label={`Ver ${archivo.nombre} a pantalla completa`}
+        title="Ver a pantalla completa"
+      >
+        <img className="chat-imagen" src={url} alt={archivo.nombre} />
+      </button>
+      {ampliada && (
+        <VisorImagenChat
+          url={url}
+          blob={imagen}
+          nombre={archivo.nombre}
+          onCerrar={() => setAmpliada(false)}
+        />
+      )}
+    </>
   ) : (
     <span className="mz-small mz-faint">
       <Icon name="image" /> {archivo.nombre}

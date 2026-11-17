@@ -114,6 +114,10 @@ export function ChatDock() {
     if (!algoAbierto) return undefined;
     function fuera(evento) {
       if (zona.current?.contains(evento.target)) return;
+      // Lo que se abre desde el chat por encima de todo —la foto a pantalla
+      // completa, una confirmación— no es «fuera» (17/11/2026).
+      if (evento.target?.closest?.(".chat-visor, [role='dialog'], .mz-overlay"))
+        return;
       setPanel(false);
       minimizarTodo?.();
     }
