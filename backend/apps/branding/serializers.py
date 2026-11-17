@@ -50,6 +50,11 @@ class SiteThemeSerializer(serializers.ModelSerializer):
             "font_size_base",
             "border_radius",
             "border_radius_css",
+            "acceso_lema",
+            "acceso_descripcion",
+            "acceso_pie",
+            "acceso_titulo",
+            "acceso_subtitulo",
             "updated_at",
         ]
         read_only_fields = [

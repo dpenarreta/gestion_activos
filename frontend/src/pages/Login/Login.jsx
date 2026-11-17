@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Button } from "../../components/common/Button/Button";
 import { useAuth } from "../../hooks/useAuth";
-import { PantallaAcceso } from "../../components/common/PantallaAcceso/PantallaAcceso";
+import {
+  PantallaAcceso,
+  textoDeAcceso,
+} from "../../components/common/PantallaAcceso/PantallaAcceso";
+import { ThemeContext } from "../../context/ThemeContext";
 import {
   MODULO_DE_ENTRADA,
   RUTA_DE_ENTRADA,
@@ -12,6 +16,8 @@ import {
 import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
 
 export function Login() {
+  // Sin `useTheme`, que exige el proveedor (como en `PantallaAcceso`).
+  const theme = useContext(ThemeContext)?.theme;
   // La pestaña dice en qué pantalla se está, no solo el nombre del sitio
   // (revisión final UX/UI, 28/10/2026).
   useEffect(() => {
@@ -48,8 +54,8 @@ export function Login() {
 
   return (
     <PantallaAcceso
-      titulo="Acceso al sistema"
-      subtitulo="Ingrese con su usuario corporativo."
+      titulo={textoDeAcceso(theme, "acceso_titulo")}
+      subtitulo={textoDeAcceso(theme, "acceso_subtitulo")}
     >
       <form onSubmit={handleSubmit}>
         {cerradaPorInactividad && !error && (

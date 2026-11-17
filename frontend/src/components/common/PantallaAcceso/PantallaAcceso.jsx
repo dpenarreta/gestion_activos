@@ -16,6 +16,25 @@ import "./PantallaAcceso.css";
  * había salido del sistema a mitad del trámite. En pantallas estrechas el panel
  * desaparece y el logotipo pasa a la tarjeta.
  */
+/** Los textos por defecto, iguales a los del servidor (`branding/catalog.py`):
+ * se usan antes de que el tema responda, o si no responde. */
+export const TEXTOS_ACCESO_POR_DEFECTO = {
+  acceso_lema: "Entregamos seguridad y confianza.",
+  acceso_descripcion:
+    "La intranet del grupo: los equipos y su mantenimiento, la mesa de ayuda, la gestión humana y la vida institucional de cada empresa, en un solo lugar.",
+  acceso_pie: "Activos · Mesa de ayuda · Gestión Humana · Institucional",
+  acceso_titulo: "Acceso al sistema",
+  acceso_subtitulo: "Ingrese con su usuario corporativo.",
+};
+
+/** Un texto de la pantalla de acceso: el del tema (personalizable en
+ * Configuración › Identidad, 17/11/2026) o el de siempre. Un texto vaciado a
+ * propósito se respeta (no se muestra). */
+export function textoDeAcceso(theme, campo) {
+  const valor = theme?.[campo];
+  return typeof valor === "string" ? valor : TEXTOS_ACCESO_POR_DEFECTO[campo];
+}
+
 export function PantallaAcceso({ titulo, subtitulo, children }) {
   // Sin `useTheme`, que exige el proveedor: estas pantallas se dibujan también
   // antes de que el tema responda —o si no responde—, y entonces basta con el
@@ -40,17 +59,16 @@ export function PantallaAcceso({ titulo, subtitulo, children }) {
           )}
         </div>
         <div className="login-pitch">
-          {/* El lema de la marca (Brand Book 2026). */}
-          <h1>Entregamos seguridad y confianza.</h1>
-          <p>
-            La intranet del grupo: los equipos y su mantenimiento, la mesa de
-            ayuda, la gestión humana y la vida institucional de cada empresa, en
-            un solo lugar.
-          </p>
+          {/* El lema de la marca (Brand Book 2026); los textos se cambian en
+              Configuración › Identidad. */}
+          <h1>{textoDeAcceso(theme, "acceso_lema")}</h1>
+          {textoDeAcceso(theme, "acceso_descripcion") && (
+            <p>{textoDeAcceso(theme, "acceso_descripcion")}</p>
+          )}
         </div>
-        <div className="login-foot">
-          Activos · Mesa de ayuda · Gestión Humana · Institucional
-        </div>
+        {textoDeAcceso(theme, "acceso_pie") && (
+          <div className="login-foot">{textoDeAcceso(theme, "acceso_pie")}</div>
+        )}
       </aside>
       <main className="login-main">
         <div className="login-card">

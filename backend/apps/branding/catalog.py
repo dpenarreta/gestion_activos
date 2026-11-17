@@ -79,6 +79,26 @@ DEFAULT_THEME = {
     "font_secondary": "poppins",
     "font_size_base": 14,
     "border_radius": "base",
+    # Los textos de la pantalla de acceso (17/11/2026): el lema, para qué
+    # sirve el sistema, el pie del panel y el título y la frase del
+    # formulario de inicio de sesión. Debajo del logo va `site_name`.
+    "acceso_lema": "Entregamos seguridad y confianza.",
+    "acceso_descripcion": (
+        "La intranet del grupo: los equipos y su mantenimiento, la mesa de ayuda, "
+        "la gestión humana y la vida institucional de cada empresa, en un solo lugar."
+    ),
+    "acceso_pie": "Activos · Mesa de ayuda · Gestión Humana · Institucional",
+    "acceso_titulo": "Acceso al sistema",
+    "acceso_subtitulo": "Ingrese con su usuario corporativo.",
+}
+
+#: Largo máximo de cada texto de la pantalla de acceso.
+LARGOS_ACCESO = {
+    "acceso_lema": 120,
+    "acceso_descripcion": 400,
+    "acceso_pie": 160,
+    "acceso_titulo": 80,
+    "acceso_subtitulo": 160,
 }
 
 

@@ -31,6 +31,12 @@ const EDITABLE_FIELDS = [
   "font_secondary",
   "font_size_base",
   "border_radius",
+  // Textos de la pantalla de acceso (17/11/2026).
+  "acceso_lema",
+  "acceso_descripcion",
+  "acceso_pie",
+  "acceso_titulo",
+  "acceso_subtitulo",
 ];
 
 function pickEditableFields(theme) {

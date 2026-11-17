@@ -2,7 +2,7 @@ from django.db import models
 
 from apps.core.models import BaseModel
 
-from .catalog import DEFAULT_THEME
+from .catalog import DEFAULT_THEME, LARGOS_ACCESO
 
 
 class SiteTheme(BaseModel):
@@ -33,6 +33,27 @@ class SiteTheme(BaseModel):
     font_secondary = models.CharField(max_length=50, default=DEFAULT_THEME["font_secondary"])
     font_size_base = models.PositiveSmallIntegerField(default=DEFAULT_THEME["font_size_base"])
     border_radius = models.CharField(max_length=20, default=DEFAULT_THEME["border_radius"])
+    # Textos de la pantalla de acceso (17/11/2026). El lema y el título no
+    # pueden quedar vacíos; los demás, si se vacían, no se muestran.
+    acceso_lema = models.CharField(
+        max_length=LARGOS_ACCESO["acceso_lema"], default=DEFAULT_THEME["acceso_lema"]
+    )
+    acceso_descripcion = models.CharField(
+        max_length=LARGOS_ACCESO["acceso_descripcion"],
+        blank=True,
+        default=DEFAULT_THEME["acceso_descripcion"],
+    )
+    acceso_pie = models.CharField(
+        max_length=LARGOS_ACCESO["acceso_pie"], blank=True, default=DEFAULT_THEME["acceso_pie"]
+    )
+    acceso_titulo = models.CharField(
+        max_length=LARGOS_ACCESO["acceso_titulo"], default=DEFAULT_THEME["acceso_titulo"]
+    )
+    acceso_subtitulo = models.CharField(
+        max_length=LARGOS_ACCESO["acceso_subtitulo"],
+        blank=True,
+        default=DEFAULT_THEME["acceso_subtitulo"],
+    )
 
     def __str__(self) -> str:
         return self.site_name

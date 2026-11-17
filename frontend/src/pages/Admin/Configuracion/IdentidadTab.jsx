@@ -10,6 +10,44 @@ import "./IdentidadTab.css";
  * incluye un pipeline de carga de archivos, para mantenerse desacoplado de
  * cualquier biblioteca de medios.
  */
+/** Los textos de la pantalla de acceso, con su largo máximo (el mismo del
+ * servidor, `branding/catalog.py`). */
+const TEXTOS_ACCESO = [
+  {
+    campo: "acceso_lema",
+    etiqueta: "Lema",
+    ayuda: "El título grande del panel de la izquierda.",
+    largo: 120,
+    obligatorio: true,
+  },
+  {
+    campo: "acceso_descripcion",
+    etiqueta: "Descripción",
+    ayuda: "Para qué sirve el sistema, bajo el lema. Vacío, no se muestra.",
+    largo: 400,
+    multilinea: true,
+  },
+  {
+    campo: "acceso_pie",
+    etiqueta: "Pie del panel",
+    ayuda: "La línea de abajo del panel. Vacío, no se muestra.",
+    largo: 160,
+  },
+  {
+    campo: "acceso_titulo",
+    etiqueta: "Título del formulario",
+    ayuda: "Encima del usuario y la contraseña.",
+    largo: 80,
+    obligatorio: true,
+  },
+  {
+    campo: "acceso_subtitulo",
+    etiqueta: "Frase bajo el título",
+    ayuda: "Vacío, no se muestra.",
+    largo: 160,
+  },
+];
+
 export function IdentidadTab({ form, updateField }) {
   const [device, setDevice] = useState("desktop");
 
@@ -66,6 +104,46 @@ export function IdentidadTab({ form, updateField }) {
                 }
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mz-card">
+        <div className="mz-card-head">
+          <h3>Pantalla de acceso</h3>
+        </div>
+        <div className="mz-card-body">
+          {/* Lo que se ve antes de entrar (17/11/2026). Debajo del logo va el
+              «Nombre del sitio». */}
+          <p className="mz-small mz-faint">
+            Los textos de la pantalla de inicio de sesión. Debajo del logo se
+            muestra el «Nombre del sitio».
+          </p>
+          <div className="mz-field-grid">
+            {TEXTOS_ACCESO.map((texto) => {
+              const valor = form[texto.campo] ?? "";
+              const Control = texto.multilinea ? "textarea" : "input";
+              return (
+                <div key={texto.campo} className="mz-field mz-field--full">
+                  <label htmlFor={texto.campo}>{texto.etiqueta}</label>
+                  <Control
+                    id={texto.campo}
+                    className="form-control"
+                    value={valor}
+                    maxLength={texto.largo}
+                    rows={texto.multilinea ? 3 : undefined}
+                    required={texto.obligatorio}
+                    aria-describedby={`${texto.campo}-ayuda`}
+                    onChange={(event) =>
+                      updateField(texto.campo, event.target.value)
+                    }
+                  />
+                  <div id={`${texto.campo}-ayuda`} className="form-text">
+                    {texto.ayuda} {valor.length}/{texto.largo}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

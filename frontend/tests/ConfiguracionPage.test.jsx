@@ -34,6 +34,12 @@ const { UnsavedChangesProvider } =
 const { AppearanceProvider } = await import("../src/context/AppearanceContext");
 
 const TEMA = {
+  // Los textos de la pantalla de acceso (17/11/2026).
+  acceso_lema: "Entregamos seguridad y confianza.",
+  acceso_descripcion: "La intranet del grupo.",
+  acceso_pie: "Activos · Mesa de ayuda",
+  acceso_titulo: "Acceso al sistema",
+  acceso_subtitulo: "Ingrese con su usuario corporativo.",
   site_name: "Gestión de Activos",
   short_name: "GA",
   logo_url: "https://ejemplo.test/logo.png",

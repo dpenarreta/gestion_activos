@@ -6,7 +6,10 @@ from apps.branding.catalog import DEFAULT_THEME
 def seed_default_theme(apps, schema_editor):
     SiteTheme = apps.get_model("branding", "SiteTheme")
     if not SiteTheme.objects.exists():
-        SiteTheme.objects.create(**DEFAULT_THEME)
+        # Solo los campos que el modelo tiene en este punto de la historia: el
+        # catálogo fue sumando claves (los textos de acceso, 0006).
+        campos = {f.name for f in SiteTheme._meta.get_fields()}
+        SiteTheme.objects.create(**{k: v for k, v in DEFAULT_THEME.items() if k in campos})
 
 
 def noop_reverse(apps, schema_editor):
