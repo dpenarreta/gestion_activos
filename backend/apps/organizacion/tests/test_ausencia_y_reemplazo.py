@@ -47,7 +47,18 @@ UN_DIA = datetime.timedelta(days=1)
 @pytest.fixture
 def e(empresa_con_organigrama):  # noqa: F811 (el fixture importado)
     """Gerardo (Gerente General) > Julia (Jefa de Cobranzas) > Ana (Analista);
-    Tatiana (Talento Humano) e Inés (administra los flujos)."""
+    Tatiana (Talento Humano) e Inés (administra los flujos).
+
+    Desde el 17/11/2026 el reemplazo es alguien de la misma área o el jefe
+    directo: aquí todos comparten el área «Cobranzas»."""
+    from apps.organizacion.models import DatosDeContacto as _Datos
+    from apps.organizacion.models import Departamento as _Area
+
+    area = _Area.objects.create(nombre="Cobranzas", codigo="COB")
+    for clave in ("gerente", "jefa", "ana", "th"):
+        _Datos.objects.update_or_create(
+            usuario=empresa_con_organigrama[clave][0], defaults={"departamento": area}
+        )
     return empresa_con_organigrama
 
 

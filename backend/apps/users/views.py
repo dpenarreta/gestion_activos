@@ -293,6 +293,15 @@ class UserAdminViewSet(viewsets.ModelViewSet):
         )
         return Response(resumen)
 
+    @action(detail=True, methods=["get"], url_path="reemplazo/candidatos")
+    def reemplazo_candidatos(self, request, pk=None):
+        """A quién se puede elegir para aprobar por esta persona (17/11/2026):
+        su jefe directo y las personas de su misma área."""
+        from apps.organizacion.ausencia import candidatos_para_reemplazo
+
+        objetivo = self.get_object()
+        return Response(candidatos_para_reemplazo(objetivo, request.query_params.get("q", "")[:80]))
+
     @action(detail=True, methods=["get", "patch"], url_path="reemplazo")
     def reemplazo(self, request, pk=None):
         """Quién aprueba por esta persona mientras está ausente (US-018).

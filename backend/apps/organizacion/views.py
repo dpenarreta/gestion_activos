@@ -456,6 +456,21 @@ class MisDatosView(APIView):
         return Response({**contacto.de(request.user), **contacto.opciones()})
 
 
+class MiReemplazoCandidatosView(APIView):
+    """`GET /organizacion/mi-reemplazo/candidatos/?q=`: a quién puede elegir
+    para aprobar por ella mientras no está (17/11/2026): su jefe directo y las
+    personas de su misma área. `[{id, nombre, es_jefe}]`."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if _empresa_activa() is None:
+            raise PermissionDenied("Elija una empresa para ver a quién puede elegir.")
+        return Response(
+            ausencia.candidatos_para_reemplazo(request.user, request.query_params.get("q", "")[:80])
+        )
+
+
 class MiReemplazoView(APIView):
     """«¿Quién aprueba por usted mientras no está?» (11/11/2026, US-001).
 

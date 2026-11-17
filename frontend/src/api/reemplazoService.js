@@ -18,4 +18,11 @@ export const reemplazoService = {
   guardar(datos) {
     return apiClient.put(RUTA, datos).then((r) => r.data);
   },
+  /** A quién puede elegir (17/11/2026): su jefe directo y las personas de su
+   * misma área. → `[{id, nombre, es_jefe}]`. */
+  candidatos(texto) {
+    return apiClient
+      .get(`${RUTA}candidatos/`, { params: { q: texto } })
+      .then((r) => r.data);
+  },
 };

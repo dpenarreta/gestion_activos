@@ -274,6 +274,100 @@ def _miembro_activo(usuario_id):
     return personas_de_la_empresa().filter(pk=usuario_id).first()
 
 
+# --- Quién puede aprobar por otra persona (17/11/2026) -------------------------------
+#
+# Decisión del usuario: en cualquier lugar donde se elige a quien aprueba por
+# alguien mientras no está, solo se puede elegir a una persona de su misma
+# área o a su jefe directo.
+
+FUERA_DEL_AREA = "Solo puede elegir a alguien de su misma área o a su jefe directo."
+FUERA_DEL_AREA_POR_OTRA = "Solo se puede elegir a alguien de su misma área o a su jefe directo."
+SIN_AREA = (
+    "No tiene un área registrada: por ahora solo puede elegir a su jefe directo. "
+    "Pida a Talento Humano que registre su área."
+)
+
+
+def area_de(usuario):
+    """El área de la persona en la empresa activa: la de Mi perfil o, si no,
+    la de su ficha de empleado. None si no tiene."""
+    from apps.organizacion.models import DatosDeContacto, Empleado
+
+    area_id = (
+        DatosDeContacto.objects.filter(usuario=usuario)
+        .values_list("departamento_id", flat=True)
+        .first()
+    )
+    if area_id:
+        return area_id
+    return (
+        Empleado.objects.filter(usuario=usuario, activo=True)
+        .values_list("departamento_id", flat=True)
+        .first()
+    )
+
+
+def _ids_del_area(area_id) -> set[int]:
+    from apps.organizacion.models import DatosDeContacto, Empleado
+
+    if not area_id:
+        return set()
+    ids = set(
+        DatosDeContacto.objects.filter(departamento_id=area_id).values_list("usuario_id", flat=True)
+    )
+    # Quien no guardó su área en Mi perfil cuenta por la de su ficha.
+    con_perfil = set(
+        DatosDeContacto.objects.filter(departamento__isnull=False).values_list(
+            "usuario_id", flat=True
+        )
+    )
+    ids.update(
+        uid
+        for uid in Empleado.objects.filter(
+            departamento_id=area_id, activo=True, usuario__isnull=False
+        ).values_list("usuario_id", flat=True)
+        if uid not in con_perfil
+    )
+    return ids
+
+
+def puede_reemplazar(usuario, elegido) -> bool:
+    """Si `elegido` puede aprobar por `usuario`: su jefe directo o alguien
+    de su misma área."""
+    from apps.licencias.services import jefes_de
+
+    if elegido is None or elegido.pk == usuario.pk:
+        return False
+    if any(j.pk == elegido.pk for j in jefes_de(usuario)):
+        return True
+    propia = area_de(usuario)
+    return bool(propia) and area_de(elegido) == propia
+
+
+def candidatos_para_reemplazo(usuario, texto: str = "", limite: int = 20) -> list[dict]:
+    """Las personas que se pueden elegir para aprobar por `usuario`: su jefe
+    directo y las de su misma área, activas en la empresa, filtradas por
+    nombre. Cada una con `{id, nombre, cargo, es_jefe}`."""
+    from apps.licencias.services import jefes_de, personas_de_la_empresa
+
+    jefes = {j.pk for j in jefes_de(usuario) if j.pk != usuario.pk}
+    ids = (_ids_del_area(area_de(usuario)) | jefes) - {usuario.pk}
+    personas = personas_de_la_empresa().filter(pk__in=ids)
+    for palabra in (texto or "").split()[:4]:
+        from django.db.models import Q
+
+        personas = personas.filter(
+            Q(first_name__icontains=palabra) | Q(last_name__icontains=palabra)
+        )
+    personas = sorted(personas, key=lambda u: (u.pk not in jefes, _nombre(u).lower()))[:limite]
+    resultado = []
+    for p in personas:
+        dato = persona(p) or {"id": p.pk, "nombre": _nombre(p)}
+        dato["es_jefe"] = p.pk in jefes
+        resultado.append(dato)
+    return resultado
+
+
 def configuracion(usuario) -> tuple[str, object]:
     """`(modo, persona)` de la empresa activa. Con «persona» pero sin una
     persona válida (borrada, inactiva o fuera de la empresa), se vuelve al
@@ -291,6 +385,9 @@ def configuracion(usuario) -> tuple[str, object]:
     elegido = _miembro_activo(fila["reemplazo_id"])
     if elegido is None or elegido.pk == usuario.pk:
         return Modo.JEFE, None
+    # La regla del área o el jefe directo (17/11/2026) se aplica al elegir
+    # (`guardar_reemplazo`); lo ya guardado no se descarta solo, para no
+    # cambiar en silencio quién aprueba en una ausencia en curso.
     return Modo.PERSONA, elegido
 
 
@@ -405,6 +502,12 @@ def guardar_reemplazo(usuario, *, modo, persona_id=None, por_otra=False) -> dict
         if elegido is None:
             raise ValidationError(
                 {"persona_id": "Esa persona no tiene una cuenta activa en esta empresa."}
+            )
+        if not puede_reemplazar(usuario, elegido):
+            if not area_de(usuario):
+                raise ValidationError({"persona_id": SIN_AREA})
+            raise ValidationError(
+                {"persona_id": FUERA_DEL_AREA_POR_OTRA if por_otra else FUERA_DEL_AREA}
             )
     # Dos guardados a la vez sin fila previa: el segundo choca con la
     # restricción única (empresa, usuario); se reintenta una vez y entonces

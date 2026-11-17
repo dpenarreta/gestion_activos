@@ -38,7 +38,13 @@ const servicio = {
 };
 vi.mock("../src/api/licenciasService", () => ({ licenciasService: servicio }));
 // Quién aprueba por usted mientras no está (11/11/2026, US-001).
-const reemplazo = { obtener: vi.fn(), guardar: vi.fn() };
+// Los candidatos salen del área o el jefe directo (17/11/2026); en estas
+// pruebas, los mismos datos que el directorio del chat.
+const reemplazo = {
+  obtener: vi.fn(),
+  guardar: vi.fn(),
+  candidatos: (...args) => chat.directorio(...args),
+};
 vi.mock("../src/api/reemplazoService", () => ({ reemplazoService: reemplazo }));
 const chat = { directorio: vi.fn() };
 vi.mock("../src/api/chatService", () => ({ chatService: chat }));

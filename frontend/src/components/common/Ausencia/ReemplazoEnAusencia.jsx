@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useId, useState } from "react";
 
-import { chatService } from "../../../api/chatService";
 import { reemplazoService } from "../../../api/reemplazoService";
 import { SelectorDePersonas } from "../../../pages/GestionHumana/SelectorDePersonas";
 import { erroresPorCampo, mensajeDeError } from "../../../utils/errores";
@@ -34,7 +33,7 @@ export const TEXTOS_PROPIOS = {
   encabezado: "Mientras usted no está",
   pregunta: "¿Quién aprueba por usted?",
   ayuda:
-    "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Esta elección se guarda para todas sus ausencias.",
+    "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Solo puede elegir a alguien de su misma área o a su jefe directo. Esta elección se guarda para todas sus ausencias.",
   jefe: "Mi jefe inmediato",
   sinJefe:
     "Usted no tiene un jefe inmediato registrado: sus aprobaciones se quedarán con usted. Si alguien debe aprobar por usted, elija «Otra persona».",
@@ -49,7 +48,7 @@ export const TEXTOS_POR_OTRA = {
   encabezado: "Mientras no está",
   pregunta: "¿Quién aprueba por esta persona?",
   ayuda:
-    "Si a esta persona le toca aprobar solicitudes, mientras esté ausente pasan a quien se elija aquí. Vale para todas sus ausencias en esta empresa y es la misma elección que ella ve en «Mi estado».",
+    "Si a esta persona le toca aprobar solicitudes, mientras esté ausente pasan a quien se elija aquí: alguien de su misma área o su jefe directo. Vale para todas sus ausencias en esta empresa y es la misma elección que ella ve en «Mi estado».",
   jefe: "Su jefe inmediato",
   sinJefe:
     "No tiene un jefe inmediato registrado: sus aprobaciones se quedarán con ella. Si alguien debe aprobar por ella, elija «Otra persona».",
@@ -65,14 +64,13 @@ export const TEXTOS_POR_OTRA = {
 export const YA_QUEDO_GUARDADO =
   "Su elección de quién aprueba por usted sí quedó guardada.";
 
-/** Lo que viene del directorio del chat, con los nombres que espera el
- * selector de personas. */
+/** Un candidato, con los nombres que espera el selector de personas. */
 function aPersona(p) {
-  return { id: p.id, full_name: p.nombre, role_label: p.cargo || "" };
-}
-
-function buscarPersonas(texto) {
-  return chatService.directorio(texto).then((lista) => lista.map(aPersona));
+  return {
+    id: p.id,
+    full_name: p.nombre,
+    role_label: p.es_jefe ? "Jefe directo" : p.cargo || "",
+  };
 }
 
 /**
@@ -170,7 +168,14 @@ export function useReemplazoEnAusencia({
     }
   }
 
+  // Solo su jefe directo y las personas de su misma área (17/11/2026).
+  const buscar = useCallback(
+    (texto) => servicio.candidatos(texto).then((lista) => lista.map(aPersona)),
+    [servicio],
+  );
+
   return {
+    buscar,
     datos,
     errorCarga,
     cargar,
@@ -329,10 +334,10 @@ function Pregunta({ base, reemplazo, deshabilitado }) {
                   : null,
               )
             }
-            buscar={buscarPersonas}
+            buscar={reemplazo.buscar}
             error={error}
             deshabilitado={bloqueado}
-            textoNadie="No hay personas para elegir."
+            textoNadie="No hay nadie de su área con ese nombre. Solo se puede elegir a alguien de la misma área o al jefe directo."
           />
         </div>
       )}

@@ -26,6 +26,8 @@ export function ReemplazoDeLaCuenta({ usuarioId, puedeEditar }) {
     () => ({
       obtener: () => adminUsersService.reemplazo(usuarioId),
       guardar: (datos) => adminUsersService.guardarReemplazo(usuarioId, datos),
+      candidatos: (texto) =>
+        adminUsersService.candidatosReemplazo(usuarioId, texto),
     }),
     [usuarioId],
   );

@@ -89,6 +89,12 @@ export const adminUsersService = {
       .put(`/organizacion/personas/${id}/perfil/`, datos)
       .then((r) => r.data);
   },
+  /** A quién se puede elegir para aprobar por esta persona (17/11/2026). */
+  candidatosReemplazo(id, texto) {
+    return apiClient
+      .get(`/admin/users/${id}/reemplazo/candidatos/`, { params: { q: texto } })
+      .then((r) => r.data);
+  },
   reemplazo(id) {
     return apiClient.get(`/admin/users/${id}/reemplazo/`).then((r) => r.data);
   },
