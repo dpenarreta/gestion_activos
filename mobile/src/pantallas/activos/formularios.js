@@ -63,9 +63,14 @@ export function textoRevise(campos, nombres) {
  *   activo que pasó a «Perdido» mientras se asignaba, QA-FUNC B2) se dice
  *   arriba tal cual, sin el nombre técnico del campo;
  * - sin campos, el mensaje del servidor (o el de CA-2).
+ *
+ * `opciones` (US-025, 17/11/2026, aditivas): `mensaje(error, porDefecto,
+ * {envio})` y `textoDudoso`, para que las órdenes de trabajo nombren su
+ * módulo. Sin ellas, los de Gestión de Activos.
  */
-export function errorDeGuardado(e, porDefecto, nombres) {
-  if (sinRespuestaClara(e)) return { texto: TEXTO_PUEDE_HABERSE_GUARDADO, campos: {}, clave: Date.now(), dudoso: true };
+export function errorDeGuardado(e, porDefecto, nombres, opciones = {}) {
+  const { mensaje = mensajeDeActivos, textoDudoso = TEXTO_PUEDE_HABERSE_GUARDADO } = opciones;
+  if (sinRespuestaClara(e)) return { texto: textoDudoso, campos: {}, clave: Date.now(), dudoso: true };
   const campos = erroresPorCampo(e);
   const propio = e?.response?.data?.error?.message;
   const generico = !propio || propio === "Error en la solicitud.";
@@ -77,7 +82,7 @@ export function errorDeGuardado(e, porDefecto, nombres) {
   } else if (visibles.length) {
     texto = generico ? textoRevise(campos, nombres) : mensajeDeError(e, porDefecto);
   } else {
-    texto = mensajeDeActivos(e, porDefecto, { envio: true });
+    texto = mensaje(e, porDefecto, { envio: true });
   }
   return { texto, campos, clave: Date.now(), dudoso: false };
 }

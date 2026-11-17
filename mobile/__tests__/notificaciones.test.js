@@ -48,15 +48,16 @@ jest.mock("../src/api/servicios", () => ({
 }));
 
 /** Con la forma real de `NotificacionSerializer`. Un módulo que no está en
- * la app: desde la US-014 la Mesa de ayuda sí lo está, y desde la US-022
- * (16/11/2026) también Gestión de Activos; se usa Órdenes de trabajo. */
+ * la app: desde la US-014 la Mesa de ayuda sí lo está, desde la US-022
+ * (16/11/2026) también Gestión de Activos y desde la US-025 (17/11/2026)
+ * Órdenes de trabajo; se usa Dashboards. */
 function notificacion(campos = {}) {
   return {
     id: 10,
-    modulo: "ordenes",
-    modulo_nombre: "Órdenes de trabajo",
+    modulo: "dashboards",
+    modulo_nombre: "Dashboards",
     icono: "kanban",
-    tipo: "ordenes.asignado",
+    tipo: "dashboards.compartido",
     titulo: "Le asignaron un ticket",
     resumen: "Ticket #55: impresora",
     enlace: "/admin/ayuda/55",
@@ -91,10 +92,10 @@ describe("lista de notificaciones", () => {
     await render(<ListaNotificaciones />);
 
     expect(await screen.findByText("Le asignaron un ticket")).toBeTruthy();
-    expect(screen.getAllByText("Órdenes de trabajo")).toHaveLength(2);
+    expect(screen.getAllByText("Dashboards")).toHaveLength(2);
     expect(screen.getAllByText("Ticket #55: impresora")).toHaveLength(2);
     expect(notificacionesService.listar).toHaveBeenCalledWith({ pagina: 1, soloNoLeidas: false });
-    expect(screen.getByLabelText(/^Sin leer\. Órdenes de trabajo\. Le asignaron un ticket/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Sin leer\. Dashboards\. Le asignaron un ticket/)).toBeTruthy();
   });
 
   it("filtra por no leídas", async () => {
@@ -128,7 +129,7 @@ describe("lista de notificaciones", () => {
   it("si el módulo está en el mapa, la marca leída y va a su pantalla", async () => {
     notificacionesService.listar.mockResolvedValue(pagina([notificacion()]));
     notificacionesService.leer.mockResolvedValue(notificacion({ leida: true }));
-    await render(<ListaNotificaciones mapa={{ ordenes: "/ficticio" }} />);
+    await render(<ListaNotificaciones mapa={{ dashboards: "/ficticio" }} />);
 
     await fireEvent.press(await screen.findByTestId("notificacion-10"));
 
@@ -139,7 +140,7 @@ describe("lista de notificaciones", () => {
   it("US-016 (O-3): si lleva a un módulo, vuelve a los de debajo con dismissTo, sin apilar otra copia", async () => {
     notificacionesService.listar.mockResolvedValue(pagina([notificacion()]));
     notificacionesService.leer.mockResolvedValue(notificacion({ leida: true }));
-    await render(<ListaNotificaciones mapa={{ ordenes: "/soporte?vista=aprobaciones" }} />);
+    await render(<ListaNotificaciones mapa={{ dashboards: "/soporte?vista=aprobaciones" }} />);
 
     await fireEvent.press(await screen.findByTestId("notificacion-10"));
 
@@ -287,7 +288,7 @@ describe("detalle de una notificación fuera de la app", () => {
     notificacionesService.detalle.mockResolvedValue(notificacion({ enlace: "", leida: true }));
     await render(<DetalleNotificacion id="10" />);
 
-    expect(await screen.findByText(textoSinEnlace("Órdenes de trabajo"))).toBeTruthy();
+    expect(await screen.findByText(textoSinEnlace("Dashboards"))).toBeTruthy();
     expect(screen.queryByText(TEXTO_FUERA_DE_LA_APP)).toBeNull();
     expect(screen.queryByRole("link", { name: "Abrir en el navegador" })).toBeNull();
     expect(notificacionesService.leer).not.toHaveBeenCalled();

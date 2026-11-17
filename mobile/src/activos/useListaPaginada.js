@@ -18,8 +18,12 @@ const LISTA_VACIA = { estado: "cargando", items: [], total: 0, hayMas: false, er
  * - «cargar más» no repite filas y, si la página ya no existe, empieza de
  *   nuevo;
  * - una respuesta vieja no pisa a una nueva.
+ *
+ * `mensaje(error, porDefecto)`: cómo se dice un error (US-025, 17/11/2026:
+ * las órdenes de trabajo nombran su módulo, no Gestión de Activos). Sin él,
+ * `mensajeDeActivos`.
  */
-export function useListaPaginada(pedir, { recargarCon = [], textos }) {
+export function useListaPaginada(pedir, { recargarCon = [], textos, mensaje = mensajeDeActivos }) {
   const [lista, setLista] = useState(LISTA_VACIA);
   const [refrescando, setRefrescando] = useState(false);
   const [cargandoMas, setCargandoMas] = useState(false);
@@ -32,6 +36,8 @@ export function useListaPaginada(pedir, { recargarCon = [], textos }) {
   listaRef.current = lista;
   const textosRef = useRef(textos);
   textosRef.current = textos;
+  const mensajeRef = useRef(mensaje);
+  mensajeRef.current = mensaje;
 
   useEffect(() => {
     montado.current = true;
@@ -69,10 +75,10 @@ export function useListaPaginada(pedir, { recargarCon = [], textos }) {
       } catch (e) {
         if (!montado.current || numero !== consulta.current) return;
         if (silenciosa && listaRef.current.estado === "listo") {
-          const texto = `${mensajeDeActivos(e, textosRef.current.actualizar)} Se muestra la anterior.`;
+          const texto = `${mensajeRef.current(e, textosRef.current.actualizar)} Se muestra la anterior.`;
           setLista((l) => ({ ...l, aviso: texto }));
         } else {
-          setLista({ ...LISTA_VACIA, estado: "error", error: mensajeDeActivos(e, textosRef.current.cargar) });
+          setLista({ ...LISTA_VACIA, estado: "error", error: mensajeRef.current(e, textosRef.current.cargar) });
         }
       }
     },
@@ -135,7 +141,7 @@ export function useListaPaginada(pedir, { recargarCon = [], textos }) {
         cargar();
         return;
       }
-      setErrorMas(mensajeDeActivos(e, textosRef.current.mas));
+      setErrorMas(mensajeRef.current(e, textosRef.current.mas));
     } finally {
       pidiendoMas.current = false;
       if (montado.current) setCargandoMas(false);

@@ -18,8 +18,9 @@ import { colores } from "../../../tema/colores";
  * Todo sale del catálogo `navegacion/modulos.js`. Institucional son dos
  * pantallas: el Inicio (`index`, `/`, por donde se entra) y los permisos
  * (`/permisos?seccion=`); Chat (`/chat?vista=`), la Mesa (`/soporte?vista=`),
- * la Matriz (`/matriz?vista=`, US-019) y Gestión de Activos
- * (`/activos?vista=`, US-022), una cada uno. La vista va en la
+ * la Matriz (`/matriz?vista=`, US-019), Gestión de Activos
+ * (`/activos?vista=`, US-022) y Órdenes de trabajo (`/ordenes?vista=`,
+ * US-025), una cada uno. La vista va en la
  * ruta: los enlaces y los push siguen igual (CA-8).
  *
  * `backBehavior="firstRoute"` (CA-9): en Android, Atrás desde otro módulo
@@ -57,6 +58,8 @@ export default function ModulosLayout() {
           <Tabs.Screen name="matriz" options={{ title: "Matriz de obligaciones" }} />
           {/* US-022: `/activos?vista=panel|inventario|…`. */}
           <Tabs.Screen name="activos" options={{ title: "Gestión de Activos" }} />
+          {/* US-025: `/ordenes?vista=panel|mis`. */}
+          <Tabs.Screen name="ordenes" options={{ title: "Órdenes de trabajo" }} />
         </Tabs>
       </View>
     </ProveedorDeModulos>

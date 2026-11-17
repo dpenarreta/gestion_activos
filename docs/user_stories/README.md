@@ -28,3 +28,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-022](US-022-app-movil-gestion-de-activos.md) | App móvil: módulo Gestión de Activos (panel, inventario, escáner QR, mantenimientos, solicitudes) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
 | [US-023](US-023-app-movil-registrar-y-editar-activos.md) | App móvil: registrar y editar activos | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
 | [US-024](US-024-app-movil-grupos-del-chat.md) | App móvil: crear, editar y salir de grupos del chat | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-16 |
+| [US-025](US-025-app-movil-ordenes-de-trabajo.md) | App móvil: módulo Órdenes de trabajo (panel, mis órdenes, nueva orden y flujo completo) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |

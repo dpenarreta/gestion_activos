@@ -16,6 +16,8 @@
  *   del activo, el inventario filtrado, la bitácora o el panel
  *   (`rutaDeActivos`); `solicitudes` → el detalle de la solicitud de equipo
  *   (`rutaDeSolicitudes`, Tanda B).
+ * - US-025 (17/11/2026): `ordenes` → la ficha de la orden de trabajo
+ *   (`rutaDeOrdenes`).
  */
 import { conversacionDelEnlace } from "../chat/enlace";
 
@@ -210,6 +212,28 @@ export function rutaDeSolicitudes(notificacion) {
   return `/activos?vista=mis_solicitudes&n=${Date.now()}${deLaEmpresa}`;
 }
 
+/**
+ * A dónde lleva un aviso de una orden de trabajo (US-025). Los dos avisos
+ * del backend (`ordenes.asignada`, al técnico, y `ordenes.creada`, a quien
+ * coordina; `ordenes.services._avisar`) llevan `/admin/ordenes/lista/ID`:
+ * van a su ficha, con la empresa de la notificación como `X-Empresa` (B3 de
+ * la US-009). Cualquier otro, al panel del módulo, con la empresa del aviso
+ * (el módulo pasa a ella o avisa que es de otra, como Gestión de Activos).
+ * El enlace puede venir con la web delante y con «/» al final.
+ */
+export function rutaDeOrdenes(notificacion) {
+  const enlace = typeof notificacion?.enlace === "string" ? notificacion.enlace : "";
+  const ruta = enlace
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("#")[0]
+    .split("?")[0]
+    .replace(/\/+$/, "");
+  const empresa = idDeEmpresa(notificacion?.empresa);
+  const ficha = /^\/admin\/ordenes\/lista\/(\d{1,12})$/.exec(ruta);
+  if (ficha) return `/ordenes/${ficha[1]}${empresa ? `?empresa=${empresa}` : ""}`;
+  return `/ordenes?vista=panel&n=${Date.now()}${empresa ? `&empresa=${empresa}` : ""}`;
+}
+
 export const MODULOS_EN_APP = Object.freeze({
   licencias: rutaDeLicencias,
   chat: rutaDeChat,
@@ -219,6 +243,7 @@ export const MODULOS_EN_APP = Object.freeze({
   mantenimientos: rutaDeActivos,
   alertas: rutaDeActivos,
   solicitudes: rutaDeSolicitudes,
+  ordenes: rutaDeOrdenes,
 });
 
 /**

@@ -7,9 +7,9 @@
  *
  * Estructura (decisión del usuario, 13/11/2026, ronda 1): Institucional ·
  * Chat · Mesa de ayuda · Matriz de obligaciones (US-019) · Gestión de Activos
- * (US-022, 16/11/2026). El Inicio ya no es
- * un módulo: es la primera funcionalidad de Institucional y donde se entra
- * por defecto.
+ * (US-022, 16/11/2026) · Órdenes de trabajo (US-025, 17/11/2026). El
+ * Inicio ya no es un módulo: es la primera funcionalidad de Institucional y
+ * donde se entra por defecto.
  *
  * Es código puro (sin React) para poder probarlo solo. Las reglas de
  * visibilidad son las de antes de esta historia; el acceso efectivo lo sigue
@@ -38,6 +38,7 @@
  */
 import { veLasRecibidas, veLosActivos, veLosMantenimientos, veMisSolicitudes } from "../activos/formato";
 import { tieneAccesoALaMatriz } from "../matriz/formato";
+import { puedeCrearOrdenes, veLasOrdenes } from "../ordenes/formato";
 import { esDelEquipo, rutaDeAltaPropia } from "../soporte/formato";
 
 function plural(n, uno, varios) {
@@ -85,6 +86,10 @@ export function veLaMatriz(contexto) {
 /** Gestión de Activos (US-022, CA-1): cada funcionalidad con su permiso en
  * la empresa activa. Sin ninguna, el módulo no tiene pestaña. */
 export const veLosActivosDe = (c) => veLosActivos(permisosDe(c));
+
+/** Órdenes de trabajo (US-025, CA-1): `ordenes.ver` en la empresa activa;
+ * «Nueva orden», además con `ordenes.crear`. */
+export const veLasOrdenesDe = (c) => veLasOrdenes(permisosDe(c));
 
 export const MODULOS = Object.freeze([
   {
@@ -361,6 +366,49 @@ export const MODULOS = Object.freeze([
         tipo: "vista",
         params: { vista: "recibidas" },
         visible: (c) => veLasRecibidas(permisosDe(c)),
+      },
+    ],
+  },
+  {
+    // US-025 (17/11/2026): a la derecha de Gestión de Activos, con «Panel»
+    // (el «Panel de mantenimiento» de la web) por defecto. La ficha
+    // (`/ordenes/ID`) y «Nueva orden» (`/ordenes/nueva`) van en la pila, con
+    // «Volver». El nombre es el del catálogo de permisos.
+    id: "ordenes",
+    texto: "Órdenes de trabajo",
+    icono: "hammer-wrench",
+    pantallas: ["ordenes"],
+    pantalla: "ordenes",
+    pathnames: ["/ordenes"],
+    parametro: "vista",
+    vistaPorDefecto: () => "panel",
+    funcionalidades: [
+      {
+        id: "panel",
+        texto: "Panel",
+        dicho: "Panel de mantenimiento",
+        icono: "view-dashboard-outline",
+        tipo: "vista",
+        params: { vista: "panel" },
+        visible: veLasOrdenesDe,
+      },
+      {
+        id: "mis",
+        texto: "Mis órdenes",
+        dicho: "Mis órdenes de trabajo",
+        icono: "clipboard-list-outline",
+        tipo: "vista",
+        params: { vista: "mis" },
+        visible: veLasOrdenesDe,
+      },
+      {
+        id: "nueva",
+        texto: "Nueva orden",
+        dicho: "Nueva orden de trabajo",
+        icono: "plus-circle-outline",
+        tipo: "accion",
+        ruta: "/ordenes/nueva",
+        visible: (c) => puedeCrearOrdenes(permisosDe(c)),
       },
     ],
   },

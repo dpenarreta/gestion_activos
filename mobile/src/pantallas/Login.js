@@ -26,7 +26,7 @@ const PROPORCION_LOGOTIPO = 709 / 118;
 /** El Brand Book pide al menos 3 cm de ancho (~113 px). */
 const ANCHO_MINIMO_LOGOTIPO = 113;
 
-export const FALTA_USUARIO = "Escriba su usuario o correo.";
+export const FALTA_USUARIO = "Escriba su usuario, correo o código de empleado.";
 export const FALTA_CONTRASENA = "Escriba su contraseña.";
 
 /** La etiqueta del campo con su error: la pista (`accessibilityHint`) se
@@ -151,7 +151,7 @@ export function Login() {
           {aviso && !error && <Alerta texto={aviso} tipo="aviso" />}
           {error && <Alerta texto={error} tipo="mal" />}
 
-          <Campo etiqueta="Usuario o correo" error={errores.usuario} id="usuario">
+          <Campo etiqueta="Usuario, correo o código de empleado" error={errores.usuario} id="usuario">
             <TextInput
               ref={campoUsuario}
               testID="campo-usuario"
@@ -164,7 +164,7 @@ export function Login() {
               textContentType="username"
               returnKeyType="next"
               onSubmitEditing={() => campoContrasena.current?.focus()}
-              accessibilityLabel={etiquetaConError("Usuario o correo", errores.usuario)}
+              accessibilityLabel={etiquetaConError("Usuario, correo o código de empleado", errores.usuario)}
               aria-invalid={Boolean(errores.usuario)}
               editable={!cargando}
             />

@@ -15,7 +15,7 @@ import { confirmarSalida, TEXTO_SALIR, TITULO_SALIR } from "../src/navegador/con
 const BASE = "https://intranet.laarcourier.com";
 
 describe("MODULOS_EN_APP", () => {
-  it("desde la US-022 trae también «activos», «mantenimientos», «alertas» y «solicitudes»; lo demás va al detalle con «Abrir en el navegador»", () => {
+  it("desde la US-022 trae también «activos», «mantenimientos», «alertas» y «solicitudes», y desde la US-025 «ordenes»; lo demás va al detalle con «Abrir en el navegador»", () => {
     expect(Object.keys(MODULOS_EN_APP)).toEqual([
       "licencias",
       "chat",
@@ -25,11 +25,15 @@ describe("MODULOS_EN_APP", () => {
       "mantenimientos",
       "alertas",
       "solicitudes",
+      "ordenes",
     ]);
     // Tanda B de la US-022: «solicitudes» va al detalle de la solicitud de equipo.
     expect(rutaEnApp({ id: 4, modulo: "solicitudes", enlace: "/admin/solicitudes/4" })).toBe("/solicitudes/4");
     expect(destinoDeNotificacion({ id: 4, modulo: "solicitudes", enlace: "/admin/solicitudes/4" })).toBe("/solicitudes/4");
-    expect(destinoDeNotificacion({ id: 4, modulo: "ordenes" })).toBe("/notificacion/4");
+    // US-025: «ordenes» va a la ficha de la orden; lo que no está en la app
+    // (Dashboards) sigue yendo al detalle.
+    expect(destinoDeNotificacion({ id: 4, modulo: "ordenes", enlace: "/admin/ordenes/lista/9" })).toBe("/ordenes/9");
+    expect(destinoDeNotificacion({ id: 4, modulo: "dashboards" })).toBe("/notificacion/4");
     // US-014: la Mesa de ayuda ya no va al detalle de la notificación.
     expect(destinoDeNotificacion({ id: 4, modulo: "soporte", enlace: "/admin/soporte/tickets/9" })).toBe(
       "/soporte/ticket/9",

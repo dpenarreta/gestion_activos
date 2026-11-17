@@ -13,7 +13,7 @@ function conEmpresa(empresa) {
 }
 
 export const authService = {
-  /** El backend espera `identifier` (usuario o correo), como la web. */
+  /** El backend espera `identifier` (usuario, correo o código de empleado), como la web. */
   login(identifier, password) {
     return api.post("/auth/login/", { identifier, password });
   },
@@ -800,5 +800,83 @@ export const organizacionService = {
   /** Paginado: `[{id, nombre…}]`, los partners activos (US-023). */
   concesionarios() {
     return api.get("/organizacion/concesionarios/", { params: { activo: "true", page_size: 100 } });
+  },
+};
+
+/**
+ * Las órdenes de trabajo (mantenimiento de sedes; US-025, 17/11/2026), con
+ * las mismas rutas que `ordenesService` de la web
+ * (`backend/apps/ordenes/views.py`). `empresa`: la de un aviso, que va como
+ * `X-Empresa` solo en esa petición (B3 de la US-009).
+ */
+export const ordenesService = {
+  /** Paginado (`{count, next, results}`): `ambito` («mias» o «asignadas»),
+   * `abiertas` («true»), `estado`, `prioridad`, `q` (número, título, sede o
+   * responsable), `page` y `page_size`. Cada fila es un
+   * `OrdenListaSerializer`. */
+  listar(params = {}) {
+    return api.get("/ordenes/", { params });
+  },
+  /** El `OrdenDetalleSerializer`, con `materiales`, `mano_de_obra`,
+   * `movimientos`, `costos` y `permisos: {editar, asignar,
+   * registrar_costos, acciones}`. 404 si no la ve. */
+  detalle(id, { empresa } = {}) {
+    return api.get(`/ordenes/${idSeguro(id)}/`, conEmpresa(empresa));
+  },
+  /** `{sede, categoria, prioridad, titulo, descripcion, telefono_contacto,
+   * tecnico, proveedor, fecha_programada}`. Pide `ordenes.crear`. Devuelve
+   * el detalle (201). */
+  crear(datos) {
+    return api.post("/ordenes/", datos);
+  },
+  /** «Corregir»: `PATCH` con lo que cambió (`titulo`, `descripcion`,
+   * `categoria`, `prioridad`, `sede`, `telefono_contacto`). Devuelve el
+   * detalle. */
+  corregir(id, datos) {
+    return api.patch(`/ordenes/${idSeguro(id)}/`, datos);
+  },
+  /** `{tecnico?, proveedor?, fecha_programada?, nota?}`: lo que no se envía
+   * conserva lo que había y `null` lo quita. Devuelve el detalle. */
+  asignar(id, datos) {
+    return api.post(`/ordenes/${idSeguro(id)}/asignar/`, datos);
+  },
+  /** `{estado, nota, fecha_programada?, con_observaciones?}`. Devuelve el
+   * detalle. */
+  cambiarEstado(id, datos) {
+    return api.post(`/ordenes/${idSeguro(id)}/cambiar-estado/`, datos);
+  },
+  /** `{descripcion, cantidad, costo_unitario}` (201, el detalle). */
+  agregarMaterial(id, datos) {
+    return api.post(`/ordenes/${idSeguro(id)}/materiales/`, datos);
+  },
+  /** `{descripcion, horas, costo_hora}` (201, el detalle). */
+  agregarManoDeObra(id, datos) {
+    return api.post(`/ordenes/${idSeguro(id)}/mano-de-obra/`, datos);
+  },
+  /** `tipo`: «materiales» o «mano-de-obra». Devuelve el detalle. */
+  quitarCosto(id, tipo, filaId) {
+    const seguro = tipo === "materiales" ? "materiales" : "mano-de-obra";
+    return api.delete(`/ordenes/${idSeguro(id)}/costos/${seguro}/${idSeguro(filaId)}/`);
+  },
+  /** El panel: `{kpis, atencion, actividad, alcance}`. */
+  resumen() {
+    return api.get("/ordenes/resumen/");
+  },
+  /** `{sedes, categorias, prioridades, estados, regiones, puede, alcance}` y,
+   * para quien coordina, `tecnicos` y `proveedores`. */
+  catalogos() {
+    return api.get("/ordenes/catalogos/");
+  },
+  /** Quién puede realizar una orden: `{proveedores: [{id, nombre}],
+   * personas: [{id, nombre, proveedor}]}`, hasta 20 por grupo. Con
+   * `soloProveedores`, sin `personas`. Pide `ordenes.crear`. */
+  responsables(texto = "", { soloProveedores = false } = {}) {
+    const q = String(texto ?? "").trim();
+    return api.get("/ordenes/responsables/", { params: soloProveedores ? { q, solo: "proveedores" } : { q } });
+  },
+  /** `{nombre, contacto, telefono, correo, identificacion}` → `{id, nombre}`
+   * (201). Pide `ordenes.crear`. */
+  registrarProveedor(datos) {
+    return api.post("/ordenes/proveedores/", datos);
   },
 };

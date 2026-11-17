@@ -75,9 +75,10 @@ export const FilaActivo = memo(function FilaActivo({ activo, onAbrir }) {
  * Lo del módulo que se hace en la web (CA-10), en botones redondos con la
  * marca de «sale de la app» (regla del usuario, 16/11/2026: nunca un botón
  * rectangular ni un enlace). `abrirEnNavegador` pregunta antes de salir.
- * `accesos`: `[{ruta, nombre, icono}]`.
+ * `accesos`: `[{ruta, nombre, icono}]`. `familia`: el color de los botones
+ * (las órdenes de trabajo usan el suyo, US-025).
  */
-export function ActivosEnElNavegador({ accesos, empresa, titulo = "Más opciones en el navegador", testID }) {
+export function ActivosEnElNavegador({ accesos, empresa, titulo = "Más opciones en el navegador", testID, familia = "activos" }) {
   const [error, setError] = useState(null);
   if (!accesos?.length) return null;
   async function abrir(ruta) {
@@ -102,7 +103,7 @@ export function ActivosEnElNavegador({ accesos, empresa, titulo = "Más opciones
               testID={`web-${a.ruta}`}
               icono={a.icono}
               nombre={a.nombre}
-              familia="activos"
+              familia={familia}
               navegador
               ancho={ancho}
               onPress={() => abrir(a.ruta)}

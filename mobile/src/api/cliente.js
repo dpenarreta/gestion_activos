@@ -284,6 +284,9 @@ export function crearCliente({
      * como en la web. */
     patch: (ruta, cuerpo, opciones = {}) =>
       solicitar("PATCH", ruta, { ...opciones, cuerpo: cuerpo ?? {} }),
+    /** US-025 (17/11/2026): quitar un material o unas horas de una orden de
+     * trabajo es un DELETE, como en la web. Sin cuerpo. */
+    delete: (ruta, opciones) => solicitar("DELETE", ruta, opciones),
     /** URL absoluta de un recurso (las imágenes de las noticias). */
     url: (ruta) => `${baseUrl}${ruta}`,
     /** Cabeceras para un recurso que no pasa por `fetch` (un `<Image>`).

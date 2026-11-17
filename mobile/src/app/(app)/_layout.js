@@ -111,6 +111,9 @@ export default function AppLayout() {
               <Stack.Screen name="mantenimientos/[id]" options={{ ...cabecera(), title: "Mantenimiento" }} />
               <Stack.Screen name="solicitudes/nueva" options={{ ...cabecera(), title: "Nueva solicitud de equipo" }} />
               <Stack.Screen name="solicitudes/[id]" options={{ ...cabecera(), title: "Solicitud de equipo" }} />
+              {/* US-025: Órdenes de trabajo (la ficha y el alta). */}
+              <Stack.Screen name="ordenes/[id]" options={{ ...cabecera(), title: "Orden de trabajo" }} />
+              <Stack.Screen name="ordenes/nueva" options={{ ...cabecera(), title: "Nueva orden" }} />
             </Stack>
           </ResumenSoporteProvider>
         </ChatProvider>

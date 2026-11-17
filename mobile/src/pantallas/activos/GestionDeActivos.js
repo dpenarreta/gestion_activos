@@ -44,9 +44,10 @@ export const TEXTO_AVISO_SIN_ACCESO =
  * notificación (B3 de la US-009, `DetalleNotificacion`): si es una empresa de
  * la persona, la app pasa a ella y lo dice; si no, avisa que lo que se ve es
  * de la empresa activa. Nunca se muestran sin aviso los datos de otra
- * empresa. Se atiende una vez por toque (`?n=`).
+ * empresa. Se atiende una vez por toque (`?n=`). Exportado desde la US-025:
+ * Órdenes de trabajo hace lo mismo con sus avisos.
  */
-function useEmpresaDelAviso(empresa, vez) {
+export function useEmpresaDelAviso(empresa, vez) {
   const { empresaActiva, empresas, cambiarEmpresaSiEsSuya } = useSesion();
   const [aviso, setAviso] = useState(null);
   const atendido = useRef(null);

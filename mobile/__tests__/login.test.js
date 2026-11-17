@@ -81,7 +81,7 @@ describe("pantalla de login", () => {
     expect(screen.getByText(FALTA_CONTRASENA)).toBeTruthy();
     expect(screen.getByTestId("campo-usuario").props["aria-invalid"]).toBe(true);
     expect(screen.getByTestId("campo-usuario").props.accessibilityLabel).toBe(
-      `Usuario o correo. Error: ${FALTA_USUARIO}`,
+      `Usuario, correo o código de empleado. Error: ${FALTA_USUARIO}`,
     );
     expect(screen.getByLabelText(`Contraseña. Error: ${FALTA_CONTRASENA}`)).toBeTruthy();
     expect(anuncio).toHaveBeenCalledWith(`${FALTA_USUARIO} ${FALTA_CONTRASENA}`);
