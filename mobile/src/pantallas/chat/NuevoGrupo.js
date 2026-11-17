@@ -23,6 +23,7 @@ import {
 } from "../../chat/grupos";
 import { Alerta, Boton, ErrorConReintento } from "../../componentes/comunes";
 import { OpcionesEnLinea, SelectorDeLista } from "../../componentes/Selectores";
+import { useApoyoDeLaBurbuja, useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useSesion } from "../../sesion/SesionContext";
 import { useColores, useEstilos } from "../../tema/apariencia";
@@ -75,6 +76,10 @@ export function NuevoGrupo() {
   const alturaCabecera = useAlturaCabecera();
   const teclado = useTecladoAbierto();
   const margenes = useSafeAreaInsets();
+  // US-029 (CA-3): la burbuja de soporte se apila sobre el pie fijo y el
+  // formulario deja ese espacio al final.
+  const medirPie = useApoyoDeLaBurbuja();
+  const relleno = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const { usuario } = useSesion();
   const { cargarConversaciones } = useChat();
   const puedePorArea = (usuario?.permissions ?? []).includes(PERMISO_GRUPOS_POR_AREA);
@@ -202,7 +207,7 @@ export function NuevoGrupo() {
         ref={desplazable}
         testID="nuevo-grupo"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, relleno]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets
@@ -292,7 +297,7 @@ export function NuevoGrupo() {
       </ScrollView>
       {/* UX H-02: el botón siempre a la vista, salvo con el teclado abierto. */}
       {teclado ? null : (
-        <View style={[estilos.pie, { paddingBottom: 16 + (margenes?.bottom ?? 0) }]}>
+        <View style={[estilos.pie, { paddingBottom: 16 + (margenes?.bottom ?? 0) }]} onLayout={medirPie}>
           <Boton
             testID="crear-grupo"
             titulo={enviando ? "Creando…" : textoDelBotonCrear(valores)}

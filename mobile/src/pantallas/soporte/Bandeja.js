@@ -25,6 +25,7 @@ import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { ESPERA_BUSCAR_MS } from "../../utils/busqueda";
 import { EstadoTicket, Pildora, PrioridadTicket, Separador, VenceTicket } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * La bandeja del equipo (US-014, CA-8 y CA-9), como `Bandeja.jsx` de la web:
@@ -140,6 +141,8 @@ const SIN_FILTROS = { q: "", estado: "", prioridad: "", vencidos: false };
 const LISTA_VACIA = { estado: "inactiva", items: [], total: 0, hayMas: false, error: null, aviso: null };
 
 export function Bandeja({ onAbrir, onNoEsDelEquipo, pie = null, alActualizar }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -656,7 +659,7 @@ export function Bandeja({ onAbrir, onNoEsDelEquipo, pie = null, alActualizar }) 
     <FlatList
       testID="lista-bandeja"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={lista.estado === "listo" ? lista.items : []}
       keyExtractor={(t) => String(t.id)}
       keyboardShouldPersistTaps="handled"

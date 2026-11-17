@@ -433,6 +433,79 @@ describe("ResumenSoporteProvider («Para hoy», CA-2)", () => {
     expect(screen.getByText("mios 0 · aprobaciones 0 · asignados 0")).toBeTruthy();
   });
 
+  describe("US-029: «moduloApagado» para la burbuja de soporte", () => {
+    function Apagado() {
+      return <Text>{`apagado ${useResumenSoporte().moduloApagado}`}</Text>;
+    }
+    const arbol = () => (
+      <ResumenSoporteProvider>
+        <Apagado />
+      </ResumenSoporteProvider>
+    );
+
+    afterEach(() => {
+      mockSesion.versionEmpresa = 0;
+    });
+
+    it("lo marca el `modulo_apagado` de mis-tickets/ y aprobaciones/, sin pedir nada más", async () => {
+      const apagado = new Error("403");
+      apagado.response = { status: 403, data: { error: { code: "modulo_apagado" } } };
+      api.get.mockRejectedValue(apagado);
+      await render(arbol());
+      expect(await screen.findByText("apagado true")).toBeTruthy();
+      expect(api.get.mock.calls.map(([r]) => r).sort()).toEqual(["/soporte/aprobaciones/", "/soporte/mis-tickets/"]);
+    });
+
+    it("otro 403 o un fallo de red no lo marcan", async () => {
+      const prohibido = new Error("403");
+      prohibido.response = { status: 403, data: { error: { code: "permission_denied" } } };
+      api.get.mockRejectedValue(prohibido);
+      await render(arbol());
+      await waitFor(() => expect(api.get).toHaveBeenCalledWith("/soporte/aprobaciones/"));
+      expect(screen.getByText("apagado false")).toBeTruthy();
+    });
+
+    it("al cambiar a una empresa con la Mesa encendida se quita", async () => {
+      const apagado = new Error("403");
+      apagado.response = { status: 403, data: { error: { code: "modulo_apagado" } } };
+      api.get.mockRejectedValue(apagado);
+      const { rerender } = await render(arbol());
+      expect(await screen.findByText("apagado true")).toBeTruthy();
+      api.get.mockReset();
+      api.get.mockImplementation(async () => []);
+      mockSesion.versionEmpresa = 1;
+      await rerender(arbol());
+      expect(await screen.findByText("apagado false")).toBeTruthy();
+    });
+
+    it("QA-TECH: arranca desconocido (null) y vuelve a serlo al cambiar de empresa, hasta la respuesta", async () => {
+      const pendientes = [];
+      api.get.mockImplementation(() => new Promise((listo) => pendientes.push(listo)));
+      const responder = (datos) => pendientes.splice(0).forEach((listo) => listo(datos));
+      const { rerender } = await render(arbol());
+      expect(screen.getByText("apagado null")).toBeTruthy();
+      await act(async () => responder([]));
+      expect(await screen.findByText("apagado false")).toBeTruthy();
+      mockSesion.versionEmpresa = 1;
+      await rerender(arbol());
+      expect(screen.getByText("apagado null")).toBeTruthy();
+    });
+
+    it("QA-TECH: si nada responde, a los ESPERA_MODULO_MS deja de ser desconocido (la burbuja no queda oculta para siempre)", async () => {
+      const { ESPERA_MODULO_MS } = require("../src/soporte/ResumenSoporteContext");
+      jest.useFakeTimers();
+      try {
+        api.get.mockImplementation(() => new Promise(() => {}));
+        await render(arbol());
+        expect(screen.getByText("apagado null")).toBeTruthy();
+        await act(async () => jest.advanceTimersByTime(ESPERA_MODULO_MS));
+        expect(screen.getByText("apagado false")).toBeTruthy();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+  });
+
   describe("US-016: «noEsDelEquipo» (el 403 de bandeja/) para la barra de la Mesa", () => {
     const { useRecargarResumenSoporte } = require("../src/soporte/ResumenSoporteContext");
     let marcar;

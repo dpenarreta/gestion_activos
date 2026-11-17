@@ -26,6 +26,7 @@ import { useColores, useEstilos } from "../../tema/apariencia";
 import { CampoTexto, ReglasDelPermiso } from "./piezas";
 import { ReemplazoEnAusencia } from "./ReemplazoEnAusencia";
 import { crearEstilos } from "../../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * Pedir un permiso (US-010, CA-4 a CA-7), con el comportamiento y los textos
@@ -126,6 +127,8 @@ function validarHoras({ hora_desde: inicio, hora_hasta: fin }) {
 }
 
 export function NuevaSolicitud({ deVacaciones = false }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -489,7 +492,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
 
   if (sinRol) {
     return (
-      <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
+      <ScrollView style={estilos.pantalla} contentContainerStyle={[estilos.contenido, rellenoBurbuja]}>
         <Alerta tipo="aviso" texto={TEXTO_SIN_ROL} />
         <Boton titulo="Enviar solicitud" icono="send" deshabilitado pista={TEXTO_SIN_ROL} onPress={() => {}} />
       </ScrollView>
@@ -526,7 +529,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
       ref={desplazable}
       testID="nueva-solicitud-formulario"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       automaticallyAdjustKeyboardInsets

@@ -108,11 +108,15 @@ describe("reemplazo en ausencia y directorio", () => {
   it("usa las mismas rutas que la web", async () => {
     await reemplazoService.obtener();
     await reemplazoService.guardar({ modo: "persona", persona_id: 8 });
+    await reemplazoService.candidatos("  ana ");
+    await reemplazoService.candidatos();
     await directorioService.buscar("  carla ");
     await directorioService.buscar("");
 
     expect(api.get.mock.calls).toEqual([
       ["/organizacion/mi-reemplazo/"],
+      ["/organizacion/mi-reemplazo/candidatos/", { params: { q: "ana" } }],
+      ["/organizacion/mi-reemplazo/candidatos/", undefined],
       ["/chat/directorio/", { params: { q: "carla" } }],
       ["/chat/directorio/", undefined],
     ]);

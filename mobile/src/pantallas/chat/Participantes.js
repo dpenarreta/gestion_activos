@@ -44,6 +44,7 @@ import { useCandado, useReenvioConfirmado, useSalirConCambios } from "../activos
 import { CampoTexto } from "../permisos/piezas";
 import { BuscadorDePersonas, PersonasElegidas } from "./BuscadorDePersonas";
 import { Presencia } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * Los participantes de un grupo o del canal general (US-011, CA-6), con su
@@ -85,6 +86,8 @@ function preguntar(titulo, mensaje, accion) {
 }
 
 export function Participantes({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -538,7 +541,7 @@ export function Participantes({ id, empresa = null }) {
         ref={lista}
         testID="participantes"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         data={participantes}

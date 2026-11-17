@@ -9,6 +9,7 @@ import { AREA_TACTIL } from "../tema/colores";
 import { useColores, useControles, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { abrirFuncionalidad, recordarPantalla } from "./abrir";
+import { useInformarAlturaDeLaBarra } from "./BurbujaDeSoporte";
 import { funcionalidadesVisibles, moduloDePantalla, nombreAccesible, vistaActiva, vistasDelEstado } from "./modulos";
 import { useContextoDeNavegacion } from "./useContextoDeNavegacion";
 
@@ -153,13 +154,22 @@ export function BarraDeFuncionalidades({ state, descriptors, insets }) {
   const contexto = useContextoDeNavegacion(vistasDelEstado(state));
   const elementos = funcionalidadesVisibles(modulo, contexto);
   const activa = vistaActiva(modulo, ruta, contexto);
+  // US-029: la burbuja de soporte se apoya sobre la barra; sin barra, abajo.
+  // Con el teclado no se publica nada (QA-TECH): la burbuja ya se aparta y
+  // así no hay dos actualizaciones ni un cuadro de parpadeo al cerrarlo.
+  const { alMedir, ocultar } = useInformarAlturaDeLaBarra();
+  const sinFuncionalidades = elementos.length === 0;
 
   // Institucional tiene dos pantallas: al volver a él, a la última.
   useEffect(() => {
     recordarPantalla(modulo, ruta?.name);
   }, [modulo, ruta?.name]);
 
-  if (teclado || elementos.length === 0) return null;
+  useEffect(() => {
+    if (sinFuncionalidades) ocultar();
+  }, [sinFuncionalidades, ocultar]);
+
+  if (teclado || sinFuncionalidades) return null;
 
   function elegir(f) {
     const navigation = navegacionActiva(state, descriptors);
@@ -169,6 +179,7 @@ export function BarraDeFuncionalidades({ state, descriptors, insets }) {
   return (
     <View
       style={[estilos.contenedor, { paddingBottom: Math.max(insets?.bottom ?? 0, 0) + 10 }]}
+      onLayout={alMedir}
       testID="barra-de-funcionalidades"
     >
       <View style={estilos.barra}>

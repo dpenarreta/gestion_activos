@@ -32,3 +32,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-026](US-026-app-movil-modo-claro-y-oscuro.md) | App móvil: modo claro y modo oscuro (Claro, Oscuro y Sistema desde la cabecera) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
 | [US-027](US-027-app-movil-para-hoy-contraido.md) | App móvil: «Para hoy» contraído con los avisos sin leer (módulo, título y resumen) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
 | [US-028](US-028-app-movil-paridad-con-la-web.md) | App móvil: paridad con la web (Mi perfil, Mesa de ayuda, pantalla de acceso y Activos) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
+| [US-029](US-029-app-movil-boton-flotante-nuevo-ticket.md) | App móvil: botón flotante para crear tickets de soporte (todas las pantallas menos Gestión de Activos) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |

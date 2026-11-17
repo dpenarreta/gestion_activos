@@ -23,6 +23,7 @@ import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
 import { Dato, Separador } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * «Aprobaciones» (US-014, CA-17), como `AprobacionesPage.jsx` de la web: las
@@ -226,6 +227,8 @@ const TarjetaAprobacion = memo(function TarjetaAprobacion({ aprobacion, onDecidi
 });
 
 export function Aprobaciones({ pie = null, alActualizar }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const alturaCabecera = useAlturaCabecera();
@@ -332,7 +335,7 @@ export function Aprobaciones({ pie = null, alActualizar }) {
     <FlatList
       testID="lista-aprobaciones"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={estado === "listo" ? lista : []}
       keyExtractor={(a) => String(a.id)}
       keyboardShouldPersistTaps="handled"

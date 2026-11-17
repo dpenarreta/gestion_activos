@@ -54,6 +54,7 @@ import {
   Seccion,
   VenceTicket,
 } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * La ficha de un ticket para el equipo (US-014, CA-9 a CA-15, CA-18, CA-21 y
@@ -487,6 +488,8 @@ function iconoDelPaso(destino) {
 }
 
 export function TicketDetalle({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
@@ -808,7 +811,7 @@ export function TicketDetalle({ id, empresa = null }) {
         ref={desplazable}
         testID="ticket-detalle"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets

@@ -29,6 +29,7 @@ import { CarruselNoticias } from "./CarruselNoticias";
 import { ParaHoy } from "./ParaHoy";
 import { crearEstilos } from "../tema/tipografia";
 import { diaEnZona } from "../matriz/formato";
+import { useRellenoDeLaBurbuja } from "../navegacion/BurbujaDeSoporte";
 
 /** Las pestañas del bloque de noticias de Inicio. */
 export const PESTANAS_DE_INICIO = [
@@ -120,6 +121,8 @@ export function accesosPara(permisos = []) {
 }
 
 export function Inicio() {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const { colores } = useApariencia();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -264,7 +267,7 @@ export function Inicio() {
     <ScrollView
       testID="inicio"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={
         <Refresco refreshing={refrescando} onRefresh={refrescar} />
       }

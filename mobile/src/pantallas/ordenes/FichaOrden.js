@@ -33,6 +33,7 @@ import {
   VentanaCosto,
 } from "./AccionesDeLaOrden";
 import { CumplimientoOrden, EstadoOrden, PrioridadOrden } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 export { TEXTO_NO_DISPONIBLE };
 
@@ -88,6 +89,8 @@ function FilasDeCosto({ tipo, filas, puede, quitando, onQuitar }) {
  * empresa activa, como en Gestión de Activos.
  */
 export function FichaOrden({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const estilos = useEstilos(fabricaDeEstilos);
   const { empresaActiva, versionEmpresa } = useSesion();
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
@@ -240,7 +243,7 @@ export function FichaOrden({ id, empresa = null }) {
     <ScrollView
       testID="ficha-orden"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {carga.aviso ? <Alerta tipo="aviso" texto={carga.aviso} /> : null}

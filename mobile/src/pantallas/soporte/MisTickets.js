@@ -19,6 +19,7 @@ import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { fechaYHora } from "../../utils/fechas";
 import { EstadoTicket, PrioridadTicket, Separador } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * «Mis tickets» (US-014, CA-6): lo que pidió la persona (`GET mis-tickets/`),
@@ -74,6 +75,8 @@ export const TarjetaMiTicket = memo(function TarjetaMiTicket({ ticket: t, onAbri
 });
 
 export function MisTickets({ onAbrir, cabecera = null, pie = null, alActualizar, alCargar }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const [estado, setEstado] = useState("cargando");
@@ -154,7 +157,7 @@ export function MisTickets({ onAbrir, cabecera = null, pie = null, alActualizar,
     <FlatList
       testID="lista-mis-tickets"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={estado === "listo" ? lista : []}
       keyExtractor={(t) => String(t.id)}
       ListHeaderComponent={

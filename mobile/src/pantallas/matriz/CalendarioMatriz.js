@@ -24,6 +24,7 @@ import { AREA_TACTIL } from "../../tema/colores";
 import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { SinRolMatriz } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /** Sin obligaciones: siempre la misma lista, para que `memo(Dia)` sirva. */
 const SIN_PERIODOS = [];
@@ -95,6 +96,8 @@ const Dia = memo(function Dia({ dia, lista, hoy, onAbrir, ancho }) {
  * nativas): 7 columnas, de domingo a sábado.
  */
 export function CalendarioMatriz({ matriz, onAbrirDia }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const zona = matriz.zona;
   const hoy = diaEnZona(new Date(), zona);
@@ -230,7 +233,7 @@ export function CalendarioMatriz({ matriz, onAbrirDia }) {
     <ScrollView
       testID="calendario-matriz"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       <View style={estilos.navegacion}>

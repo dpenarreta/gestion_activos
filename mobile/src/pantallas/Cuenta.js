@@ -21,6 +21,7 @@ import { ResumenMiEstado } from "./chat/piezas";
 import { MiPerfil } from "./MiPerfil";
 import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../navegacion/BurbujaDeSoporte";
 
 /** El nombre con el rol que se ejerce en ella, como el selector web. */
 function conRol(empresa) {
@@ -129,6 +130,8 @@ function BloqueAvisos() {
  * trae.
  */
 export function Cuenta() {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -163,7 +166,7 @@ export function Cuenta() {
   return (
     <ScrollView
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
     >
       {/* 16/11/2026, a pedido del usuario: el icono de la cuenta abre «Mi
           perfil» (solo lectura); empresa, chat, avisos y cerrar sesión

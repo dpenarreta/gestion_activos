@@ -4,7 +4,6 @@ import * as FileSystem from "expo-file-system";
 import { AccessibilityInfo, Alert, Text } from "react-native";
 
 import {
-  directorioService,
   licenciasService,
   reemplazoService,
   vacacionesService,
@@ -15,7 +14,13 @@ import {
   YA_QUEDO_GUARDADO,
 } from "../src/permisos/useReemplazoEnAusencia";
 import { TEXTO_DEMASIADO_GRANDE } from "../src/permisos/adjunto";
-import { TEXTO_HAY_MAS, TEXTO_MINIMO_BUSQUEDA } from "../src/utils/busqueda";
+import { TEXTO_HAY_MAS } from "../src/utils/busqueda";
+import {
+  ETIQUETA_JEFE_DIRECTO,
+  TEXTO_AYUDA_REEMPLAZO,
+  TEXTO_NADIE_COINCIDE,
+  TEXTO_NADIE_DEL_AREA,
+} from "../src/pantallas/permisos/ReemplazoEnAusencia";
 import {
   ResumenPermisosProvider,
   TEXTO_SIN_ROL,
@@ -89,8 +94,7 @@ jest.mock("../src/api/servicios", () => ({
     urlAdjunto: (id) => `https://api.prueba/api/v1/licencias/solicitudes/${id}/adjunto/`,
   },
   vacacionesService: { mias: jest.fn() },
-  reemplazoService: { obtener: jest.fn(), guardar: jest.fn() },
-  directorioService: { buscar: jest.fn() },
+  reemplazoService: { obtener: jest.fn(), guardar: jest.fn(), candidatos: jest.fn() },
 }));
 
 jest.mock("../src/api/api", () => ({
@@ -211,9 +215,8 @@ beforeEach(() => {
   licenciasService.solicitudes.mockResolvedValue([]);
   reemplazoService.obtener.mockResolvedValue({ modo: "jefe", persona: null, jefe: { id: 9, nombre: "Ana Pérez" } });
   reemplazoService.guardar.mockReset();
-  directorioService.buscar.mockResolvedValue([
-    { id: 8, nombre: "Carla Ruiz", correo: "carla@grupolaar.com", area: "Cartera", cargo: "Analista" },
-  ]);
+  // La forma real de `/organizacion/mi-reemplazo/candidatos/` (17/11/2026).
+  reemplazoService.candidatos.mockResolvedValue([{ id: 8, nombre: "Carla Ruiz", es_jefe: false }]);
   licenciasService.solicitar.mockReset();
 });
 
@@ -680,11 +683,13 @@ describe("nueva solicitud: quién aprueba por usted mientras no está (US-001)",
 
   async function elegirACarla() {
     await fireEvent.press(screen.getByTestId("reemplazo-persona"));
-    await fireEvent.changeText(screen.getByTestId("reemplazo-buscar"), "carla");
+    await screen.findByRole("button", { name: "Carla Ruiz" });
     const anuncio = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
-    const carla = await screen.findByRole("button", { name: "Carla Ruiz. Analista. Cartera" });
+    await fireEvent.changeText(screen.getByTestId("reemplazo-buscar"), "carla");
+    await waitFor(() => expect(reemplazoService.candidatos).toHaveBeenLastCalledWith("carla"));
     await waitFor(() => expect(anuncio).toHaveBeenCalledWith("Una persona encontrada."));
-    await fireEvent.press(carla);
+    await act(async () => {});
+    await fireEvent.press(screen.getByRole("button", { name: "Carla Ruiz" }));
     expect(screen.getByText("Carla Ruiz")).toBeTruthy();
     expect(anuncio).toHaveBeenCalledWith("Eligió a Carla Ruiz para aprobar por usted.");
   }
@@ -717,7 +722,7 @@ describe("nueva solicitud: quién aprueba por usted mientras no está (US-001)",
     expect(licenciasService.solicitar).not.toHaveBeenCalled();
   });
 
-  it("busca en el directorio y guarda el reemplazo antes de crear la solicitud", async () => {
+  it("busca entre los candidatos y guarda el reemplazo antes de crear la solicitud", async () => {
     reemplazoService.guardar.mockResolvedValue({ modo: "persona", persona: { id: 8, nombre: "Carla Ruiz" }, jefe: null });
     licenciasService.solicitar.mockResolvedValue(detalle({ id: 34 }));
     await listoParaEnviar();
@@ -726,7 +731,7 @@ describe("nueva solicitud: quién aprueba por usted mientras no está (US-001)",
     await fireEvent.press(screen.getByTestId("enviar-solicitud"));
 
     await waitFor(() => expect(licenciasService.solicitar).toHaveBeenCalledTimes(1));
-    expect(directorioService.buscar).toHaveBeenLastCalledWith("carla");
+    expect(reemplazoService.candidatos).toHaveBeenLastCalledWith("carla");
     expect(reemplazoService.guardar).toHaveBeenCalledWith({ modo: "persona", persona_id: 8 });
     expect(reemplazoService.guardar.mock.invocationCallOrder[0]).toBeLessThan(
       licenciasService.solicitar.mock.invocationCallOrder[0],
@@ -757,25 +762,72 @@ describe("nueva solicitud: quién aprueba por usted mientras no está (US-001)",
     expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(false);
   });
 
-  it("no busca con menos de 2 letras y muestra como mucho 8 (H-05)", async () => {
-    const muchas = Array.from({ length: 10 }, (_, i) => ({ id: 100 + i, nombre: `Carla ${i + 1}`, cargo: "", area: "" }));
-    directorioService.buscar.mockResolvedValue(muchas);
+  it("al elegir «Otra persona» lista los candidatos sin escribir, con el jefe directo marcado", async () => {
+    reemplazoService.candidatos.mockResolvedValue([
+      { id: 9, nombre: "Ana Pérez", es_jefe: true },
+      { id: 8, nombre: "Carla Ruiz", es_jefe: false },
+    ]);
+    await listoParaEnviar();
+    expect(screen.getByText(TEXTO_AYUDA_REEMPLAZO)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("reemplazo-persona"));
+
+    expect(await screen.findByRole("button", { name: `Ana Pérez. ${ETIQUETA_JEFE_DIRECTO}` })).toBeTruthy();
+    expect(reemplazoService.candidatos).toHaveBeenCalledWith("");
+    expect(screen.getByTestId("reemplazo-jefe-9")).toBeTruthy();
+    expect(screen.getByText(ETIQUETA_JEFE_DIRECTO)).toBeTruthy();
+    expect(screen.queryByTestId("reemplazo-jefe-8")).toBeNull();
+    expect(screen.getByRole("button", { name: "Carla Ruiz" })).toBeTruthy();
+  });
+
+  it("sin candidatos con ese nombre, lo dice con el texto de la web (con texto: «Nadie coincide…»)", async () => {
     await listoParaEnviar();
     await fireEvent.press(screen.getByTestId("reemplazo-persona"));
-    // Sin escribir no se busca ni se muestra un indicador sin fin.
-    expect(screen.getByText(TEXTO_MINIMO_BUSQUEDA)).toBeTruthy();
+    await screen.findByRole("button", { name: "Carla Ruiz" });
 
-    await fireEvent.changeText(screen.getByTestId("reemplazo-buscar"), "c");
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 400));
-    });
-    expect(directorioService.buscar).not.toHaveBeenCalled();
-    expect(screen.getByText(TEXTO_MINIMO_BUSQUEDA)).toBeTruthy();
-
+    reemplazoService.candidatos.mockResolvedValueOnce([]);
     const anuncio = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
-    await fireEvent.changeText(screen.getByTestId("reemplazo-buscar"), "ca");
+    await fireEvent.changeText(screen.getByTestId("reemplazo-buscar"), "zoila");
+
+    expect(await screen.findByText(TEXTO_NADIE_COINCIDE)).toBeTruthy();
+    expect(reemplazoService.candidatos).toHaveBeenLastCalledWith("zoila");
+    expect(anuncio).toHaveBeenCalledWith(TEXTO_NADIE_COINCIDE);
+  });
+
+  it("si falla la carga de candidatos, se puede reintentar", async () => {
+    reemplazoService.candidatos.mockRejectedValueOnce(error400(null, "Elija una empresa para ver a quién puede elegir."));
+    await listoParaEnviar();
+    await fireEvent.press(screen.getByTestId("reemplazo-persona"));
+
+    expect(await screen.findByText("Elija una empresa para ver a quién puede elegir.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: /Reintentar/ }));
+    expect(await screen.findByRole("button", { name: "Carla Ruiz" })).toBeTruthy();
+    expect(reemplazoService.candidatos).toHaveBeenCalledTimes(2);
+  });
+
+  it("fuera de su área o sin área registrada, el 400 en persona_id va junto al campo", async () => {
+    const SIN_AREA =
+      "No tiene un área registrada: por ahora solo puede elegir a su jefe directo. Pida a Talento Humano que registre su área.";
+    reemplazoService.guardar.mockRejectedValue(error400({ persona_id: [SIN_AREA] }));
+    await listoParaEnviar();
+    await elegirACarla();
+
+    await fireEvent.press(screen.getByTestId("enviar-solicitud"));
+
+    expect(await screen.findByText(SIN_AREA)).toBeTruthy();
+    expect(screen.getByText(MENSAJE_DE_FALLO)).toBeTruthy();
+    // Junto a la persona elegida, que se puede cambiar.
+    expect(screen.getByTestId("reemplazo-cambiar")).toBeTruthy();
+    expect(licenciasService.solicitar).not.toHaveBeenCalled();
+  });
+
+  it("muestra como mucho 8 candidatos y pide afinar (H-05)", async () => {
+    const muchas = Array.from({ length: 10 }, (_, i) => ({ id: 100 + i, nombre: `Carla ${i + 1}`, es_jefe: false }));
+    reemplazoService.candidatos.mockResolvedValue(muchas);
+    const anuncio = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
+    await listoParaEnviar();
+    await fireEvent.press(screen.getByTestId("reemplazo-persona"));
+
     expect(await screen.findByTestId("reemplazo-persona-107")).toBeTruthy();
-    expect(directorioService.buscar).toHaveBeenLastCalledWith("ca");
     expect(screen.queryByTestId("reemplazo-persona-108")).toBeNull();
     expect(screen.getByText(TEXTO_HAY_MAS)).toBeTruthy();
     expect(anuncio).toHaveBeenCalledWith(`10 personas encontradas; se muestran 8. ${TEXTO_HAY_MAS}`);

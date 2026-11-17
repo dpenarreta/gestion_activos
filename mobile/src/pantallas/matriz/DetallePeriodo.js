@@ -34,6 +34,7 @@ import { AbrirEnLaWeb } from "../permisos/piezas";
 import { Dato, Pildora, Seccion } from "../soporte/piezas";
 import { ConfirmarRecordatorio, FormularioFecha, FormularioSeguimiento } from "./AccionesDelPeriodo";
 import { EstadoDelPeriodo } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /** Lo que se avisa al terminar cada acción (los textos de la web). */
 export const AVISOS = {
@@ -128,6 +129,8 @@ function Evidencia({ documento, zona, abriendo, onAbrir }) {
  * la US-009).
  */
 export function DetallePeriodo({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -308,7 +311,7 @@ export function DetallePeriodo({ id, empresa = null }) {
     <View style={estilos.pantalla}>
       <ScrollView
         testID="detalle-periodo"
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
       >
         <View style={estilos.resumen}>

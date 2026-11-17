@@ -30,6 +30,7 @@ import { useEnvioDeOrden } from "./AccionesDeLaOrden";
 import { BuscadorDeResponsable } from "./BuscadorDeResponsable";
 import { rutaDeLaOrden } from "./piezas";
 import { VentanaRegistrarProveedor } from "./RegistrarProveedor";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /** Los campos en el orden de la pantalla, con su nombre para «Revise…». El
  * error del técnico va en «Quién la realiza» (`erroresDelAlta`). */
@@ -63,6 +64,8 @@ const CAMPOS = {
  * su campo; salir con cambios pregunta.
  */
 export function NuevaOrden() {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const alturaCabecera = useAlturaCabecera();
@@ -217,7 +220,7 @@ export function NuevaOrden() {
         ref={desplazable}
         testID="nueva-orden-formulario"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets

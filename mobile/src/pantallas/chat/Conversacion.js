@@ -45,6 +45,7 @@ import { useAppActiva, useEnFoco, usePresencia } from "../../chat/usePresencia";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { VisorDeImagen } from "../../componentes/VisorDeImagen";
+import { useApoyoDeLaBurbuja, useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 import { useAlturaCabecera } from "../../navegador/alturaCabecera";
 import { useContador } from "../../notificaciones/ContadorContext";
 import { useSesion } from "../../sesion/SesionContext";
@@ -96,6 +97,8 @@ export const MARGEN_RECONOCER_MS = 2 * 60_000;
 /** A partir de esta distancia del final se ofrece «Ir al último mensaje»
  * (N-04). */
 export const DISTANCIA_LEJOS = 240;
+/** «Ir al último mensaje» flota a esta distancia de la fila de escribir. */
+export const DISTANCIA_IR_AL_ULTIMO = 12;
 export const TEXTO_SIN_FECHA = "Sin fecha";
 export const TEXTO_SIN_MENSAJES = "Todavía no hay mensajes. ¡Escriba el primero!";
 /** US-024 (UX H-01): lo que se encuentra en «Información del grupo». */
@@ -270,6 +273,11 @@ export function Conversacion({ id, empresa = null }) {
   // N-04: lejos del último mensaje se ofrece volver, con lo nuevo sin ver.
   const [lejos, setLejos] = useState(false);
   const [nuevosSinVer, setNuevosSinVer] = useState(0);
+  // US-029 (CA-3): la burbuja de soporte va sobre la fila de escribir y, si
+  // se ve «Ir al último mensaje», también sobre él; nunca los tapa. La lista
+  // deja ese espacio bajo el último mensaje (en una lista invertida, arriba).
+  const medirRedactar = useApoyoDeLaBurbuja({ extra: lejos ? DISTANCIA_IR_AL_ULTIMO + AREA_TACTIL : 0 });
+  const relleno = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const lista = useRef(null);
   const lejosRef = useRef(false);
 
@@ -884,7 +892,7 @@ export function Conversacion({ id, empresa = null }) {
           testID="mensajes"
           inverted
           style={estilos.lista}
-          contentContainerStyle={estilos.listaContenido}
+          contentContainerStyle={[estilos.listaContenido, relleno ? { paddingTop: relleno.paddingBottom } : null]}
           data={elementos}
           extraData={miniaturas}
           keyExtractor={claveDeElemento}
@@ -950,7 +958,7 @@ export function Conversacion({ id, empresa = null }) {
         ) : null}
       </View>
 
-      <View style={[estilos.redactar, { paddingBottom: 8 + (tecladoVisible ? 0 : margenes.bottom) }]}>
+      <View style={[estilos.redactar, { paddingBottom: 8 + (tecladoVisible ? 0 : margenes.bottom) }]} onLayout={medirRedactar}>
         {archivoAbierto.error ? (
           <Alerta tipo="mal" texto={archivoAbierto.error.texto} clave={archivoAbierto.error.clave} />
         ) : null}
@@ -1469,7 +1477,7 @@ const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
     textAlignVertical: "top",
   },
   zonaLista: { flex: 1 },
-  irAlUltimo: { position: "absolute", right: 16, bottom: 12, zIndex: 1, alignItems: "center" },
+  irAlUltimo: { position: "absolute", right: 16, bottom: DISTANCIA_IR_AL_ULTIMO, zIndex: 1, alignItems: "center" },
   irAlUltimoCuenta: {
     ...CONTROLES.insignia,
     position: "absolute",

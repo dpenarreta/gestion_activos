@@ -22,6 +22,7 @@ import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Presencia } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 export const TEXTO_SIN_APP = {
   telefono: "No se pudo abrir la app de llamadas. Marque el número a mano:",
@@ -37,6 +38,8 @@ export const TEXTO_SIN_APP = {
  * seleccionar para copiarlo, y el teléfono y el correo abren su app.
  */
 export function Contacto({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const [estado, setEstado] = useState("cargando");
@@ -102,7 +105,7 @@ export function Contacto({ id, empresa = null }) {
     <ScrollView
       testID="contacto"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
     >
       <View style={estilos.encabezado}>
         <View

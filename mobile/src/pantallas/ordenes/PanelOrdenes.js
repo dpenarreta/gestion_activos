@@ -15,6 +15,7 @@ import { fechaYHora } from "../../utils/fechas";
 import { ActivosEnElNavegador, useMontado } from "../activos/piezas";
 import { Separador } from "../soporte/piezas";
 import { FilaOrden } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /** Un indicador (CA-3): ícono, nombre y cifra, con el borde y el ícono del
  * tono. Abiertas y vencidas destacan con un borde completo y la cifra más
@@ -103,6 +104,8 @@ function FilaDeActividad({ movimiento, onAbrir }) {
  * borra lo que se ve. Al cambiar de empresa se vuelve a pedir.
  */
 export function PanelOrdenes({ permisos, empresa, versionEmpresa, onAbrirOrden }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
@@ -213,7 +216,7 @@ export function PanelOrdenes({ permisos, empresa, versionEmpresa, onAbrirOrden }
     <ScrollView
       testID="panel-ordenes"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {contenido}

@@ -19,6 +19,7 @@ import { useEstilos } from "../../tema/apariencia";
 import { MisVacaciones } from "./MisVacaciones";
 import { AbrirEnLaWeb, TarjetaSolicitud } from "./piezas";
 import { crearEstilos } from "../../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * Los permisos del módulo «Institucional» (US-010, CA-1; US-016): «Solicitud
@@ -132,6 +133,8 @@ export function Permisos() {
  * lo dice.
  */
 export function ListaSolicitudes({ vista, foco = 0, onAbrir, cabecera = null, pie = null, alActualizar }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const { versionEmpresa } = useSesion();
   const [estado, setEstado] = useState("cargando");
@@ -213,7 +216,7 @@ export function ListaSolicitudes({ vista, foco = 0, onAbrir, cabecera = null, pi
     <FlatList
       testID={`lista-${vista}`}
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={estado === "listo" ? lista : []}
       keyExtractor={(s) => String(s.id)}
       ListHeaderComponent={

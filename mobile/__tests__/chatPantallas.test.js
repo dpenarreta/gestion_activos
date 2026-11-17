@@ -51,7 +51,7 @@ jest.mock("../src/api/servicios", () => ({
     contacto: jest.fn(),
   },
   directorioService: { buscar: jest.fn() },
-  reemplazoService: { obtener: jest.fn(), guardar: jest.fn() },
+  reemplazoService: { obtener: jest.fn(), guardar: jest.fn(), candidatos: jest.fn() },
 }));
 
 const CARLA = { id: 9, nombre: "Carla Ruiz", correo: "carla@grupolaar.com", area: "Cartera", cargo: "Analista" };
@@ -152,6 +152,7 @@ beforeEach(() => {
   chatService.guardarEstado.mockImplementation(async (cambios) => ({ ...MI_ESTADO, ...cambios }));
   directorioService.buscar.mockResolvedValue([CARLA, LUIS]);
   reemplazoService.obtener.mockResolvedValue({ modo: "jefe", persona: null, jefe: { id: 3, nombre: "Pedro León" } });
+  reemplazoService.candidatos.mockResolvedValue([{ id: 3, nombre: "Pedro León", es_jefe: true }]);
 });
 
 afterEach(() => {

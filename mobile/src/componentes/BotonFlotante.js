@@ -13,8 +13,12 @@ import { Icono } from "./Icono";
  * Amarillo de la marca con el ícono negro (16,0:1) y la sombra de la barra.
  * 60 dp, por encima del área táctil mínima. La `etiqueta` es obligatoria: es
  * lo único que dice el lector de pantalla.
+ *
+ * `estilo` (US-029, 17/11/2026): para cambiar solo la altura (`bottom`) de
+ * la burbuja de soporte, que se apila sobre lo que cada pantalla tiene
+ * abajo. El aspecto y el tamaño no cambian.
  */
-export function BotonFlotante({ icono, etiqueta, pista, onPress, testID }) {
+export function BotonFlotante({ icono, etiqueta, pista, onPress, testID, estilo }) {
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   return (
@@ -25,7 +29,7 @@ export function BotonFlotante({ icono, etiqueta, pista, onPress, testID }) {
       accessibilityLabel={etiqueta}
       accessibilityHint={pista}
       hitSlop={6}
-      style={({ pressed }) => [estilos.boton, pressed && estilos.presionado]}
+      style={({ pressed }) => [estilos.boton, estilo, pressed && estilos.presionado]}
     >
       <Icono nombre={icono} size={30} color={colores.marcaNegro} />
     </Pressable>

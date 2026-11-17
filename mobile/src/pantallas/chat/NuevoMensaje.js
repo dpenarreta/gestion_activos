@@ -14,6 +14,7 @@ import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Presencia } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * «Nuevo mensaje» (US-011, CA-5): se busca a la persona en el directorio de
@@ -27,6 +28,8 @@ import { Presencia } from "./piezas";
 export { ESPERA_BUSCAR_MS };
 
 export function NuevoMensaje() {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
@@ -137,7 +140,7 @@ export function NuevoMensaje() {
     <FlatList
       testID="directorio"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       keyboardShouldPersistTaps="handled"
       data={errorBusqueda ? [] : personas}
       keyExtractor={(p) => String(p.id)}

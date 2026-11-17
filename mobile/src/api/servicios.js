@@ -216,6 +216,15 @@ export const reemplazoService = {
   guardar(datos) {
     return api.put("/organizacion/mi-reemplazo/", datos);
   },
+  /**
+   * A quién puede elegir (17/11/2026, commit 0af6682): su jefe directo y las
+   * personas de su misma área, `[{id, nombre, es_jefe}]` con el jefe
+   * primero, hasta 20 y sin paginar. Sin `q` devuelve la lista entera.
+   */
+  candidatos(texto = "") {
+    const q = texto.trim();
+    return api.get("/organizacion/mi-reemplazo/candidatos/", q ? { params: { q } } : undefined);
+  },
 };
 
 /** El directorio de la empresa (el del chat), sin quien pregunta:

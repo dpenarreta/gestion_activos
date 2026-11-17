@@ -34,6 +34,7 @@ import {
 } from "../utils/fechas";
 import { useMedianoche } from "../utils/useMedianoche";
 import { crearEstilos } from "../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../navegacion/BurbujaDeSoporte";
 
 /**
  * Las notificaciones de la campana (CA-6): las mismas que en la web, de la más
@@ -63,6 +64,8 @@ export function agruparPorDia(notificaciones, ahora = new Date()) {
 }
 
 export function ListaNotificaciones({ mapa } = {}) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -348,7 +351,7 @@ export function ListaNotificaciones({ mapa } = {}) {
     <FlatList
       testID="lista-notificaciones"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={estado === "listo" ? filas : []}
       keyExtractor={(f) => f.clave}
       ListHeaderComponent={cabecera}

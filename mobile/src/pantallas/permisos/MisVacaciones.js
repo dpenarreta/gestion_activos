@@ -13,6 +13,7 @@ import { useSesion } from "../../sesion/SesionContext";
 import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * Mis vacaciones (US-010, CA-2), con los mismos datos y textos que la web
@@ -29,6 +30,8 @@ function diasCon(n, singular, plural) {
 }
 
 export function MisVacaciones({ foco = 0 }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const { versionEmpresa } = useSesion();
@@ -94,7 +97,7 @@ export function MisVacaciones({ foco = 0 }) {
     <ScrollView
       testID="mis-vacaciones"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {/* Alternativa a deslizar hacia abajo (revisión de QA-UX), como ícono

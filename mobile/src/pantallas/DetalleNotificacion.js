@@ -27,6 +27,7 @@ import {
 import { useApariencia, useEstilos } from "../tema/apariencia";
 import { fechaCompleta } from "../utils/fechas";
 import { crearEstilos } from "../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../navegacion/BurbujaDeSoporte";
 
 export const TEXTO_FUERA_DE_LA_APP =
   "Este módulo aún no está en la app. Le recomendamos abrirlo y validarlo desde el navegador.";
@@ -58,6 +59,8 @@ export function textoSinEnlace(modulo) {
  * decisión del Tech Lead, 12/11/2026).
  */
 export function DetalleNotificacion({ id, mapa, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const { colores, oscuro } = useApariencia();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -193,7 +196,7 @@ export function DetalleNotificacion({ id, mapa, empresa = null }) {
   return (
     <ScrollView
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
     >
       {avisoEmpresa && <Alerta tipo="info" texto={avisoEmpresa} />}
       <View style={estilos.modulo}>

@@ -45,6 +45,7 @@ import {
 import { useApariencia, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { ReemplazoEnAusencia } from "../permisos/ReemplazoEnAusencia";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * «Mi estado» en el chat (US-011, CA-8), con las opciones, los textos y las
@@ -104,6 +105,8 @@ export function MiEstado() {
 }
 
 export function FormularioEstado({ datos, onGuardado }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const { colores, oscuro } = useApariencia();
   const estilos = useEstilos(fabricaDeEstilos);
   const alturaCabecera = useAlturaCabecera();
@@ -271,7 +274,7 @@ export function FormularioEstado({ datos, onGuardado }) {
         ref={desplazable}
         testID="mi-estado"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
       >

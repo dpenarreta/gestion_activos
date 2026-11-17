@@ -13,6 +13,7 @@ import { useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 import { FilaPeriodo, MatrizEnElNavegador, SinRolMatriz } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /** Una tarjeta del resumen (CA-2): ícono, título, cifra y detalle, con el
  * borde y el ícono del tono. El color nunca es lo único que la distingue. */
@@ -59,6 +60,8 @@ function Tarjeta({ estado, counts, onAbrir }) {
  * hacia abajo; un refresco fallido no borra lo que se ve.
  */
 export function BandejaMatriz({ matriz, permisos, empresaActiva, onAbrirEstado, onAbrirPeriodo }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja({ margenDelSistema: false });
   const estilos = useEstilos(fabricaDeEstilos);
   const [carga, setCarga] = useState({ estado: "cargando", datos: null, error: null, aviso: null });
   const [refrescando, setRefrescando] = useState(false);
@@ -189,7 +192,7 @@ export function BandejaMatriz({ matriz, permisos, empresaActiva, onAbrirEstado, 
     <ScrollView
       testID="bandeja-matriz"
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
     >
       {lista ? (

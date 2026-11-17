@@ -3,33 +3,38 @@ import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-nativ
 
 import { anunciar } from "../../accesibilidad/anunciar";
 import { mensajeDeError } from "../../api/errores";
-import { directorioService } from "../../api/servicios";
+import { reemplazoService } from "../../api/servicios";
 import { Boton, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
 import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
-import {
-  ESPERA_BUSCAR_MS,
-  MAXIMO_RESULTADOS,
-  MINIMO_BUSQUEDA,
-  TEXTO_HAY_MAS,
-  TEXTO_MINIMO_BUSQUEDA,
-  textoDeResultados,
-} from "../../utils/busqueda";
+import { ESPERA_BUSCAR_MS, MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
 
 /**
  * El bloque «Mientras usted no está» de la nueva solicitud, con los textos de
- * `ReemplazoEnAusencia.jsx` de la web: su jefe inmediato u otra persona de la
- * empresa, que se busca por nombre en el directorio del chat (que ya deja
- * fuera a quien pregunta; el servidor también lo rechaza). `reemplazo` es lo
- * que devuelve `useReemplazoEnAusencia`.
+ * `ReemplazoEnAusencia.jsx` de la web: su jefe inmediato u otra persona.
+ * Desde el 17/11/2026 (commit 0af6682) esa otra persona solo puede ser de su
+ * misma área o su jefe directo: se elige entre los candidatos del servidor
+ * (`/organizacion/mi-reemplazo/candidatos/`), no en el directorio del chat.
+ * Lo que se eligió antes de la regla no se descarta solo; si se intenta
+ * guardar a alguien fuera de ella, el 400 en `persona_id` va junto al campo.
+ * `reemplazo` es lo que devuelve `useReemplazoEnAusencia`.
  */
 // Una sola pausa para todos los buscadores (US-014, QA-TECH).
 export { ESPERA_BUSCAR_MS };
 
 export const TEXTO_AYUDA_REEMPLAZO =
-  "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Esta elección se guarda para todas sus ausencias.";
+  "Si a usted le toca aprobar solicitudes, mientras esté ausente pasan a esta persona. Solo puede elegir a alguien de su misma área o a su jefe directo. Esta elección se guarda para todas sus ausencias.";
+/** Sin candidatos y sin nada escrito: el texto de la web
+ * (`ReemplazoEnAusencia.jsx`, `textoNadie`). */
+export const TEXTO_NADIE_DEL_AREA =
+  "No hay nadie de su área con ese nombre. Solo se puede elegir a alguien de la misma área o al jefe directo.";
+/** Sin candidatos con un nombre escrito: igual que la web (`SelectorDePersonas`). */
+export const TEXTO_NADIE_COINCIDE = "Nadie coincide con la búsqueda.";
+const textoSinCandidatos = (consulta) => ((consulta ?? "").trim() ? TEXTO_NADIE_COINCIDE : TEXTO_NADIE_DEL_AREA);
+/** La etiqueta del candidato que es su jefe directo, como en la web. */
+export const ETIQUETA_JEFE_DIRECTO = "Jefe directo";
 export const TEXTO_SIN_JEFE =
   "Usted no tiene un jefe inmediato registrado: sus aprobaciones se quedarán con usted. Si alguien debe aprobar por usted, elija «Otra persona».";
 
@@ -135,7 +140,9 @@ function ErrorDelCampo({ texto }) {
 }
 
 /** «Persona que aprobará por usted» (obligatoria con «Otra persona»): la
- * elegida, o un buscador por nombre con una pausa al escribir. */
+ * elegida, o la lista de candidatos (jefe directo primero, luego su área),
+ * que se pide al abrirse y se filtra por nombre con una pausa al escribir.
+ * Son pocos (hasta 20), así que no hace falta un mínimo de letras. */
 function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco }) {
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
@@ -154,29 +161,22 @@ function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco })
   }, []);
 
   const consulta = texto.trim();
-  const corta = consulta.length < MINIMO_BUSQUEDA;
 
   useEffect(() => {
     if (persona) return undefined;
     setErrorBusqueda(null);
-    if (consulta.length < MINIMO_BUSQUEDA) {
-      // Sin buscar: nada que mostrar todavía.
-      setResultados(null);
-      setBuscando(false);
-      return undefined;
-    }
     let vigente = true;
     setBuscando(true);
     const pausa = setTimeout(
       () => {
-        directorioService
-          .buscar(consulta)
+        reemplazoService
+          .candidatos(consulta)
           .then((lista) => {
             if (!vigente || !montado.current) return;
             const encontradas = Array.isArray(lista) ? lista : [];
             setResultados(encontradas);
             // Cuántas hay se dice: la lista cambia sin mover el foco.
-            anunciar(textoDeResultados(encontradas.length, consulta));
+            anunciar(encontradas.length ? textoDeResultados(encontradas.length) : textoSinCandidatos(consulta));
           })
           .catch((e) => {
             if (vigente && montado.current) {
@@ -188,7 +188,8 @@ function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco })
             if (vigente && montado.current) setBuscando(false);
           });
       },
-      ESPERA_BUSCAR_MS,
+      // Al abrirse, sin pausa; al escribir, con ella.
+      consulta ? ESPERA_BUSCAR_MS : 0,
     );
     return () => {
       vigente = false;
@@ -250,13 +251,9 @@ function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco })
       ) : null}
       {errorBusqueda ? (
         <ErrorConReintento texto={errorBusqueda} onReintentar={() => setVez((v) => v + 1)} />
-      ) : corta ? (
-        <Text style={estilos.tenue} testID="reemplazo-minimo">
-          {TEXTO_MINIMO_BUSQUEDA}
-        </Text>
       ) : resultados === null ? null : resultados.length === 0 ? (
-        <Text style={estilos.tenue} accessibilityLiveRegion="polite">
-          Nadie coincide con «{consulta}».
+        <Text style={estilos.tenue} accessibilityLiveRegion="polite" testID="reemplazo-nadie">
+          {textoSinCandidatos(consulta)}
         </Text>
       ) : (
         <View accessibilityLabel="Personas encontradas">
@@ -272,12 +269,14 @@ function BuscadorDePersona({ persona, onElegir, error, deshabilitado, refFoco })
               accessibilityRole="button"
               accessibilityState={{ disabled: deshabilitado }}
               accessibilityHint="Elige a esta persona para aprobar por usted"
-              accessibilityLabel={[p.nombre, p.cargo, p.area].filter(Boolean).join(". ")}
+              accessibilityLabel={[p.nombre, p.es_jefe ? ETIQUETA_JEFE_DIRECTO : null].filter(Boolean).join(". ")}
               style={({ pressed }) => [estilos.persona, pressed && estilos.presionada]}
             >
               <Text style={estilos.opcionTexto}>{p.nombre}</Text>
-              {p.cargo || p.area ? (
-                <Text style={estilos.tenue}>{[p.cargo, p.area].filter(Boolean).join(" · ")}</Text>
+              {p.es_jefe ? (
+                <View style={estilos.etiquetaJefe} testID={`reemplazo-jefe-${p.id}`}>
+                  <Text style={estilos.etiquetaJefeTexto}>{ETIQUETA_JEFE_DIRECTO}</Text>
+                </View>
               ) : null}
             </Pressable>
           ))}
@@ -331,6 +330,15 @@ const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
     borderBottomColor: colores.borde,
   },
   presionada: { backgroundColor: colores.realce },
+  etiquetaJefe: {
+    alignSelf: "flex-start",
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: colores.realce,
+  },
+  etiquetaJefeTexto: { fontSize: 13, fontWeight: "600", color: colores.tinta },
   buscando: { flexDirection: "row", alignItems: "center", gap: 8 },
   filaError: { flexDirection: "row", alignItems: "center", gap: 6 },
   error: { flex: 1, fontSize: 14, color: colores.malTexto },

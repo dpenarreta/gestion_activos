@@ -12,6 +12,7 @@ import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
 import { Separador } from "../soporte/piezas";
 import { FilaPeriodo, SinRolMatriz } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 const LISTA_VACIA = { estado: "cargando", items: [], total: 0, hayMas: false, error: null, aviso: null };
 
@@ -28,6 +29,8 @@ const LISTA_VACIA = { estado: "cargando", items: [], total: 0, hayMas: false, er
  * total. Se vuelve a pedir al cambiar de empresa.
  */
 export function ListaDePeriodos({ params, detalle, nota, textoVacio, testID = "lista-de-periodos" }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
@@ -175,7 +178,7 @@ export function ListaDePeriodos({ params, detalle, nota, textoVacio, testID = "l
     <FlatList
       testID={testID}
       style={estilos.lista}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       data={lista.estado === "listo" ? lista.items : []}
       keyExtractor={(p) => String(p.id)}
       ListHeaderComponent={

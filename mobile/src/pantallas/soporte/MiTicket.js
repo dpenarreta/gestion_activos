@@ -27,6 +27,7 @@ import { crearEstilos } from "../../tema/tipografia";
 import { aHora, fechaCorta, fechaYHora } from "../../utils/fechas";
 import { CampoTexto } from "../permisos/piezas";
 import { AdjuntosPorEnviar, Dato, EstadoTicket, ListaDeAdjuntos, MensajeDelTicket, Seccion } from "./piezas";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * La ficha de un ticket propio (US-014, CA-7, CA-18 y CA-22), como
@@ -168,6 +169,8 @@ function Encuesta({ ticket, onResponder, enviando, error }) {
 }
 
 export function MiTicket({ id, empresa = null }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   const navegacion = useNavigation();
@@ -367,7 +370,7 @@ export function MiTicket({ id, empresa = null }) {
         ref={desplazable}
         testID="mi-ticket"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         automaticallyAdjustKeyboardInsets

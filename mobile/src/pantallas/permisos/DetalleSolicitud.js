@@ -31,6 +31,7 @@ import { useResumenPermisos } from "../../permisos/ResumenPermisosContext";
 import { useEstilos } from "../../tema/apariencia";
 import { AbrirEnLaWeb, CampoTexto, EstadoSolicitud, ReglasDelPermiso } from "./piezas";
 import { crearEstilos } from "../../tema/tipografia";
+import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
  * El detalle de una solicitud (US-010, CA-8 a CA-11): quién pide, qué, el
@@ -87,6 +88,8 @@ function volver(router) {
 }
 
 export function DetalleSolicitud({ id, empresa = null, creada = false }) {
+  // US-029: lo último no queda bajo la burbuja de soporte.
+  const rellenoBurbuja = useRellenoDeLaBurbuja();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
   // Antes de cualquier `return` temprano (revisión UX, M-1).
@@ -332,7 +335,7 @@ export function DetalleSolicitud({ id, empresa = null, creada = false }) {
       ref={desplazable}
       testID="detalle-solicitud"
       style={estilos.pantalla}
-      contentContainerStyle={estilos.contenido}
+      contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       automaticallyAdjustKeyboardInsets

@@ -18,6 +18,8 @@ import { Alerta, Cargando, ErrorConReintento, Vacio } from "../../componentes/co
 import { Refresco } from "../../componentes/Refresco";
 import { BotonRedondo } from "../../componentes/BotonRedondo";
 import { Icono } from "../../componentes/Icono";
+import { useApoyoDeLaBurbuja, useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
+import { MARGEN_BURBUJA, SEPARACION_BURBUJA } from "../../navegacion/reglasDeLaBurbuja";
 import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
@@ -39,6 +41,8 @@ export const ESCALA_HORA_ABAJO = 1.3;
 export const CANDADO_NUEVO_MS = 1000;
 /** US-024: «Nuevo grupo» en la lista, en «Mis grupos» y en la barra. */
 export const PISTA_NUEVO_GRUPO = "Abre el formulario para crear un grupo";
+/** El botón flotante de «Nuevo mensaje» o «Nuevo grupo». */
+export const TAMANO_FLOTANTE_CHAT = 56;
 
 /**
  * `soloGrupos` (US-016): la vista «Mis grupos» del módulo Chat, la misma
@@ -57,6 +61,11 @@ export function ListaChats({ soloGrupos = false }) {
   // una sola pantalla.
   const abriendoNuevo = useRef(false);
   const presencia = usePresencia(conversaciones.filter((c) => c.tipo === "directa").map((c) => c.otro?.id));
+  // US-029 (CA-3): la burbuja de soporte se apila encima de la de «Nuevo
+  // mensaje», no la tapa.
+  useApoyoDeLaBurbuja({ altoFijo: MARGEN_BURBUJA + TAMANO_FLOTANTE_CHAT });
+  // Y la lista deja libre el alto de las dos al final.
+  const relleno = useRellenoDeLaBurbuja({ margenDelSistema: false, extra: MARGEN_BURBUJA + TAMANO_FLOTANTE_CHAT + SEPARACION_BURBUJA });
 
   // Al volver a la pestaña (de una conversación), la lista se refresca sin
   // «Cargando»: el último mensaje propio no llega por las novedades.
@@ -140,7 +149,7 @@ export function ListaChats({ soloGrupos = false }) {
       <FlatList
         testID="lista-chats"
         style={estilos.pantalla}
-        contentContainerStyle={estilos.contenido}
+        contentContainerStyle={[estilos.contenido, relleno]}
         data={estado === "listo" ? visibles : []}
         keyExtractor={(c) => String(c.id)}
         ListHeaderComponent={cabecera}
@@ -276,10 +285,10 @@ const fabricaDeEstilos = (colores) => crearEstilos({
     position: "absolute",
     zIndex: 1,
     right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    bottom: MARGEN_BURBUJA,
+    width: TAMANO_FLOTANTE_CHAT,
+    height: TAMANO_FLOTANTE_CHAT,
+    borderRadius: TAMANO_FLOTANTE_CHAT / 2,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colores.acento,
