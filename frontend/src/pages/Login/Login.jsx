@@ -14,6 +14,12 @@ import {
   recordarModulo,
 } from "../../modulos/modulos";
 import { fijarTituloDePantalla } from "../../utils/tituloDocumento";
+import {
+  DIAS_RECORDADO,
+  leerUsuarioRecordado,
+  olvidarUsuario,
+  recordarUsuario,
+} from "../../utils/usuarioRecordado";
 
 export function Login() {
   // Sin `useTheme`, que exige el proveedor (como en `PantallaAcceso`).
@@ -31,7 +37,12 @@ export function Login() {
   // reintentar pensando que algo va mal.
   const [searchParams] = useSearchParams();
   const cerradaPorInactividad = searchParams.get("motivo") === "inactividad";
-  const [form, setForm] = useState({ identifier: "", password: "" });
+  // El usuario recordado en este equipo (30 días, 17/11/2026).
+  const [form, setForm] = useState(() => ({
+    identifier: leerUsuarioRecordado(),
+    password: "",
+  }));
+  const [recordar, setRecordar] = useState(true);
 
   function handleChange(event) {
     setForm({ ...form, [event.target.name]: event.target.value });
@@ -41,6 +52,8 @@ export function Login() {
     event.preventDefault();
     try {
       const me = await login(form);
+      if (recordar) recordarUsuario(form.identifier);
+      else olvidarUsuario();
       // Siempre a Institucional → Inicio (19/10/2026): es de todos, tenga los
       // permisos que tenga, y desde ahí se va a cada módulo.
       recordarModulo(MODULO_DE_ENTRADA);
@@ -98,6 +111,18 @@ export function Login() {
             onChange={handleChange}
             required
           />
+        </div>
+        <div className="form-check mb-3">
+          <input
+            id="recordar-usuario"
+            type="checkbox"
+            className="form-check-input"
+            checked={recordar}
+            onChange={(event) => setRecordar(event.target.checked)}
+          />
+          <label className="form-check-label" htmlFor="recordar-usuario">
+            Recordar mi usuario en este equipo ({DIAS_RECORDADO} días)
+          </label>
         </div>
         <Button type="submit" isLoading={isLoading}>
           Entrar

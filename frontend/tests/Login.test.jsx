@@ -87,6 +87,32 @@ beforeEach(() => {
 });
 
 describe("Iniciar sesión", () => {
+  it("recuerda el usuario en el equipo y se puede desmarcar (17/11/2026)", async () => {
+    localStorage.clear();
+    const { unmount } = pintar();
+    expect(
+      screen.getByLabelText(/Recordar mi usuario en este equipo \(30 días\)/),
+    ).toBeChecked();
+    entrar("dpenarreta");
+    await waitFor(() =>
+      expect(localStorage.getItem("intranet.usuario_recordado")).toContain(
+        "dpenarreta",
+      ),
+    );
+    unmount();
+
+    // Al volver, el campo ya viene lleno; desmarcar la casilla lo olvida.
+    pintar();
+    expect(
+      screen.getByLabelText(/usuario, correo o código de empleado/i),
+    ).toHaveValue("dpenarreta");
+    fireEvent.click(screen.getByLabelText(/Recordar mi usuario/));
+    entrar("dpenarreta");
+    await waitFor(() =>
+      expect(localStorage.getItem("intranet.usuario_recordado")).toBeNull(),
+    );
+  });
+
   it("la pestaña dice que es la pantalla de acceso", () => {
     /* Revisión final UX/UI, 28/10/2026: antes la pestaña decía solo el nombre
        del sitio. */
