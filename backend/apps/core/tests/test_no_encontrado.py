@@ -49,6 +49,10 @@ def test_el_manejador_traduce_los_404_tecnicos_y_respeta_los_propios():
 
     propio = api_exception_handler(NotFound("El archivo ya no está disponible."), contexto)
     assert "El archivo ya no está disponible." in str(propio.data)
+    propio_django = api_exception_handler(
+        Http404("El archivo ya no está disponible en el servidor."), contexto
+    )
+    assert "El archivo ya no está disponible en el servidor." in str(propio_django.data)
 
     # Lo que no es un 404 no cambia.
     otro = api_exception_handler(ValidationError({"nombre": ["Obligatorio."]}), contexto)

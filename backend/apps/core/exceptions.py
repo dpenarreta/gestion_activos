@@ -104,12 +104,12 @@ _NO_COINCIDE = re.compile(r"^No .+ matches the given query\.?$")
 def _es_no_encontrado_tecnico(exc, mensaje) -> bool:
     """El 404 de `get_object_or_404` o de una vista de detalle de DRF, o el
     «Not found.» genérico: textos técnicos que no son para la persona."""
-    if isinstance(exc, Http404):
-        return True
+    # Solo el texto técnico: un `Http404("El archivo ya no está disponible
+    # en el servidor.")` ya habla en español y se respeta.
+    if not isinstance(exc, Http404 | NotFound):
+        return False
     texto = str(mensaje or "").strip()
-    return isinstance(exc, NotFound) and (
-        bool(_NO_COINCIDE.match(texto)) or texto in ("Not found.", "No encontrado.")
-    )
+    return not texto or bool(_NO_COINCIDE.match(texto)) or texto in ("Not found.", "No encontrado.")
 
 
 def _mensaje_de_espera(segundos) -> str:
