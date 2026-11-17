@@ -70,7 +70,9 @@ def resumen(conversacion, usuario, no_leidos) -> dict:
         "nombre": otro["nombre"] if otro else services.nombre_de(conversacion),
         "otro": otro,
         "departamento": conversacion.departamento_id,
-        "miembros": conversacion.participantes.count(),
+        # Solo cuentas activas (17/11/2026): una cuenta desactivada no se ve
+        # ni se cuenta en el chat, tampoco en el canal general.
+        "miembros": conversacion.participantes.filter(usuario__is_active=True).count(),
         "administra": bool(lugar and lugar.administra),
         "no_leidos": no_leidos.get(conversacion.id, 0),
         "ultimo": (
@@ -143,7 +145,9 @@ class ConversacionView(APIView):
         datos = resumen(conversacion, request.user, services.conteo_sin_leer(request.user))
         datos["participantes"] = [
             {**persona_dict(p.usuario), "administra": p.administra}
-            for p in conversacion.participantes.select_related("usuario__empleado__departamento")
+            for p in conversacion.participantes.filter(usuario__is_active=True).select_related(
+                "usuario__empleado__departamento"
+            )
         ]
         return Response(datos)
 

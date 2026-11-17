@@ -175,14 +175,17 @@ def test_quien_administra_quita_del_grupo_a_una_persona_inactiva(empresa):
         {"nombre": "Cierre de mes", "participantes": [beto.id]},
         format="json",
     ).json()
-    beto.is_active = False
-    beto.save(update_fields=["is_active"])
+    # El estado de la cuenta manda: al guardar, `is_active` sale de `status`.
+    beto.status = User.Status.DISABLED
+    beto.save()
     url = f"{URL}conversaciones/{grupo['id']}/"
 
     respuesta = cliente_ana.patch(url, {"quitar": [beto.id]}, format="json")
 
     assert respuesta.status_code == 200, respuesta.content
     assert beto.id not in [p["id"] for p in respuesta.json()["participantes"]]
+    # Y quitada de verdad, no solo oculta por estar inactiva.
+    assert not Conversacion.objects.get(pk=grupo["id"]).participantes.filter(usuario=beto).exists()
 
 
 def test_un_grupo_por_area_reune_a_las_personas_del_area(empresa):
@@ -340,3 +343,25 @@ def test_no_se_ve_el_contacto_de_alguien_de_otra_empresa(empresa):
     ana, zoe = _persona("ana", empresa), _persona("zoe", otra)
     respuesta = _cliente(ana, empresa).get(f"{URL}personas/{zoe.id}/contacto/")
     assert respuesta.status_code == 404
+
+
+def test_el_canal_general_es_de_las_cuentas_activas_y_nadie_sale(empresa):
+    """Regla del usuario (17/11/2026): toda cuenta activa está en el canal
+    general; una desactivada no se ve ni se cuenta; nadie se sale ni lo
+    borra."""
+    ana, beto = (_persona(n, empresa) for n in ("ana", "beto"))
+    cliente_ana = _cliente(ana, empresa)
+    general = _general(cliente_ana)
+    cliente_ana.post(f"{URL}conversaciones/{general['id']}/mensajes/", {"texto": "Hola"})
+    url = f"{URL}conversaciones/{general['id']}/"
+    assert beto.id in [p["id"] for p in cliente_ana.get(url).json()["participantes"]]
+
+    # El estado de la cuenta manda: al guardar, `is_active` sale de `status`.
+    beto.status = User.Status.DISABLED
+    beto.save()
+    datos = cliente_ana.get(url).json()
+    assert beto.id not in [p["id"] for p in datos["participantes"]]
+    assert datos["miembros"] == 1
+
+    assert cliente_ana.post(f"{url}salir/").status_code == 400
+    assert cliente_ana.delete(url).status_code in (403, 405)
