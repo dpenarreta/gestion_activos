@@ -24,6 +24,7 @@ import { AsignacionEmpresas } from "../Empresas/AsignacionEmpresas";
 import { SeleccionEmpresaYRol } from "../Empresas/SeleccionEmpresaYRol";
 import { useMultiempresa } from "../../../components/admin/AdminSidebar/SelectorEmpresa";
 import { CargoDelUsuario } from "./CargoDelUsuario";
+import { CodigoDesdeNomina } from "./CodigoDesdeNomina";
 import { ContrasenaDeLaCuenta } from "./ContrasenaDeLaCuenta";
 import { ReemplazoDeLaCuenta } from "./ReemplazoDeLaCuenta";
 import { motivoDelAlta } from "./cargosDelAlta";
@@ -511,6 +512,19 @@ export function UserForm() {
                   disabled={!puedeEditarCodigo}
                 />
               </Campo>
+              {/* Sugerido desde nómina por nombres y apellidos (17/11/2026). */}
+              {puedeEditarCodigo && (
+                <CodigoDesdeNomina
+                  nombres={form.first_name}
+                  apellidos={form.last_name}
+                  codigo={form.codigo_empleado}
+                  onUsar={(codigo) =>
+                    handleChange({
+                      target: { name: "codigo_empleado", value: codigo },
+                    })
+                  }
+                />
+              )}
 
               {isEditing && deNomina.cedula !== null && (
                 <Campo

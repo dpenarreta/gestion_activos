@@ -1,0 +1,27 @@
+/* Código de empleado sugerido desde nómina (17/11/2026). */
+.codigo-nomina {
+  padding: 8px 10px;
+  border: 1px solid var(--mz-border);
+  border-radius: 8px;
+  background: var(--mz-raised);
+}
+
+.codigo-nomina__lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.codigo-nomina__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--mz-border);
+}
+
+.codigo-nomina__fila:first-child {
+  border-top: 0;
+}

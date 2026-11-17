@@ -17,4 +17,12 @@ export const sincronizacionNominaService = {
   sincronizar() {
     return apiClient.post(RUTA).then((r) => r.data);
   },
+  /** Los empleados de nómina con esos nombres y apellidos, para sugerir el
+   * código al crear un usuario (17/11/2026). → `{configurada, resultados}`;
+   * cada resultado `{codigo, nombres, apellidos, correo, asignado_a}`. */
+  coincidencias(nombres, apellidos) {
+    return apiClient
+      .get("/nomina/coincidencias/", { params: { nombres, apellidos } })
+      .then((r) => r.data);
+  },
 };

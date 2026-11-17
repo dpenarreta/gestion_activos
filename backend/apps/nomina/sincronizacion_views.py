@@ -115,3 +115,26 @@ class SincronizacionNominaView(APIView):
             context=get_request_context(request),
         )
         return Response(resumen(corrida, con_detalle=True))
+
+
+class CoincidenciasNominaView(APIView):
+    """`GET /api/v1/nomina/coincidencias/?nombres=&apellidos=`: los empleados
+    de nómina con ese nombre, para sugerir el código al crear o editar un
+    usuario (17/11/2026). Sin cédula (LOPDP)."""
+
+    permission_classes = [IsAuthenticated, Requiere("usuarios.crear", "usuarios.editar")]
+
+    def get(self, request):
+        if not empleados.configurada():
+            return Response({"configurada": False, "resultados": []})
+        try:
+            resultados = empleados.coincidencias(
+                request.query_params.get("nombres", "")[:150],
+                request.query_params.get("apellidos", "")[:150],
+            )
+        except empleados.NominaNoDisponible as error:
+            return Response(
+                {"error": {"code": "nomina_no_disponible", "message": str(error), "details": None}},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response({"configurada": True, "resultados": resultados})

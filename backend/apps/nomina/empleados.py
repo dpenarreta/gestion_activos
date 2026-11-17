@@ -461,3 +461,60 @@ def sincronizar(actor=None, empleados: list[Empleado] | None = None):
         len(conflictos),
     )
     return corrida
+
+
+# --- Sugerir el código al crear un usuario -------------------------------------------------
+
+#: Cuánto se guarda la lista de nómina para las sugerencias: el formulario
+#: consulta mientras se escribe y no se llama al procedimiento cada vez.
+CACHE_SUGERENCIAS = "nomina.empleados.sugerencias"
+CACHE_SUGERENCIAS_SEGUNDOS = 600
+
+
+def _lista_para_sugerir() -> list[Empleado]:
+    from django.core.cache import cache
+
+    lista = cache.get(CACHE_SUGERENCIAS)
+    if lista is None:
+        lista = leer()
+        cache.set(CACHE_SUGERENCIAS, lista, CACHE_SUGERENCIAS_SEGUNDOS)
+    return lista
+
+
+def coincidencias(nombres: str, apellidos: str, limite: int = 10) -> list[dict]:
+    """Los empleados de nómina cuyo nombre contiene todas las palabras
+    escritas (17/11/2026, al crear un usuario: «Daniel Peñarreta» encuentra a
+    «Peñarreta Feijoo Daniel Patricio»). Sin tildes ni mayúsculas. Hacen
+    falta al menos dos palabras. Nunca devuelve la cédula (LOPDP) ni el
+    correo personal (`a_empleado` ya lo descarta).
+
+    Cada resultado dice si ese código ya es de otra cuenta (`asignado_a`).
+    Levanta `NominaNoDisponible` si nómina no responde."""
+    from django.contrib.auth import get_user_model
+
+    palabras = _palabras(nombres, apellidos)
+    if len(palabras) < 2:
+        return []
+    encontrados = [
+        e
+        for e in _lista_para_sugerir()
+        if e.codigo and palabras <= _palabras(e.nombres, e.apellidos)
+    ]
+    encontrados.sort(key=lambda e: (_sin_tildes(e.apellidos), _sin_tildes(e.nombres)))
+    encontrados = encontrados[:limite]
+    codigos = [e.codigo for e in encontrados]
+    asignados = dict(
+        get_user_model()
+        .objects.filter(codigo_empleado__in=codigos)
+        .values_list("codigo_empleado", "username")
+    )
+    return [
+        {
+            "codigo": e.codigo,
+            "nombres": e.nombres,
+            "apellidos": e.apellidos,
+            "correo": e.correo,
+            "asignado_a": asignados.get(e.codigo),
+        }
+        for e in encontrados
+    ]
