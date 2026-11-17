@@ -1162,7 +1162,7 @@ function EditorFlujo({
             <p className="mz-faint mz-small mb-2">
               {flujo.unidad === "horas"
                 ? "Quien solicita las ve al elegir el día. Un permiso por horas es de un solo día: no lleva mínimo ni máximo de días."
-                : "Quien solicita las ve al elegir las fechas, con si las cumple. Los mínimos y máximos no dejan enviar la solicitud; 0 es sin restricción."}
+                : "Quien solicita las ve al elegir las fechas, con si las cumple. Son recomendaciones: si no se cumplen, se alerta a quien solicita y a quien aprueba, pero se puede enviar; la decisión es de Talento Humano. 0 es sin restricción."}
             </p>
             <div className="row g-2">
               {flujo.unidad !== "horas" && (
@@ -1230,9 +1230,9 @@ function EditorFlujo({
                     />
                   </Campo>
                   <p className="col-12 col-md-6 mz-faint mz-small mb-0 align-self-end">
-                    De cada período anual deben salir al menos esos sábados y
-                    domingos. Si al completarse el período faltan, se marcan por
-                    defecto los siguientes a la solicitud.
+                    Se recomienda que de cada período anual salgan al menos esos
+                    sábados y domingos. Si a un período ya no le alcanzan los
+                    días, se alerta; el sistema no marca días por su cuenta.
                   </p>
                 </>
               )}

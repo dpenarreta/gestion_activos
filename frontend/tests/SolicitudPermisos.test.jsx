@@ -261,7 +261,7 @@ describe("Solicitud de permisos", () => {
           clave: "fines-1",
           estado: "aviso",
           texto:
-            "De cada período anual deben salir al menos 2 sábados y 2 domingos.",
+            "Se recomienda que de cada período anual salgan al menos 2 sábados y 2 domingos.",
           detalle: "Período 2024 – 2025, con esta solicitud: 0 de 2 sábados.",
         },
       ],

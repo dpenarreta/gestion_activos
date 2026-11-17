@@ -67,41 +67,41 @@ def _periodo(usuario, desde, goces=()):
     return periodo
 
 
-def test_el_minimo_de_dias_se_informa_y_no_deja_enviar_menos(empresa_con_organigrama):
+def test_el_minimo_de_dias_solo_alerta_y_deja_enviar(empresa_con_organigrama):
+    """Recomendación y no bloqueo (17/11/2026): la decisión es de Talento
+    Humano."""
     e = empresa_con_organigrama
     _con_reglas(e)
     usuario, ana = e["ana"]
     _periodo(usuario, D(2024, 6, 1))
 
-    corto = _por_clave(_evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-04"))
-    assert corto["minimo"]["estado"] == "falla"
-    assert corto["minimo"]["texto"] == "Mínimo 5 días seguidos por solicitud."
-    assert corto["nota"]["texto"] == "Pídalas con 15 días de anticipación."
+    corto = _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-04")
+    reglas = _por_clave(corto)
+    assert reglas["minimo"]["estado"] == "aviso"
+    assert reglas["minimo"]["texto"] == "Mínimo 5 días seguidos por solicitud."
+    assert reglas["nota"]["texto"] == "Pídalas con 15 días de anticipación."
+    assert corto["bloquea"] is False
     respuesta = ana.post(
         SOLICITUDES,
         {"flujo": e["vacaciones"], "desde": "2026-11-02", "hasta": "2026-11-04"},
         format="multipart",
     )
-    assert respuesta.status_code == 400
-    assert "Mínimo 5 días" in str(respuesta.data)
+    assert respuesta.status_code == 201, respuesta.data
 
-    bien = _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-06")
-    assert bien["bloquea"] is False
-    reglas = _por_clave(bien)
-    assert reglas["minimo"]["estado"] == "ok"
-    assert "5 del período 2024 – 2025" in reglas["saldo"]["detalle"]
+    bien = _por_clave(_evaluar(ana, e["vacaciones"], "2026-11-09", "2026-11-13"))
+    assert bien["minimo"]["estado"] == "ok"
     # Cinco días de semana: faltan los fines de semana, pero aún hay margen.
-    assert reglas["fines"]["estado"] == "aviso"
-    assert "0 de 2 sábados y 0 de 2 domingos" in reglas["fines"]["detalle"]
+    assert bien["fines"]["estado"] == "info"
+    assert "0 de 2 sábados y 0 de 2 domingos" in bien["fines"]["detalle"]
 
 
-def test_un_periodo_no_se_completa_sin_fines_de_semana(empresa_con_organigrama):
+def test_los_fines_de_semana_solo_alertan_y_no_se_marcan_solos(empresa_con_organigrama):
     e = empresa_con_organigrama
     _con_reglas(e)
     usuario, ana = e["ana"]
     _, jefa = e["jefa"]
     _, th = e["th"]
-    # 2024–2025: ya gozó 10 días de semana; le quedan 5, y 4 deben ser fin de semana.
+    # 2024–2025: ya gozó 10 días de semana; le quedan 5 y faltan 4 de fin de semana.
     viejo = _periodo(
         usuario,
         D(2024, 6, 1),
@@ -112,15 +112,12 @@ def test_un_periodo_no_se_completa_sin_fines_de_semana(empresa_con_organigrama):
     resultado = _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-06")
     assert resultado["bloquea"] is False
     reglas = {r["clave"]: r for r in resultado["reglas"]}
-    assert "1 del período 2024 – 2025; 4 del período 2025 – 2026" in reglas["saldo"]["detalle"]
-    marcado = reglas[f"fines-{viejo.pk}"]
-    assert marcado["estado"] == "aviso"
-    assert (
-        "sábado 07/11/2026, domingo 08/11/2026, sábado 14/11/2026, domingo 15/11/2026"
-        in marcado["detalle"]
-    )
+    # Los días ya no se reservan para los fines de semana: salen del más viejo.
+    assert "5 del período 2024 – 2025" in reglas["saldo"]["detalle"]
+    alerta = reglas[f"fines-{viejo.pk}"]
+    assert alerta["estado"] == "aviso"
+    assert "ya no alcanzan para los fines de semana recomendados" in alerta["detalle"]
 
-    # Aprobada: los días quedan gozados y los fines de semana, marcados.
     solicitud = ana.post(
         SOLICITUDES,
         {"flujo": e["vacaciones"], "desde": "2026-11-02", "hasta": "2026-11-06"},
@@ -129,48 +126,51 @@ def test_un_periodo_no_se_completa_sin_fines_de_semana(empresa_con_organigrama):
     jefa.post(f"{SOLICITUDES}{solicitud['id']}/aprobar/")
     assert th.post(f"{SOLICITUDES}{solicitud['id']}/aprobar/").json()["estado"] == "aprobada"
     with usando_empresa(empresa_actual()):
-        del_viejo = sorted(
-            (g.desde, g.dias, g.descripcion.startswith("Marcado por defecto"))
-            for g in viejo.goces.filter(desde__gte=D(2026, 11, 1))
-        )
-        del_nuevo = [(g.desde, g.hasta, g.dias) for g in nuevo.goces.all()]
-    assert del_viejo == [
-        (D(2026, 11, 2), 1, False),
-        (D(2026, 11, 7), 1, True),
-        (D(2026, 11, 8), 1, True),
-        (D(2026, 11, 14), 1, True),
-        (D(2026, 11, 15), 1, True),
-    ]
-    assert del_nuevo == [(D(2026, 11, 3), D(2026, 11, 6), 4)]
+        del_viejo = [
+            (g.desde, g.hasta, g.dias) for g in viejo.goces.filter(desde__gte=D(2026, 11, 1))
+        ]
+        assert not nuevo.goces.exists()
+        assert not viejo.goces.filter(descripcion__startswith="Marcado por defecto").exists()
+    assert del_viejo == [(D(2026, 11, 2), D(2026, 11, 6), 5)]
     assert (
-        Notificacion.objects.todas()
+        not Notificacion.objects.todas()
         .filter(usuario=usuario, tipo="licencias.fines_de_semana")
         .exists()
     )
 
 
-def test_no_se_piden_mas_dias_de_los_que_alcanzan(empresa_con_organigrama):
+def test_pedir_mas_dias_de_los_que_tiene_alerta_y_al_aprobar_queda_adelanto(
+    empresa_con_organigrama,
+):
     e = empresa_con_organigrama
     _con_reglas(e)
     usuario, ana = e["ana"]
-    _periodo(usuario, D(2024, 6, 1), goces=[(D(2026, 1, 5), D(2026, 1, 9))])
+    _, jefa = e["jefa"]
+    _, th = e["th"]
+    periodo = _periodo(usuario, D(2024, 6, 1), goces=[(D(2026, 1, 5), D(2026, 1, 16))])
 
-    # Le quedan 10, pero 4 son para fines de semana: 7 días de semana no caben.
-    resultado = _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-10")
+    # Le quedan 3 y pide 5: se alerta, pero se puede enviar.
+    resultado = _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-06")
     saldo = _por_clave(resultado)["saldo"]
-    assert resultado["bloquea"] is True
-    assert saldo["estado"] == "falla"
-    assert "le alcanzan" in saldo["detalle"]
+    assert resultado["bloquea"] is False
+    assert saldo["estado"] == "aviso"
+    assert "Tiene 3 días pendientes y pide 5" in saldo["detalle"]
+    assert "2 días quedan como adelanto" in saldo["detalle"]
 
-    # Una solicitud pendiente reserva sus días: la siguiente ya no los cuenta.
-    pendiente = ana.post(
+    solicitud = ana.post(
         SOLICITUDES,
         {"flujo": e["vacaciones"], "desde": "2026-11-02", "hasta": "2026-11-06"},
         format="multipart",
     )
-    assert pendiente.status_code == 201, pendiente.data
-    otra = _por_clave(_evaluar(ana, e["vacaciones"], "2026-12-07", "2026-12-11"))
-    assert otra["saldo"]["estado"] == "falla"
+    assert solicitud.status_code == 201, solicitud.data
+    jefa.post(f"{SOLICITUDES}{solicitud.json()['id']}/aprobar/")
+    assert th.post(f"{SOLICITUDES}{solicitud.json()['id']}/aprobar/").json()["estado"] == "aprobada"
+    with usando_empresa(empresa_actual()):
+        goces = sorted(
+            (g.desde, g.dias, g.descripcion.startswith("Adelanto"))
+            for g in periodo.goces.filter(desde__gte=D(2026, 11, 1))
+        )
+    assert goces == [(D(2026, 11, 2), 3, False), (D(2026, 11, 5), 2, True)]
 
 
 def test_un_tipo_sin_restricciones_no_las_muestra(empresa_con_organigrama):

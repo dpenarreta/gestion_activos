@@ -341,12 +341,12 @@ function Vacaciones({ datos, propias, onCancelar }) {
         <details className="vacaciones-regla">
           <summary>¿Por qué se cuentan los fines de semana?</summary>
           <p className="mb-0">
-            De cada período deben salir al menos {regla.sabados}{" "}
+            Se recomienda que de cada período salgan al menos {regla.sabados}{" "}
             {regla.sabados === 1 ? "sábado" : "sábados"} y {regla.domingos}{" "}
-            {regla.domingos === 1 ? "domingo" : "domingos"}. Si al completarse
-            el período faltan, se marcan por defecto los siguientes a la
-            solicitud (aparecen como «Por defecto» en lo gozado). Para elegirlos
-            usted, inclúyalos al pedir sus vacaciones.
+            {regla.domingos === 1 ? "domingo" : "domingos"}. Es una
+            recomendación: si su solicitud no la cumple, se le avisa y la
+            decisión es de Talento Humano. Para cumplirla, inclúyalos al pedir
+            sus vacaciones.
           </p>
         </details>
       )}

@@ -68,43 +68,28 @@ def test_no_se_piden_dias_que_ya_constan_como_gozados(empresa_con_organigrama):
     assert "ya constan como vacaciones gozadas" in str(respuesta.data)
 
 
-def test_sin_periodos_de_vacaciones_no_hay_dias_que_pedir(empresa_con_organigrama):
+def test_sin_periodos_se_alerta_y_no_se_aprueba_hasta_registrarlos(empresa_con_organigrama):
+    """Recomendación (17/11/2026): se puede pedir, pero para registrar los
+    días hace falta un período; Talento Humano lo registra y aprueba."""
     e = empresa_con_organigrama
     _con_reglas(e)
     _, ana = e["ana"]
+    _, jefa = e["jefa"]
+    _, th = e["th"]
     respuesta = _post(ana, e["vacaciones"], "2026-11-02", "2026-11-06")
-    assert respuesta.status_code == 400
-    assert "Tiene 0 días pendientes" in str(respuesta.data)
-
-
-def test_los_fines_de_semana_por_defecto_no_caen_sobre_otra_solicitud(
-    empresa_con_organigrama,
-):
-    e = empresa_con_organigrama
-    _con_reglas(e)
-    usuario, ana = e["ana"]
-    viejo = _periodo(
-        usuario,
-        D(2024, 6, 1),
-        goces=[(D(2026, 1, 5), D(2026, 1, 9)), (D(2026, 2, 2), D(2026, 2, 6))],
-    )
-    _periodo(usuario, D(2025, 6, 1))
-    # Un permiso médico el sábado 07/11: ese día no se marca.
-    assert _post(ana, e["medico"], "2026-11-07", "2026-11-07").status_code == 201
-    reglas = {
-        r["clave"]: r for r in _evaluar(ana, e["vacaciones"], "2026-11-02", "2026-11-06")["reglas"]
-    }
-    detalle = reglas[f"fines-{viejo.pk}"]["detalle"]
-    assert "07/11/2026" not in detalle
-    assert "domingo 08/11/2026, sábado 14/11/2026, domingo 15/11/2026, sábado 21/11/2026" in (
-        detalle
-    )
+    assert respuesta.status_code == 201, respuesta.data
+    assert _aprobar(jefa, respuesta.json()["id"]).status_code == 200
+    final = _aprobar(th, respuesta.json()["id"])
+    assert final.status_code == 400
+    assert "no tiene períodos de vacaciones registrados" in str(final.data)
 
 
 # --- Al aprobar ---------------------------------------------------------------------------
 
 
-def test_al_aprobar_se_vuelve_a_comprobar_que_los_dias_alcanzan(empresa_con_organigrama):
+def test_al_aprobar_sin_dias_suficientes_lo_que_falta_queda_como_adelanto(
+    empresa_con_organigrama,
+):
     e = empresa_con_organigrama
     _con_reglas(e)
     usuario, ana = e["ana"]
@@ -114,20 +99,16 @@ def test_al_aprobar_se_vuelve_a_comprobar_que_los_dias_alcanzan(empresa_con_orga
     solicitud = _post(ana, e["vacaciones"], "2026-11-02", "2026-11-06").json()
     assert _aprobar(jefa, solicitud["id"]).status_code == 200
 
-    # Entretanto, Talento Humano carga 10 días gozados: ya no alcanzan.
+    # Entretanto, Talento Humano carga 12 días gozados: le quedan 3 de 5.
     with usando_empresa(empresa_actual()):
         GoceVacaciones.objects.create(
-            periodo=periodo, desde=D(2026, 3, 2), hasta=D(2026, 3, 11), dias=10
+            periodo=periodo, desde=D(2026, 3, 2), hasta=D(2026, 3, 13), dias=12
         )
     respuesta = _aprobar(th, solicitud["id"])
-    assert respuesta.status_code == 400
-    assert "ya no le alcanzan" in str(respuesta.data)
-    # No quedó a medias: sigue pendiente de Talento Humano y sin días registrados.
-    detalle = th.get(f"{SOLICITUDES}{solicitud['id']}/").json()
-    assert detalle["estado"] == "pendiente"
-    assert [p["nombre"] for p in detalle["pendiente_de"]] == ["Tatiana"]
+    assert respuesta.status_code == 200, respuesta.data
     with usando_empresa(empresa_actual()):
-        assert periodo.goces.count() == 1
+        adelanto = periodo.goces.filter(descripcion__startswith="Adelanto").get()
+    assert adelanto.dias == 2
 
 
 def test_al_aprobar_no_se_registran_dias_que_ya_se_gozaron(empresa_con_organigrama):

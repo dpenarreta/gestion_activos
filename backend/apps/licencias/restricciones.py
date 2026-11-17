@@ -1,17 +1,23 @@
 """Las restricciones de cada tipo de permiso (20/10/2026).
 
 Cada flujo trae las suyas, configurables, y quien solicita las ve al elegir
-las fechas, cada una con si la cumple:
+las fechas, cada una con si la cumple.
 
-- **Mínimo y máximo de días seguidos** por solicitud (bloquean).
+**Recomendaciones y no bloqueos (17/11/2026, decisión del usuario):** la
+decisión final es de Talento Humano, no del sistema. El mínimo y el máximo de
+días, el saldo y los fines de semana solo **alertan** («aviso»): la persona
+puede enviar igual, y quien aprueba ve las mismas alertas.
+
+- **Mínimo y máximo de días seguidos** por solicitud (alertan).
 - **Se descuenta de las vacaciones**: los días salen de sus períodos con días
   pendientes, del más antiguo al más nuevo, y al aprobarse quedan como
-  gozados en esos períodos. No se piden más de los que alcanzan (bloquea).
+  gozados en esos períodos. Si pide más de los que tiene, se alerta; si
+  Talento Humano la aprueba, los que faltan quedan como **adelanto** en su
+  período más reciente.
 - **Fines de semana por período** (vacaciones): de los 15 días de cada
-  período anual, al menos N sábados y N domingos. Un período no se completa
-  solo con días de semana: cuando sus días pendientes llegan a ser justo los
-  fines de semana que le faltan, esos días se **marcan por defecto** en los
-  sábados y domingos libres siguientes a la solicitud, y se avisa a la persona.
+  período anual se recomiendan al menos N sábados y N domingos. Se alerta
+  cuando a un período ya no le alcanzan los días para cumplirlo; el sistema
+  ya no marca fines de semana por su cuenta.
 - **Otras indicaciones**: texto libre, una por línea (solo se informan).
 - **Rol asignado**: quien no tiene ningún rol (ni global ni en la empresa) no
   puede solicitar ningún tipo de permiso. La cuenta de superusuario sí.
@@ -35,7 +41,6 @@ import re
 
 from rest_framework.exceptions import ValidationError
 
-from apps.notificaciones import services as campana
 from apps.organizacion.models import GoceVacaciones, PeriodoVacaciones
 
 from .models import FlujoPermiso, SolicitudPermiso
@@ -113,14 +118,10 @@ class _Periodo:
             return max(self.pide[dia_semana] - self.lleva(dia_semana), 0)
         return self.faltan(SABADO) + self.faltan(DOMINGO)
 
-    def admite(self, dia) -> bool:
-        """Si ese día puede salir de este período sin dejarlo sin lugar para
-        los fines de semana que le faltan."""
-        if self.saldo <= 0:
-            return False
-        if dia.weekday() in self.pide and self.faltan(dia.weekday()) > 0:
-            return True
-        return self.saldo - 1 >= self.faltan()
+    def admite(self, dia) -> bool:  # noqa: ARG002
+        """Si a este período le quedan días. Los fines de semana ya no
+        reservan días: son una recomendación (17/11/2026)."""
+        return self.saldo > 0
 
     def tomar(self, dia):
         self.tomados.add(dia)
@@ -137,13 +138,14 @@ def _regla():
     return sabados, domingos
 
 
-def _repartir(periodos, dias, ocupadas=frozenset()):
+def _repartir(periodos, dias, ocupadas=frozenset()):  # noqa: ARG001
     """Reparte los días (en orden) entre los períodos, del más antiguo al más
-    nuevo, y marca los fines de semana de los períodos que se completan.
+    nuevo.
 
     Devuelve `(reparto, marcas, sobran)`: los días de la solicitud por
-    período, los fines de semana marcados por defecto por período y los días
-    que no caben en ninguno.
+    período, `{}` (desde el 17/11/2026 ya no se marcan fines de semana por
+    defecto; se conserva por quien desempaqueta los tres) y los días que no
+    caben en ninguno (el adelanto, si Talento Humano la aprueba).
     """
     reparto, marcas, sobran = {}, {}, []
     for dia in dias:
@@ -153,30 +155,6 @@ def _repartir(periodos, dias, ocupadas=frozenset()):
             continue
         destino.tomar(dia)
         reparto.setdefault(destino, []).append(dia)
-    if not reparto:
-        return reparto, marcas, sobran
-
-    # Los períodos que la solicitud alcanzó o pasó de largo y que quedaron con
-    # solo los fines de semana que les faltan: esos días se marcan por defecto
-    # en los sábados y domingos libres que siguen a la solicitud.
-    ultimo = max(periodos.index(p) for p in reparto)
-    ocupados = set(dias).union(ocupadas, *(p.tomados for p in periodos))
-    for p in periodos[: ultimo + 1]:
-        if not (0 < p.saldo <= p.faltan()):
-            continue
-        faltan = {SABADO: p.faltan(SABADO), DOMINGO: p.faltan(DOMINGO)}
-        elegidos = []
-        dia = max(dias)
-        while len(elegidos) < p.saldo and any(faltan.values()):
-            dia += datetime.timedelta(days=1)
-            if faltan.get(dia.weekday()) and dia not in ocupados:
-                elegidos.append(dia)
-                faltan[dia.weekday()] -= 1
-                ocupados.add(dia)
-        for d in elegidos:
-            p.tomar(d)
-        if elegidos:
-            marcas[p] = elegidos
     return reparto, marcas, sobran
 
 
@@ -327,7 +305,7 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
             reglas.append(
                 _regla_dict(
                     "minimo",
-                    "ok" if total >= flujo.dias_minimos else "falla",
+                    "ok" if total >= flujo.dias_minimos else "aviso",
                     f"Mínimo {_plural(flujo.dias_minimos, 'día seguido', 'días seguidos')} "
                     "por solicitud.",
                     elegidos,
@@ -337,7 +315,7 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
             reglas.append(
                 _regla_dict(
                     "maximo",
-                    "ok" if total <= flujo.dias_maximos else "falla",
+                    "ok" if total <= flujo.dias_maximos else "aviso",
                     f"Máximo {_plural(flujo.dias_maximos, 'día seguido', 'días seguidos')} "
                     "por solicitud.",
                     elegidos,
@@ -350,15 +328,17 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
         reparto, marcas, sobran = _repartir(
             periodos, dias, _fechas_de_otras(usuario, excluir=solicitud)
         )
-        if sobran:
+        if not periodos:
             detalle = (
-                f"Tiene {_plural(disponibles, 'día pendiente', 'días pendientes')}; "
-                f"para estas fechas le alcanzan {total - len(sobran)} de {total}"
-                + (
-                    ", porque la regla reserva días para los fines de semana."
-                    if disponibles >= total
-                    else "."
-                )
+                "No tiene períodos de vacaciones registrados. Talento Humano decide; "
+                "para aprobarla, primero registra su período en Vacaciones."
+            )
+        elif sobran:
+            detalle = (
+                f"Tiene {_plural(disponibles, 'día pendiente', 'días pendientes')} y pide "
+                f"{total}. Talento Humano decide: si la aprueba, "
+                f"{_plural(len(sobran), 'día queda', 'días quedan')} como adelanto del "
+                f"período {periodos[-1].nombre}."
             )
         else:
             detalle = (
@@ -369,7 +349,7 @@ def evaluar(usuario, flujo, desde, hasta, solicitud=None) -> dict:
         reglas.append(
             _regla_dict(
                 "saldo",
-                "falla" if sobran else "ok",
+                "aviso" if (sobran or not periodos) else "ok",
                 "Se descuenta de sus vacaciones pendientes.",
                 detalle,
             )
@@ -419,43 +399,41 @@ def _reglas_de_un_dia(desde, hasta):
     return [_regla_dict("dia", "ok", f"Permiso por horas del {dia}.")]
 
 
-def _reglas_de_fines_de_semana(flujo, periodos, reparto, marcas):
+def _reglas_de_fines_de_semana(flujo, periodos, reparto, marcas):  # noqa: ARG001
+    """La recomendación de sábados y domingos por período (17/11/2026: solo
+    alerta y ya no marca días por su cuenta). Por cada período que toca la
+    solicitud: cumplida («ok»), todavía cumplible con los días que le quedan
+    («info») o ya sin días suficientes para cumplirla («aviso»)."""
     partes = []
     if flujo.sabados_por_periodo:
         partes.append(_plural(flujo.sabados_por_periodo, "sábado", "sábados"))
     if flujo.domingos_por_periodo:
         partes.append(_plural(flujo.domingos_por_periodo, "domingo", "domingos"))
-    texto = f"De cada período anual deben salir al menos {' y '.join(partes)}."
+    texto = f"Se recomienda que de cada período anual salgan al menos {' y '.join(partes)}."
     reglas = []
     for p in periodos:
-        if p not in reparto and p not in marcas:
+        if p not in reparto:
             continue
-        # Lo que lleva con los días de la solicitud, sin los marcados.
-        marcados = marcas.get(p, [])
-        sabados = p.lleva(SABADO) - sum(1 for d in marcados if d.weekday() == SABADO)
-        domingos = p.lleva(DOMINGO) - sum(1 for d in marcados if d.weekday() == DOMINGO)
         cuenta = (
             f"Período {p.nombre}, con esta solicitud: "
-            f"{sabados} de {p.pide[SABADO]} sábados y "
-            f"{domingos} de {p.pide[DOMINGO]} domingos"
+            f"{p.lleva(SABADO)} de {p.pide[SABADO]} sábados y "
+            f"{p.lleva(DOMINGO)} de {p.pide[DOMINGO]} domingos"
         )
-        if p in marcas:
-            estado = "aviso"
-            detalle = (
-                f"{cuenta}. El período se completa y los fines de semana que faltaban se "
-                "marcarán por defecto como vacaciones: "
-                + ", ".join(_dia_y_fecha(d) for d in marcas[p])
-                + "."
-            )
-        elif p.faltan():
-            estado = "aviso"
-            detalle = (
-                f"{cuenta}; le quedan {_plural(p.saldo, 'día', 'días')} de este período. "
-                "Si al completarlo no tomó los que faltan, se marcarán por defecto."
-            )
-        else:
+        if not p.faltan():
             estado = "ok"
             detalle = f"{cuenta}."
+        elif p.saldo >= p.faltan():
+            estado = "info"
+            detalle = (
+                f"{cuenta}; le quedan {_plural(p.saldo, 'día', 'días')} de este período "
+                "para tomarlos."
+            )
+        else:
+            estado = "aviso"
+            detalle = (
+                f"{cuenta}; le quedan {_plural(p.saldo, 'día', 'días')} de este período y ya "
+                "no alcanzan para los fines de semana recomendados. Talento Humano decide."
+            )
         reglas.append(_regla_dict(f"fines-{p.periodo.pk}", estado, texto, detalle))
     if not reglas:
         reglas.append(_regla_dict("fines", "info", texto))
@@ -477,8 +455,8 @@ def exigir(usuario, flujo, desde, hasta):
 
 def registrar_goce(solicitud):
     """Una solicitud aprobada que se descuenta de vacaciones queda como
-    gozada en sus períodos, con los fines de semana marcados por defecto si
-    alguno se completó (y se le avisa a la persona)."""
+    gozada en sus períodos; lo que no alcanzó, como adelanto del más
+    reciente (17/11/2026: aprobarla es decisión de Talento Humano)."""
     if not solicitud.descuenta_vacaciones:
         return
     usuario = solicitud.solicitante
@@ -494,16 +472,12 @@ def registrar_goce(solicitud):
             }
         )
     periodos = _periodos(usuario, antes_de=solicitud)
-    reparto, marcas, sobran = _repartir(
-        periodos,
-        list(_dias(solicitud.desde, solicitud.hasta)),
-        _fechas_de_otras(usuario, excluir=solicitud),
-    )
-    if sobran:
+    reparto, _, sobran = _repartir(periodos, list(_dias(solicitud.desde, solicitud.hasta)))
+    if sobran and not periodos:
         raise ValidationError(
             {
-                "detail": "No se puede aprobar: ya no le alcanzan los días de vacaciones "
-                f"para estas fechas (faltan {len(sobran)}). Recházela para que se pida de nuevo."
+                "detail": "No se puede aprobar todavía: la persona no tiene períodos de "
+                "vacaciones registrados. Registre su período en Vacaciones y vuelva a aprobar."
             }
         )
     referencia = f"{solicitud.flujo.nombre} (solicitud n.º {solicitud.pk})"
@@ -516,28 +490,16 @@ def registrar_goce(solicitud):
                 dias=cuantos,
                 descripcion=referencia[:200],
             )
-    marcados = []
-    for p, dias in marcas.items():
-        for d in dias:
-            GoceVacaciones.objects.create(
-                periodo=p.periodo,
-                desde=d,
-                hasta=d,
-                dias=1,
-                descripcion=f"Marcado por defecto: {NOMBRE_DIA[d.weekday()]} (regla de fines de semana)",
-            )
-            marcados.append(d)
-    if marcados:
-        campana.notificar(
-            [solicitud.solicitante],
-            tipo="licencias.fines_de_semana",
-            titulo="Se marcaron fines de semana de vacaciones por defecto",
-            resumen=(
-                "Para completar los sábados y domingos que pide cada período: "
-                + ", ".join(_dia_y_fecha(d) for d in sorted(marcados))
-                + "."
-            ),
-            enlace=ENLACE_VACACIONES,
+    # Lo que no alcanzó, porque Talento Humano decidió aprobarla igual: queda
+    # como adelanto en el período más reciente. Sigue nombrando la solicitud,
+    # así que cancelarla lo devuelve como al resto (`goces_de`).
+    for desde, hasta, cuantos in _tramos(sobran):
+        GoceVacaciones.objects.create(
+            periodo=periodos[-1].periodo,
+            desde=desde,
+            hasta=hasta,
+            dias=cuantos,
+            descripcion=f"Adelanto: {referencia}"[:200],
         )
 
 
