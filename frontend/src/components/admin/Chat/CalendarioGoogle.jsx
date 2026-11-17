@@ -9,11 +9,12 @@ import { Icon } from "../../common/Icon/Icon";
 /**
  * «Mi calendario de Google» en Mi estado (17/11/2026, decisión del usuario).
  *
- * Es voluntario: quien lo conecta ve su estado pasar solo a «En reunión»
- * mientras tiene una reunión en su calendario, y volver al terminar. Google
- * le pide aceptar solo «ver su disponibilidad»: la intranet no ve títulos,
- * invitados ni el contenido de sus reuniones, ni lee su correo. No aparece si
- * el servidor no tiene Google configurado o si su rol no tiene el permiso.
+ * Es voluntario y solo desde la web: quien lo conecta ve su estado pasar solo
+ * a «En reunión» mientras tiene una reunión, y recibe un recordatorio con el
+ * título 10 minutos antes. Google le pide «ver los eventos de sus
+ * calendarios» (solo lectura): la intranet usa solo el título y la hora; no
+ * pide invitados, descripción, lugar ni enlaces, no guarda el título ni lee
+ * el correo. No aparece sin Google configurado o sin el permiso.
  */
 export function CalendarioGoogle() {
   const [datos, setDatos] = useState(null);
@@ -96,8 +97,8 @@ export function CalendarioGoogle() {
             <p className="mz-small mb-2">
               <Icon name="check2-circle" /> Conectado desde el{" "}
               {formatearFecha(datos.conectado_en)}. Durante sus reuniones su
-              estado pasa solo a «En reunión» y vuelve al terminar (puede tardar
-              hasta 5 minutos).
+              estado pasa solo a «En reunión» y vuelve al terminar, y 10 minutos
+              antes le llega un recordatorio (puede tardar hasta 5 minutos).
             </p>
             <button
               type="button"
@@ -112,9 +113,12 @@ export function CalendarioGoogle() {
           <>
             <p className="mz-small mb-2">
               Conéctelo y, mientras tenga una reunión en su calendario, su
-              estado pasará solo a «En reunión». Google le pedirá aceptar solo
-              «ver su disponibilidad»: la intranet no ve los títulos, los
-              invitados ni el contenido de sus reuniones, ni lee su correo.
+              estado pasará solo a «En reunión»; además, 10 minutos antes le
+              llegará un recordatorio con el título. Google le pedirá aceptar
+              «ver los eventos de sus calendarios» (solo lectura): la intranet
+              usa solo el título y la hora de cada reunión; no ve invitados,
+              descripción, lugar ni enlaces, no guarda el título y no lee su
+              correo.
             </p>
             <button
               type="button"

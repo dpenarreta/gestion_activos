@@ -140,3 +140,67 @@ def test_sin_el_permiso_no_se_conecta():
     cliente = APIClient()
     cliente.force_authenticate(user=usuario)
     assert cliente.post(f"{URL}conectar/").status_code == 403
+
+
+def _evento(id_, titulo, inicio, fin, **extra):
+    return {
+        "id": id_,
+        "summary": titulo,
+        "start": {"dateTime": inicio.isoformat()},
+        "end": {"dateTime": fin.isoformat()},
+        **extra,
+    }
+
+
+def test_eventos_descarta_libres_rechazados_y_de_todo_el_dia(ana):
+    registro = _conectado(ana)
+    ahora = timezone.now()
+    en = ahora + datetime.timedelta(minutes=5)
+    items = [
+        _evento("1", "Cierre de mes", en, en + datetime.timedelta(minutes=30)),
+        _evento("2", "Libre", en, en, transparency="transparent"),
+        _evento("3", "Rechazada", en, en, attendees=[{"self": True, "responseStatus": "declined"}]),
+        {"id": "4", "summary": "Todo el día", "start": {"date": "2026-11-17"}, "end": {}},
+        _evento("5", "Oficina", en, en, eventType="workingLocation"),
+    ]
+    with (
+        mock.patch.object(
+            calendario.requests, "post", return_value=_respuesta(200, {"access_token": "a"})
+        ),
+        mock.patch.object(
+            calendario.requests, "get", return_value=_respuesta(200, {"items": items})
+        ) as get,
+    ):
+        lista = calendario.eventos(registro, ahora)
+    assert [e["titulo"] for e in lista] == ["Cierre de mes"]
+    # Solo se piden los campos necesarios: ni invitados ni descripción.
+    assert "description" not in get.call_args.kwargs["params"]["fields"]
+
+
+def test_recordatorio_diez_minutos_antes_una_sola_vez(ana):
+    from apps.empresas.models import Empresa, MembresiaEmpresa
+    from apps.notificaciones.models import Notificacion
+
+    empresa = Empresa.objects.first() or Empresa.objects.create(nombre="Laar", codigo="LAAR")
+    MembresiaEmpresa.objects.create(usuario=ana, empresa=empresa)
+    registro = _conectado(ana)
+    ahora = timezone.now()
+    lista = [
+        {
+            "id": "a",
+            "titulo": "Cierre de mes",
+            "inicio": ahora + datetime.timedelta(minutes=8),
+            "fin": ahora + datetime.timedelta(minutes=40),
+        },
+        {
+            "id": "b",
+            "titulo": "Más tarde",
+            "inicio": ahora + datetime.timedelta(hours=2),
+            "fin": ahora + datetime.timedelta(hours=3),
+        },
+    ]
+    assert calendario.recordar(registro, lista, ahora) == 1
+    assert calendario.recordar(registro, lista, ahora + datetime.timedelta(minutes=5)) == 0
+    aviso = Notificacion.objects.todas().get(usuario=ana, tipo=calendario.TIPO_RECORDATORIO)
+    assert "Cierre de mes" in aviso.titulo
+    assert "8 minutos" in aviso.resumen

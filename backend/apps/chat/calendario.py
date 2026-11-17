@@ -1,14 +1,19 @@
-"""El estado «En reunión» desde el calendario de Google (17/11/2026).
+"""El estado «En reunión» y los recordatorios desde el calendario de Google
+(17/11/2026).
 
-Decisión del usuario: cada persona conecta su calendario de Google si quiere
-(Mi estado del chat) y, mientras tiene una reunión, su estado pasa solo a «En
-reunión» hasta la hora en que termina; al acabar vuelve al que tenía.
+Decisiones del usuario: cada persona conecta su calendario de Google si
+quiere (solo desde la web, en Mi estado del chat). Mientras tiene una
+reunión, su estado pasa solo a «En reunión» hasta la hora en que termina y
+al acabar vuelve al que tenía. Además, 10 minutos antes de cada reunión le
+llega un recordatorio con su título, en la campana y en el teléfono.
 
 Seguridad y datos personales (LOPDP):
 
-- **Permiso mínimo**: `calendar.freebusy` («ver su disponibilidad»). Google
-  devuelve solo los tramos ocupados; la intranet nunca ve el título, los
-  invitados ni el contenido de las reuniones, ni lee el correo.
+- **Permiso acotado**: `calendar.events.owned.readonly` («ver los eventos de
+  sus calendarios», solo lectura y solo los calendarios propios). De cada
+  evento se usan solo el título, el inicio y el fin; los invitados, la
+  descripción, el lugar y los enlaces no se piden (`fields`) ni se guardan.
+  El título no se guarda: va solo en el recordatorio. El correo no se lee.
 - **OAuth oficial de Google**: la intranet nunca ve la contraseña. El
   `state` del retorno va firmado, dura 10 minutos y sirve una sola vez.
 - **Credencial cifrada** (Fernet con una clave derivada de `SECRET_KEY`).
@@ -38,11 +43,18 @@ from .models import CalendarioGoogle, EstadoChat
 
 logger = logging.getLogger(__name__)
 
-ALCANCE = "https://www.googleapis.com/auth/calendar.freebusy"
+ALCANCE = "https://www.googleapis.com/auth/calendar.events.owned.readonly"
 URL_AUTORIZAR = "https://accounts.google.com/o/oauth2/v2/auth"
 URL_TOKEN = "https://oauth2.googleapis.com/token"
 URL_REVOCAR = "https://oauth2.googleapis.com/revoke"
-URL_FREEBUSY = "https://www.googleapis.com/calendar/v3/freeBusy"
+URL_EVENTOS = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+#: Solo lo necesario de cada evento: ni invitados (salvo la respuesta propia),
+#: ni descripción, ni lugar, ni enlaces.
+CAMPOS_EVENTO = (
+    "items(id,summary,status,transparency,eventType,start,end,attendees(self,responseStatus))"
+)
+RECORDAR_ANTES = datetime.timedelta(minutes=10)
+TIPO_RECORDATORIO = "chat.reunion"
 SAL_ESTADO = "chat.calendario.estado"
 VIGENCIA_ESTADO = 600
 TIEMPO_ESPERA = 15
@@ -153,7 +165,7 @@ def conectar(usuario, codigo: str) -> CalendarioGoogle:
         raise ErrorDeGoogle("Google no aceptó la conexión. Intente de nuevo.")
     datos = respuesta.json()
     if ALCANCE not in (datos.get("scope") or "").split():
-        raise ErrorDeGoogle("No se concedió el permiso de ver su disponibilidad.")
+        raise ErrorDeGoogle("No se concedió el permiso de ver los eventos de su calendario.")
     credencial = datos.get("refresh_token")
     if not credencial:
         raise ErrorDeGoogle("Google no entregó una credencial duradera. Intente de nuevo.")
@@ -219,17 +231,30 @@ def _acceso(registro) -> str:
     return respuesta.json()["access_token"]
 
 
-def ocupado_hasta(registro, ahora=None):
-    """Si ahora tiene una reunión, hasta cuándo (el fin del tramo ocupado que
-    contiene a `ahora`, uniendo tramos seguidos); si no, None."""
+def _fecha(valor: dict):
+    """El `dateTime` de un inicio o fin; None en un evento de todo el día."""
+    texto = (valor or {}).get("dateTime")
+    if not texto:
+        return None
+    return datetime.datetime.fromisoformat(texto.replace("Z", "+00:00"))
+
+
+def eventos(registro, ahora=None) -> list[dict]:
+    """Las reuniones de las próximas 8 horas: `{id, titulo, inicio, fin}`.
+    Sin las canceladas, las marcadas como «libre», las de todo el día, las
+    rechazadas por la persona ni las de ubicación de trabajo o fuera de la
+    oficina."""
     ahora = ahora or timezone.now()
-    respuesta = requests.post(
-        URL_FREEBUSY,
+    respuesta = requests.get(
+        URL_EVENTOS,
         headers={"Authorization": f"Bearer {_acceso(registro)}"},
-        json={
+        params={
             "timeMin": ahora.isoformat(),
             "timeMax": (ahora + datetime.timedelta(hours=8)).isoformat(),
-            "items": [{"id": "primary"}],
+            "singleEvents": "true",
+            "orderBy": "startTime",
+            "maxResults": 50,
+            "fields": CAMPOS_EVENTO,
         },
         timeout=TIEMPO_ESPERA,
     )
@@ -237,13 +262,35 @@ def ocupado_hasta(registro, ahora=None):
         raise ErrorDeGoogle(PERMISO_PERDIDO, permiso_perdido=True)
     if respuesta.status_code != 200:
         raise ErrorDeGoogle(f"Google respondió {respuesta.status_code} al consultar.")
-    tramos = sorted(
-        (
-            datetime.datetime.fromisoformat(t["start"].replace("Z", "+00:00")),
-            datetime.datetime.fromisoformat(t["end"].replace("Z", "+00:00")),
+    lista = []
+    for evento in respuesta.json().get("items", []):
+        if evento.get("status") == "cancelled" or evento.get("transparency") == "transparent":
+            continue
+        if evento.get("eventType") not in (None, "default", "fromGmail"):
+            continue
+        propia = next((a for a in evento.get("attendees", []) if a.get("self")), None)
+        if propia and propia.get("responseStatus") == "declined":
+            continue
+        inicio, fin = _fecha(evento.get("start")), _fecha(evento.get("end"))
+        if inicio is None or fin is None:
+            continue
+        lista.append(
+            {
+                "id": evento.get("id", ""),
+                "titulo": (evento.get("summary") or "Reunión sin título").strip()[:120],
+                "inicio": inicio,
+                "fin": fin,
+            }
         )
-        for t in respuesta.json().get("calendars", {}).get("primary", {}).get("busy", [])
-    )
+    return lista
+
+
+def ocupado_hasta(registro, ahora=None, lista=None):
+    """Si ahora tiene una reunión, hasta cuándo (el fin del tramo que contiene
+    a `ahora`, uniendo reuniones seguidas); si no, None."""
+    ahora = ahora or timezone.now()
+    lista = eventos(registro, ahora) if lista is None else lista
+    tramos = sorted((e["inicio"], e["fin"]) for e in lista)
     fin = None
     for inicio, termina in tramos:
         if fin is None:
@@ -254,6 +301,45 @@ def ocupado_hasta(registro, ahora=None):
         else:
             break
     return fin
+
+
+def _empresa_de(usuario):
+    membresia = usuario.membresias.order_by("-es_predeterminada", "id").first()
+    return membresia.empresa if membresia else None
+
+
+def recordar(registro, lista, ahora=None) -> int:
+    """El recordatorio de cada reunión que empieza en los próximos 10
+    minutos, una sola vez. En la campana va con el título; el push del
+    teléfono es genérico (LOPDP)."""
+    from apps.notificaciones import services as campana
+
+    from .models import AvisoReunion
+
+    ahora = ahora or timezone.now()
+    enviados = 0
+    for evento in lista:
+        if not (ahora < evento["inicio"] <= ahora + RECORDAR_ANTES):
+            continue
+        huella = hashlib.sha256(evento["id"].encode()).hexdigest()
+        _, nuevo = AvisoReunion.objects.get_or_create(
+            calendario=registro, huella_evento=huella, inicio=evento["inicio"]
+        )
+        if not nuevo:
+            continue
+        minutos = max(1, round((evento["inicio"] - ahora).total_seconds() / 60))
+        hora = timezone.localtime(evento["inicio"]).strftime("%H:%M")
+        plural = "minuto" if minutos == 1 else "minutos"
+        campana.notificar(
+            [registro.usuario],
+            tipo=TIPO_RECORDATORIO,
+            titulo=f"Reunión a las {hora}: {evento['titulo']}"[:150],
+            resumen=f"Empieza en {minutos} {plural}, según su calendario de Google.",
+            enlace="/admin/chat",
+            empresa=_empresa_de(registro.usuario),
+        )
+        enviados += 1
+    return enviados
 
 
 # --- Aplicar al estado del chat ----------------------------------------------------------
@@ -316,15 +402,21 @@ def revisar_todos(ahora=None) -> dict:
     """La revisión de cada 5 minutos: cada calendario conectado y sin
     problemas, uno por uno (el fallo de uno no detiene a los demás)."""
     ahora = ahora or timezone.now()
-    resumen = {"revisados": 0, "puestos": 0, "devueltos": 0, "errores": 0}
+    resumen = {"revisados": 0, "puestos": 0, "devueltos": 0, "recordatorios": 0, "errores": 0}
     if not configurado():
         return resumen
+    from .models import AvisoReunion
+
+    # Los recordatorios ya enviados se olvidan a los dos días.
+    AvisoReunion.objects.filter(inicio__lt=ahora - datetime.timedelta(days=2)).delete()
     registros = list(
         CalendarioGoogle.objects.filter(error="", usuario__is_active=True).select_related("usuario")
     )
     for registro in registros:
         try:
-            hecho = aplicar(registro, ocupado_hasta(registro, ahora), ahora)
+            lista = eventos(registro, ahora)
+            hecho = aplicar(registro, ocupado_hasta(registro, ahora, lista), ahora)
+            resumen["recordatorios"] += recordar(registro, lista, ahora)
         except ErrorDeGoogle as error:
             resumen["errores"] += 1
             if error.permiso_perdido:

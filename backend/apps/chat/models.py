@@ -180,3 +180,22 @@ class CalendarioGoogle(BaseModel):
     class Meta:
         verbose_name = "calendario de Google"
         verbose_name_plural = "calendarios de Google"
+
+
+class AvisoReunion(BaseModel):
+    """Que ya se recordó una reunión del calendario (17/11/2026): una sola
+    vez por reunión. Guarda la huella del identificador del evento, no el
+    identificador de Google ni el título. Se borran a los dos días."""
+
+    calendario = models.ForeignKey(
+        CalendarioGoogle, on_delete=models.CASCADE, related_name="avisos"
+    )
+    huella_evento = models.CharField(max_length=64)
+    inicio = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["calendario", "huella_evento", "inicio"], name="aviso_reunion_unico"
+            )
+        ]

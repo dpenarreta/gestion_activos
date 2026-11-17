@@ -43,7 +43,7 @@ describe("Calendario de Google", () => {
     vi.stubGlobal("location", { ...window.location, assign: asignar });
     render(<CalendarioGoogle />);
     expect(
-      await screen.findByText(/solo «ver su disponibilidad»/),
+      await screen.findByText(/«ver los eventos de sus calendarios»/),
     ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /Conectar mi calendario de Google/ }),

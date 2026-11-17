@@ -27,12 +27,12 @@ const PESTANAS = [
 /** Lo que se dice al volver de Google al conectar el calendario. */
 const RESULTADOS_CALENDARIO = {
   conectado:
-    "Su calendario de Google quedó conectado: durante sus reuniones su estado pasará solo a «En reunión».",
+    "Su calendario de Google quedó conectado: durante sus reuniones su estado pasará solo a «En reunión» y 10 minutos antes le llegará un recordatorio.",
   cancelado: "No se conectó el calendario: canceló en Google.",
   invalido:
     "No se pudo conectar el calendario: el enlace venció o ya se usó. Vuelva a intentarlo desde Mi estado.",
   error:
-    "Google no concedió el permiso de ver su disponibilidad. Vuelva a intentarlo desde Mi estado.",
+    "Google no concedió el permiso de ver los eventos de su calendario. Vuelva a intentarlo desde Mi estado.",
   sin_permiso: "Su rol no permite conectar el calendario de Google.",
 };
 

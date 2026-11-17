@@ -15,5 +15,5 @@ class Command(BaseCommand):
         resumen = revisar_todos()
         self.stdout.write(
             f"Calendario: {resumen['revisados']} revisados, {resumen['puestos']} en reunión, "
-            f"{resumen['devueltos']} devueltos, {resumen['errores']} con error."
+            f"{resumen['devueltos']} devueltos, {resumen['recordatorios']} recordatorios, {resumen['errores']} con error."
         )
