@@ -346,6 +346,7 @@ describe("El organigrama", () => {
         "institucional.editar",
         "institucional.asignar",
         "licencias.solicitar",
+        "proyectos.solicitar",
         "procesos.solicitar",
         "roles_pago.consultar",
         "sugerencias.reportar",
@@ -385,13 +386,14 @@ describe("El organigrama", () => {
     expect(
       solicitudes(
         getVisibleAdminMenu(
-          ["institucional.ver", "procesos.solicitar"],
+          ["institucional.ver", "proyectos.solicitar", "procesos.solicitar"],
           "institucional",
         ),
       ),
     ).toEqual(["institucional-proyectos", "institucional-procesos"]);
-    // Sin ninguno de los dos, solo queda proyectos, y va directa.
-    expect(sinBase).toContain("institucional-proyectos");
+    // Sin ninguno, tampoco proyectos (pide `proyectos.solicitar` desde el
+    // 18/11/2026).
+    expect(sinBase).not.toContain("institucional-proyectos");
     expect(sinBase).not.toContain("institucional-solicitudes");
     expect(sinBase).not.toContain("institucional-procesos");
     expect(sinBase).not.toContain("institucional-permisos");

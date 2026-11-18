@@ -35,9 +35,10 @@ PERMISOS_BASE = (
     # Sus tickets y pedir ayuda desde la Mesa de ayuda (09/11/2026).
     "soporte.mesa_mis_tickets",
     "soporte.mesa_crear",
-    # Pedir procesos (US-008, 12/11/2026): nace con su permiso, que se puede
-    # quitar a un rol. Pedir proyectos sigue sin pedir permiso.
+    # Pedir procesos (US-008, 12/11/2026) y proyectos (18/11/2026): cada uno
+    # con su permiso, que se puede quitar a un rol.
     "procesos.solicitar",
+    "proyectos.solicitar",
     # Cancelar sus vacaciones o permisos ya aprobados (US-012, 12/11/2026).
     "licencias.cancelar_aprobadas_propias",
     # Conectar su calendario de Google al estado del chat (17/11/2026).

@@ -52,6 +52,15 @@ def proyecto(db):
         "otro": _persona("oscar"),
         "admin": _persona("ines", "proyectos.configurar", "proyectos.ver_todas"),
     }
+    # El rol de cargo de todos («Colaborador») trae `proyectos.solicitar`, como
+    # `PERMISOS_BASE` (18/11/2026).
+    from django.contrib.auth.models import Group, Permission
+
+    Group.objects.get(name="Colaborador").permissions.add(
+        Permission.objects.get(
+            content_type__app_label="permissions", codename="proyectos.solicitar"
+        )
+    )
     _, admin = e["admin"]
     creado = admin.post(
         TIPOS,
@@ -386,3 +395,53 @@ def test_con_solicitudes_en_curso_se_informan_y_no_se_reordenan(proyecto):
         format="json",
     )
     assert con_uno_mas.status_code == 200, con_uno_mas.data
+
+
+# --- Pedir un proyecto pide `proyectos.solicitar` (18/11/2026) -------------------------
+
+
+def test_pedir_un_proyecto_pide_proyectos_solicitar(proyecto):
+    from apps.core.models import AuditLog
+
+    _, admin = proyecto["admin"]
+    tipo = _activar(admin, proyecto["tipo"])
+    noelia, sin_permiso = _persona("noelia", con_rol=False)
+    respuesta = _solicitar(sin_permiso, tipo)
+    assert respuesta.status_code == 403
+    assert "proyectos.solicitar" in respuesta.json()["error"]["message"]
+    denegados = AuditLog.objects.filter(action="access_denied", actor=noelia)
+    assert [a.new_values["required_permission"] for a in denegados] == ["proyectos.solicitar"]
+    # Ver sus solicitudes no lo exige.
+    assert sin_permiso.get(SOLICITUDES).status_code == 200
+
+    _, con_el_permiso = _persona("nuria", "proyectos.solicitar", con_rol=False)
+    assert _solicitar(con_el_permiso, tipo).status_code == 201
+
+
+def test_permisos_base_trae_proyectos_solicitar():
+    from apps.organizacion.roles_de_cargo import PERMISOS_BASE
+    from apps.permissions.catalog import PERMISSION_CATALOG
+
+    assert "proyectos.solicitar" in PERMISOS_BASE
+    assert "proyectos.solicitar" in PERMISSION_CATALOG["proyectos"]["permissions"]
+
+
+def test_la_migracion_0058_da_solicitar_proyectos_a_los_roles_de_cargo(db):
+    import importlib
+
+    from django.apps import apps as django_apps
+    from django.contrib.auth.models import Group, Permission
+
+    migracion = importlib.import_module("apps.roles.migrations.0058_permiso_solicitar_proyectos")
+    tipo = {"content_type__app_label": "permissions"}
+    base = Permission.objects.get(codename="licencias.solicitar", **tipo)
+    nuevo = Permission.objects.get(codename="proyectos.solicitar", **tipo)
+    de_cargo = Group.objects.create(name="Asistente de Compras (prueba)")
+    de_cargo.permissions.add(base)
+    personalizado = Group.objects.create(name="Auditor externo (prueba)")
+
+    migracion.conceder(django_apps, None)
+    migracion.conceder(django_apps, None)  # idempotente
+
+    assert de_cargo.permissions.filter(pk=nuevo.pk).exists()
+    assert not personalizado.permissions.filter(pk=nuevo.pk).exists()

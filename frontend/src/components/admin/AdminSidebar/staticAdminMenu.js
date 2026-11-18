@@ -726,8 +726,8 @@ export const ADMIN_MENU = [
         rutas: [`${RUTA_INSTITUCIONAL}/permisos`],
       },
       {
-        // Sin permiso: toda persona pide proyectos con su plantilla llena y
-        // atiende los que le tocan; configurar los tipos cuelga de aquí.
+        // Pedir proyectos pide `proyectos.solicitar` (de todo cargo, desde el
+        // 18/11/2026); también la ven quienes ven todas o configuran los tipos.
         id: "institucional-proyectos",
         // Dentro de «Solicitudes» basta el nombre corto; al pasar el mouse
         // se lee completo (`nombreCompleto`), y la cabecera y la entrada
@@ -737,6 +737,11 @@ export const ADMIN_MENU = [
         titulo: "Solicitud de proyectos",
         icon: "kanban",
         path: `${RUTA_INSTITUCIONAL}/proyectos`,
+        permission: [
+          "proyectos.solicitar",
+          "proyectos.ver_todas",
+          "proyectos.configurar",
+        ],
         // Cuántas solicitudes tiene por atender quien entra.
         insignia: "proyectos_por_atender",
         rutas: [`${RUTA_INSTITUCIONAL}/proyectos`],

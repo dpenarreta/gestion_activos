@@ -137,7 +137,8 @@ function pagina(ruta = "/admin/institucional/proyectos") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permisos.lista = [];
+  // Como `PERMISOS_BASE`: todo cargo puede pedir proyectos (18/11/2026).
+  permisos.lista = ["proyectos.solicitar"];
   servicio.solicitudes.mockResolvedValue([SOLICITUD]);
   servicio.resumen.mockResolvedValue({ por_atender: 1 });
   servicio.tipos.mockResolvedValue([TIPO]);
@@ -976,6 +977,17 @@ describe("Solicitud de procesos", () => {
       await screen.findByRole("button", { name: /Nueva solicitud/ }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Todavía no hay/)).toBeNull();
+  });
+
+  it("sin proyectos.solicitar no ofrece pedir proyectos (18/11/2026)", async () => {
+    permisos.lista = ["proyectos.ver_todas"];
+    pagina();
+    await screen.findByText("Nuevo CRM");
+    await waitFor(() => expect(servicio.tipos).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(
+      screen.queryByRole("button", { name: /Nueva solicitud/ }),
+    ).toBeNull();
   });
 
   it("sin procesos.solicitar no ofrece pedir procesos", async () => {

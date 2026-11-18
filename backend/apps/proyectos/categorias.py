@@ -49,8 +49,8 @@ CATEGORIAS = {
         singular="proyecto",
         pantalla="Solicitud de proyectos",
         prefijo="PRY",
-        # Pedir proyectos nunca pidió permiso, y sigue así (US-008).
-        permiso_solicitar=None,
+        # Desde el 18/11/2026 pedir proyectos pide su permiso, como procesos.
+        permiso_solicitar="proyectos.solicitar",
         permiso_configurar="proyectos.configurar",
         permiso_ver_todas="proyectos.ver_todas",
         enlace="/admin/institucional/proyectos",

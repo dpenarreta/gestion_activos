@@ -239,7 +239,8 @@ class _Comentario(serializers.Serializer):
 
 class SolicitarPermission(HasActionPermission):
     """Pedir (crear) una solicitud exige el permiso de la categoría, si tiene:
-    `procesos.solicitar` para procesos; proyectos no pide nada (US-008). Ver
+    `procesos.solicitar` para procesos y `proyectos.solicitar` para proyectos
+    (18/11/2026). Ver
     las propias, atender, decidir y el resumen no lo exigen. Se evalúa
     después de `IsAuthenticated` y audita el intento denegado."""
 

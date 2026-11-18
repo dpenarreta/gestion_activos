@@ -21,8 +21,8 @@ export const CATEGORIAS_SOLICITUD = {
     permisos: {
       verTodas: "proyectos.ver_todas",
       configurar: "proyectos.configurar",
-      // Pedir proyectos no exige permiso.
-      solicitar: null,
+      // De todo cargo (`PERMISOS_BASE`), como el de procesos (18/11/2026).
+      solicitar: "proyectos.solicitar",
     },
     textos: {
       titulo: "Solicitud de proyectos",

@@ -779,8 +779,8 @@ export function SolicitudProyectosPage({ categoria = "proyecto" }) {
   const servicio = servicioDe(categoria);
   const verTodas = usePermission(permisos.verTodas);
   const configura = usePermission(permisos.configurar);
-  // Procesos exige `procesos.solicitar` para pedir; proyectos no exige nada
-  // (`solicitar: null`).
+  // Cada categoría exige su permiso para pedir (`procesos.solicitar`,
+  // `proyectos.solicitar`); una sin él (`solicitar: null`) no exige nada.
   const tienePermisoSolicitar = usePermission(permisos.solicitar);
   const puedeSolicitar = !permisos.solicitar || tienePermisoSolicitar;
   const [parametros, setParametros] = useSearchParams();

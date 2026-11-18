@@ -576,7 +576,7 @@ def test_los_permisos_de_procesos_estan_en_el_catalogo_del_grupo_institucional()
 # --- Pedir un proceso pide `procesos.solicitar` -----------------------------------------
 
 
-def test_pedir_un_proceso_pide_procesos_solicitar_y_un_proyecto_nada(proceso):
+def test_pedir_un_proceso_pide_procesos_solicitar(proceso):
     noelia, sin_permiso = _persona("noelia", con_rol=False)
     respuesta = _solicitar_proceso(sin_permiso, proceso["tipo_proceso"])
     assert respuesta.status_code == 403
@@ -584,9 +584,9 @@ def test_pedir_un_proceso_pide_procesos_solicitar_y_un_proyecto_nada(proceso):
     denegados = AuditLog.objects.filter(action="access_denied", actor=noelia)
     assert [a.new_values["required_permission"] for a in denegados] == ["procesos.solicitar"]
 
-    # Proyectos sigue sin pedir permiso para solicitar.
+    # Proyectos pide el suyo desde el 18/11/2026 (`proyectos.solicitar`).
     de_proyecto = _solicitar(sin_permiso, proceso["tipo"])
-    assert de_proyecto.status_code == 201, de_proyecto.data
+    assert de_proyecto.status_code == 403
 
     # Ver, listar y el resumen de procesos no lo exigen.
     assert sin_permiso.get(_q(SOLICITUDES)).status_code == 200

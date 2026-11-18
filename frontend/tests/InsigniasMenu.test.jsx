@@ -85,7 +85,8 @@ function pintar(ruta = "/admin/institucional/inicio") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  permisos.lista = ["licencias.solicitar"];
+  // Como `PERMISOS_BASE`: todo cargo pide permisos y proyectos.
+  permisos.lista = ["licencias.solicitar", "proyectos.solicitar"];
   resumenSugerencias.mockResolvedValue({ nuevos: 0 });
   avisoRol.mockResolvedValue({ mostrar: false });
   resumenProyectos.mockResolvedValue({ por_atender: 0 });
@@ -258,7 +259,11 @@ describe("Insignias del menú", () => {
     resumenProyectos.mockResolvedValue({ por_atender: 2 });
     resumenProcesos.mockResolvedValue({ por_atender: 3 });
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
-    permisos.lista = ["licencias.solicitar", "procesos.solicitar"];
+    permisos.lista = [
+      "licencias.solicitar",
+      "proyectos.solicitar",
+      "procesos.solicitar",
+    ];
     pintar("/admin/institucional/procesos/tipos");
 
     // La cabecera suma lo de sus tres entradas: 1 + 2 + 3.
@@ -311,7 +316,7 @@ describe("Insignias del menú", () => {
   });
 
   it("sin permiso para pedir permisos, Solicitudes muestra proyectos y procesos", async () => {
-    permisos.lista = ["procesos.solicitar"];
+    permisos.lista = ["proyectos.solicitar", "procesos.solicitar"];
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
     resumenProcesos.mockResolvedValue({ por_atender: 1 });
     pintar("/admin/institucional/procesos");
@@ -328,8 +333,8 @@ describe("Insignias del menú", () => {
     expect(resumenLicencias).not.toHaveBeenCalled();
   });
 
-  it("sin procesos.solicitar ni licencias.solicitar, Solicitud de proyectos va directa", async () => {
-    permisos.lista = [];
+  it("solo con proyectos.solicitar, Solicitud de proyectos va directa", async () => {
+    permisos.lista = ["proyectos.solicitar"];
     miOnboarding.mockResolvedValue({ asignado: false, total: 0, aprobados: 0 });
     resumenProyectos.mockResolvedValue({ por_atender: 1 });
     pintar("/admin/institucional/proyectos");

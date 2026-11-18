@@ -680,9 +680,14 @@ PERMISSION_CATALOG = {
         "description": (
             "Los proyectos que se piden con una plantilla: cada tipo tiene su "
             "plantilla, su formulario y sus pasos (aprobación, autorización, "
-            "revisión…). Solicitar y decidir lo que a uno le toca no piden permiso."
+            "revisión…). Solicitar pide `proyectos.solicitar` (de todos los roles de "
+            "cargo); decidir lo que a uno le toca no pide permiso."
         ),
         "permissions": {
+            # 18/11/2026, pedido del usuario: como `procesos.solicitar`, pedir
+            # un proyecto es un permiso que se puede quitar a un rol. Lo traen
+            # los roles de cargo por `roles_de_cargo.PERMISOS_BASE`.
+            "proyectos.solicitar": "Solicitar proyectos y seguir las propias solicitudes",
             "proyectos.configurar": (
                 "Crear y editar los tipos de proyecto: su plantilla, los campos de su "
                 "formulario (obligatorios u opcionales) y sus pasos con quién decide cada uno"
