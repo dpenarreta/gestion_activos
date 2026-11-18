@@ -11,6 +11,11 @@ que lo acepte. Los textos se administran en «Textos de la consulta».
 - **Aceptado** es que exista su `RolAceptado` del período (`aceptado.py`): se
   crea al responder «Estuvo de acuerdo» o al cerrar el visor sin responder
   («Aceptó al cerrar sin responder»), y la aceptación es definitiva.
+- **Solo si hay rol** (18/11/2026, pedido del usuario): antes salía desde
+  el primer día hábil aunque nómina todavía no hubiera publicado el rol del
+  mes (o aunque la consulta ni estuviera configurada), y llegaba a decir
+  «plazo vencido» sin nada que aceptar. Ahora se valida siempre que la
+  fuente tenga el rol de ese período para ese código (`hay_rol`).
 - **Con observación** (dijo que algo no está bien) no se le sigue presionando
   con la sanción: ya respondió y el siguiente paso es de Talento Humano. Si
   Talento Humano lo corrige, la pantalla del rol le pide confirmarlo
@@ -18,10 +23,12 @@ que lo acepte. Los textos se administran en «Textos de la consulta».
 """
 
 import datetime
+import logging
 
+from django.core.cache import cache
 from django.utils import timezone
 
-from . import aceptado, dias_habiles, services
+from . import aceptado, dias_habiles, fuente, services
 from .models import ConsultaRolPagos
 
 MESES = (
@@ -87,6 +94,38 @@ def rellenar(
     )
 
 
+logger = logging.getLogger(__name__)
+
+#: Cuánto se recuerda que ya hay rol de un período: una vez publicado, no
+#: desaparece.
+HAY_ROL_SI = 6 * 60 * 60
+#: Cuánto se recuerda que todavía no lo hay: poco, para que el aviso salga
+#: en cuanto nómina lo publique.
+HAY_ROL_NO = 10 * 60
+
+
+def hay_rol(codigo: str, anio: int, mes: int) -> bool:
+    """Si la fuente de nómina ya tiene el rol de `anio`/`mes` para `codigo`.
+    Sin la consulta configurada, o si falla, no lo hay: no se avisa de algo
+    que la persona no podría abrir."""
+    if not fuente.disponible():
+        return False
+    clave = f"nomina:hay_rol:{codigo}:{anio}:{mes}"
+    guardado = cache.get(clave)
+    if guardado is not None:
+        return guardado
+    try:
+        fuente.obtener(codigo, anio, mes, services._nombre_empresa())
+        existe = True
+    except (fuente.RolNoDisponible, fuente.FuenteNoConfigurada):
+        existe = False
+    except Exception:  # noqa: BLE001 - el aviso nunca tumba la pantalla
+        logger.exception("Aviso del rol: no se pudo validar el rol de %s/%s", mes, anio)
+        existe = False
+    cache.set(clave, existe, HAY_ROL_SI if existe else HAY_ROL_NO)
+    return existe
+
+
 def _respondido(codigo: str, anio: int, mes: int) -> bool:
     if aceptado.de_periodo(codigo, anio, mes) is not None:
         return True
@@ -114,6 +153,10 @@ def aviso_del_mes(usuario, hoy: datetime.date | None = None) -> dict | None:
         return None
     anio, mes = mes_anterior(hoy)
     if _respondido(codigo, anio, mes):
+        return None
+    # Sin rol publicado del período no hay nada que aceptar ni plazo que
+    # vencer.
+    if not hay_rol(codigo, anio, mes):
         return None
     dias = config.aviso_dias_habiles
     # El plazo corre en el mes en curso (el del aviso), no en el del rol.

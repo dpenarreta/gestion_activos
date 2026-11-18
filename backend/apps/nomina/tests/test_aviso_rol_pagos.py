@@ -300,3 +300,46 @@ def test_la_configuracion_ya_no_edita_los_textos_de_proteccion_de_datos(db):
         actual["version"],
         actual["consentimiento_correo"],
     )
+
+
+# --- Solo con rol publicado (18/11/2026) -----------------------------------
+
+
+@pytest.fixture
+def sin_cache():
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+    cache.clear()
+
+
+def test_sin_la_consulta_configurada_no_hay_aviso_ni_plazo_vencido(db, hoy, sin_cache):
+    # Noviembre de 2026 ya con el plazo vencido, pero sin fuente del rol.
+    hoy(2026, 11, 18)
+    _, rosa = _con_codigo("rosa", "20100001")
+    with override_settings(NOMINA_ROL_PROCEDIMIENTO="", NOMINA_ROL_DEMO=False):
+        assert rosa.get(URL).json() == {"mostrar": False}
+
+
+def test_sin_el_rol_del_mes_en_nomina_no_hay_aviso(db, hoy, sin_cache, monkeypatch):
+    from apps.nomina import fuente
+
+    hoy(2026, 11, 18)
+    _, rosa = _con_codigo("rosa", "20100001")
+
+    def sin_rol(*args, **kwargs):
+        raise fuente.RolNoDisponible()
+
+    monkeypatch.setattr(fuente, "obtener", sin_rol)
+    assert rosa.get(URL).json() == {"mostrar": False}
+
+    # En cuanto nómina lo publica (pasada la caché corta), el aviso sale.
+    from django.core.cache import cache
+
+    cache.clear()
+    monkeypatch.undo()
+    hoy(2026, 11, 18)
+    datos = rosa.get(URL).json()
+    assert datos["mostrar"] is True
+    assert datos["vencido"] is True
