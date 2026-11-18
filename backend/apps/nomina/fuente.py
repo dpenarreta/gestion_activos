@@ -194,6 +194,9 @@ def _ejemplo(codigo, anio, mes, empresa) -> Rol:
             f"No hay rol de pagos de {MESES[mes - 1].lower()} de {anio} para el código {codigo}."
         )
     if local:
+        # Un mes puede traer sus propios rubros (`por_mes`: {"2026-11": {...}}),
+        # para probar un rol distinto sin cambiar los demás meses (18/11/2026).
+        local = {**local, **(local.get("por_mes") or {}).get(f"{anio}-{mes:02d}", {})}
         rubros = lambda clave: [Rubro(n, Decimal(v)) for n, v in local.get(clave, [])]  # noqa: E731
         return Rol(
             empresa=local.get("empresa") or (empresa or "").upper(),
