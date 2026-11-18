@@ -182,7 +182,7 @@ function Lienzo({ children }) {
 
 /** «3/4»: se lee «3 de 4 plazas cubiertas»; la cifra sola no dice nada al
  * lector de pantalla (revisión final UX/UI, 28/10/2026). */
-function Plazas({ cargo }) {
+export function Plazas({ cargo }) {
   const texto = `${cargo.plazas - cargo.vacantes} de ${cargo.plazas} plazas cubiertas`;
   return (
     <span
@@ -318,7 +318,9 @@ function RamaCargo({ rama, cargos, conPersonas }) {
             {cargo.ocupantes.map((p) => p.nombre).join(", ") || "vacante"}
           </span>
         )}
-        {cargo.plazas > 1 && <Plazas cargo={cargo} />}
+        {/* Siempre, también con una sola plaza: «0/1» vacante, «1/1»
+            cubierto (18/11/2026, pedido del usuario). */}
+        {cargo.plazas > 0 && <Plazas cargo={cargo} />}
         <TambienReportaA cargo={cargo} cargos={cargos} />
         {conPersonas && <PersonasDelCargo cargo={cargo} />}
       </div>
@@ -648,6 +650,7 @@ export function OrganigramaPage() {
               <span className="mz-small">
                 {c.ocupantes.map((p) => p.nombre).join(", ") || "Vacante"}
               </span>
+              {c.plazas > 0 && <Plazas cargo={c} />}
             </li>
           ))}
           {encontrados.length === 0 && (
