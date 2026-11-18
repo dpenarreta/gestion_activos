@@ -25,6 +25,7 @@ const servicio = {
   directorio: vi.fn(),
   areas: vi.fn(),
   archivo: vi.fn(),
+  miEstado: vi.fn(),
 };
 vi.mock("../src/api/chatService", () => ({ chatService: servicio }));
 
@@ -91,10 +92,37 @@ beforeEach(() => {
   servicio.leer.mockResolvedValue({});
   servicio.directorio.mockResolvedValue([]);
   servicio.areas.mockResolvedValue([]);
+  servicio.miEstado.mockResolvedValue(null);
 });
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("El botón del chat según mi estado (18/11/2026)", () => {
+  it("toma el color de mi estado y lo anuncia en una nota encima", async () => {
+    servicio.miEstado.mockResolvedValue({
+      vigente: { clave: "reunion", detalle: "En reunión hasta las 15:30" },
+    });
+    pintar();
+    const nota = await screen.findByText("En reunión hasta las 15:30");
+    expect(nota.closest(".chat-boton__nota")).toHaveClass(
+      "chat-boton__nota--reunion",
+    );
+    const boton = screen.getByRole("button", {
+      name: /Mi estado: En reunión hasta las 15:30/,
+    });
+    expect(boton).toHaveClass("chat-boton--reunion");
+  });
+
+  it("sin estado elegido, «Disponible» en verde", async () => {
+    servicio.miEstado.mockResolvedValue({ vigente: null });
+    pintar();
+    expect(await screen.findByText("Disponible")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Mi estado: Disponible/ }),
+    ).toHaveClass("chat-boton--disponible");
+  });
 });
 
 describe("La barra de chat", () => {

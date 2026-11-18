@@ -42,6 +42,65 @@
   font-weight: 600;
 }
 
+/* El color del botón según mi estado del chat (18/11/2026): los mismos
+   colores que el punto de presencia. Cada `-fg` es el color de texto del
+   tema sobre la tarjeta, así que la tarjeta (`--mz-raised`) sobre él cumple
+   el contraste en claro y en oscuro. */
+.chat-boton,
+.chat-boton__nota {
+  --chat-estado: var(--mz-blue-600);
+}
+.chat-boton--disponible,
+.chat-boton__nota--disponible {
+  --chat-estado: var(--mz-ok-fg);
+}
+.chat-boton--almuerzo,
+.chat-boton__nota--almuerzo {
+  --chat-estado: var(--mz-warn-fg);
+}
+.chat-boton--reunion,
+.chat-boton--no_disponible,
+.chat-boton__nota--reunion,
+.chat-boton__nota--no_disponible {
+  --chat-estado: var(--mz-bad-fg);
+}
+.chat-boton--vacaciones,
+.chat-boton__nota--vacaciones {
+  --chat-estado: var(--presencia-vacaciones);
+}
+.chat-boton--fuera_oficina,
+.chat-boton__nota--fuera_oficina {
+  --chat-estado: var(--mz-info-fg);
+}
+.chat-boton[class*="chat-boton--"] {
+  background: var(--chat-estado);
+}
+
+/* La nota encima del botón: montada sobre su borde superior, para caber en
+   el hueco bajo la burbuja de Nova (que está a 72 px del borde). */
+.chat-boton__nota {
+  position: absolute;
+  z-index: 1;
+  right: 12px;
+  bottom: calc(100% - 9px);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: min(220px, calc(100vw - 48px));
+  padding: 0 8px;
+  border: 1px solid var(--chat-estado);
+  border-radius: 99px;
+  background: var(--mz-raised);
+  color: var(--chat-estado);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
 .chat-contador {
   min-width: 20px;
   height: 20px;

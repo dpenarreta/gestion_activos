@@ -14,7 +14,7 @@ import {
 } from "./Panel";
 import { Presencia, usePresencia } from "./Presencia";
 import "./ChatDock.css";
-import { MiEstado } from "./MiEstado";
+import { MiEstado, resumenDeMiEstado, useMiEstado } from "./MiEstado";
 
 /** Sin proveedor del chat no hay panel que abrir ni cerrar. */
 const SIN_PANEL = () => {};
@@ -107,6 +107,8 @@ export function ChatDock() {
   const zona = useRef(null);
   const algoAbierto = panel || Boolean(chat?.ventanas.some((v) => v.abierta));
   const minimizarTodo = chat?.minimizarTodo;
+  const miEstado = useMiEstado();
+  const resumen = miEstado ? resumenDeMiEstado(miEstado) : null;
 
   // Un clic en cualquier otra parte de la pantalla minimiza el chat: el panel
   // se cierra y las conversaciones quedan en su barra, sin perderse.
@@ -188,15 +190,29 @@ export function ChatDock() {
             </div>
           </section>
         )}
+        {/* La nota encima del botón: mi estado del chat, del mismo color
+            que el botón (18/11/2026). Con el panel abierto lo dice su
+            cabecera. */}
+        {resumen && !panel && (
+          <span
+            className={`chat-boton__nota chat-boton__nota--${resumen.clave}`}
+            aria-hidden="true"
+          >
+            <Icon name={resumen.icono} /> {resumen.detalle}
+          </span>
+        )}
         <button
           type="button"
-          className="chat-boton"
+          className={`chat-boton${resumen ? ` chat-boton--${resumen.clave}` : ""}`}
           aria-expanded={panel}
-          aria-label={
+          aria-label={[
             chat.totalNoLeidos > 0
               ? `Chat: ${textoSinLeer(chat.totalNoLeidos)}`
-              : "Chat"
-          }
+              : "Chat",
+            resumen && `Mi estado: ${resumen.detalle}`,
+          ]
+            .filter(Boolean)
+            .join(". ")}
           onClick={() => {
             pedirAvisos();
             setPanel((valor) => !valor);

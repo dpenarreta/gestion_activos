@@ -29,6 +29,56 @@ export const ESTADOS = [
   ["fuera_oficina", "Fuera de la oficina", "box-arrow-right"],
 ];
 
+/** El aviso de que mi estado cambió, para el botón «Chat» acoplado abajo
+ * (18/11/2026). */
+const EVENTO_MI_ESTADO = "intranet:mi-estado";
+
+function avisarMiEstado(datos) {
+  try {
+    window.dispatchEvent(new CustomEvent(EVENTO_MI_ESTADO, { detail: datos }));
+  } catch {
+    /* Sin aviso: el botón lo vuelve a pedir al minuto. */
+  }
+}
+
+/** La clave, el nombre y el detalle («En reunión hasta las 15:30») de mi
+ * estado vigente; sin uno elegido, «Disponible». */
+export function resumenDeMiEstado(datos) {
+  const vigente = datos?.vigente;
+  const clave =
+    vigente && vigente.clave !== "vacaciones_proximas"
+      ? vigente.clave
+      : "disponible";
+  const [, nombre, icono] = ESTADOS.find(([id]) => id === clave) ?? ESTADOS[0];
+  const detalle = clave === "disponible" ? nombre : vigente?.detalle || nombre;
+  return { clave, nombre, icono, detalle };
+}
+
+/** Mi estado del chat, al día: lo pide al abrir y cada minuto (las
+ * reuniones del calendario lo cambian solas) y se entera al momento cuando
+ * lo cambio yo (18/11/2026). */
+export function useMiEstado() {
+  const [datos, setDatos] = useState(null);
+  useEffect(() => {
+    let vigente = true;
+    const pedir = () =>
+      Promise.resolve()
+        .then(() => chatService.miEstado())
+        .then((d) => vigente && d && setDatos(d))
+        .catch(() => {});
+    const alCambiar = (evento) => evento.detail && setDatos(evento.detail);
+    pedir();
+    const intervalo = setInterval(pedir, 60_000);
+    window.addEventListener(EVENTO_MI_ESTADO, alCambiar);
+    return () => {
+      vigente = false;
+      clearInterval(intervalo);
+      window.removeEventListener(EVENTO_MI_ESTADO, alCambiar);
+    };
+  }, []);
+  return datos;
+}
+
 /** Los estados que son una ausencia: piden quién aprueba por usted. */
 const AUSENCIAS = ["vacaciones", "fuera_oficina"];
 
@@ -531,7 +581,12 @@ function VentanaEstado({ datos, onGuardado, onCerrar }) {
  * nombre y al escribirme.
  */
 export function MiEstado() {
-  const [datos, setDatos] = useState(null);
+  const [datos, setDatosPropios] = useState(null);
+  // Lo que guardo aquí también lo pinta el botón «Chat» acoplado abajo.
+  const setDatos = useCallback((d) => {
+    setDatosPropios(d);
+    avisarMiEstado(d);
+  }, []);
   const [abierta, setAbierta] = useState(false);
   const [ahora, setAhora] = useState(() => new Date());
 
@@ -540,7 +595,7 @@ export function MiEstado() {
       .then(() => chatService.miEstado())
       .then((d) => d && setDatos(d))
       .catch(() => {});
-  }, []);
+  }, [setDatos]);
 
   useEffect(() => {
     cargar();
