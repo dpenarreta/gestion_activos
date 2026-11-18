@@ -259,6 +259,10 @@ class SolicitudPermiso(ModeloDeEmpresa):
         default=FlujoPermiso.TipoAusencia.PERSONAL,
     )
     motivo = models.TextField(blank=True)
+    #: Comentarios u observaciones de quien pide, siempre opcionales y en
+    #: todo tipo de permiso (18/11/2026, pedido del usuario). Aparte del
+    #: motivo, que depende del tipo (`FlujoPermiso.pide_motivo`).
+    observaciones = models.TextField(blank=True)
     adjunto = models.FileField(upload_to=ruta_adjunto, max_length=255, blank=True)
     adjunto_nombre = models.CharField(max_length=255, blank=True)
     adjunto_tipo = models.CharField(max_length=100, blank=True)

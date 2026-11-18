@@ -413,6 +413,10 @@ class NuevaSolicitudSerializer(serializers.Serializer):
     hora_desde = serializers.TimeField(required=False, allow_null=True, default=None)
     hora_hasta = serializers.TimeField(required=False, allow_null=True, default=None)
     motivo = serializers.CharField(allow_blank=True, default="")
+    #: Siempre opcional, en todo tipo de permiso (18/11/2026).
+    observaciones = serializers.CharField(
+        allow_blank=True, required=False, default="", max_length=1000
+    )
     adjunto = serializers.FileField(required=False)
 
     def validate(self, datos):
@@ -508,6 +512,7 @@ class SolicitudSerializer(serializers.ModelSerializer):
             "hora_hasta",
             "minutos",
             "motivo",
+            "observaciones",
             "estado",
             "estado_display",
             "paso_actual",

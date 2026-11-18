@@ -173,6 +173,7 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
     hora_desde: "",
     hora_hasta: "",
     motivo: "",
+    observaciones: "",
   });
   const [adjunto, setAdjunto] = useState(null);
   const [error, setError] = useState(null);
@@ -547,7 +548,7 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
           {pideMotivo && (
             <Campo
               id="sp-motivo"
-              etiqueta="Motivo"
+              etiqueta={medico ? "Motivo" : "Motivo (opcional)"}
               obligatorio={medico}
               // LOPDP: el motivo lo leen quienes aprueban.
               ayuda={
@@ -569,6 +570,30 @@ function NuevaSolicitud({ onCreada, onCerrar, deVacaciones = false }) {
               />
             </Campo>
           )}
+          {/* Siempre, en todo tipo de permiso, y opcional (18/11/2026). */}
+          <Campo
+            id="sp-observaciones"
+            etiqueta="Comentarios u observaciones (opcional)"
+            // Que no se confunda con el motivo, y en un permiso médico,
+            // sin diagnósticos (auditoría UX/UI, LOPDP).
+            ayuda={`${
+              pideMotivo
+                ? "Algo más que quiera agregar, aparte del motivo."
+                : "Algo que quiera agregar a su solicitud."
+            } Lo leen quienes aprueban.${
+              medico ? " No escriba diagnósticos." : ""
+            } Hasta 1000 caracteres.`}
+            error={errores.observaciones}
+            className="col-12"
+          >
+            <textarea
+              rows={3}
+              maxLength={1000}
+              className="form-control form-control-sm"
+              value={valores.observaciones}
+              onChange={fijar("observaciones")}
+            />
+          </Campo>
           {pideAdjunto && (
             <Campo
               id="sp-adjunto"
@@ -1327,7 +1352,17 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
                 <h4 id="sp-detalle-motivo" className="solicitud-seccion">
                   Motivo
                 </h4>
-                <p className="mb-0">{solicitud.motivo}</p>
+                <p className="mb-0 solicitud-texto">{solicitud.motivo}</p>
+              </section>
+            )}
+            {solicitud.observaciones && (
+              <section aria-labelledby="sp-detalle-observaciones">
+                <h4 id="sp-detalle-observaciones" className="solicitud-seccion">
+                  Comentarios u observaciones
+                </h4>
+                <p className="mb-0 solicitud-texto">
+                  {solicitud.observaciones}
+                </p>
               </section>
             )}
             {solicitud.tiene_adjunto && (

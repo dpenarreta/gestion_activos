@@ -505,6 +505,7 @@ describe("Solicitud por horas", () => {
           hora_desde: "08:00",
           hora_hasta: "10:30",
           motivo: "",
+          observaciones: "",
         },
         null,
       ),

@@ -4594,3 +4594,10 @@
   margin-top: 4px;
   min-width: 200px;
 }
+
+/* El motivo y las observaciones de una solicitud, con sus saltos de línea
+   y sin desbordar con un texto largo sin espacios (18/11/2026). */
+.solicitud-texto {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

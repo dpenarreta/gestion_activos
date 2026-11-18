@@ -308,3 +308,18 @@ def test_gestion_humana_ve_en_por_aprobar_todo_lo_pendiente(empresa_con_organigr
     # El gerente no la tiene a su cargo: no la ve en «Por aprobar».
     ids_gerente = [s["id"] for s in gerente.get(SOLICITUDES, {"vista": "por_aprobar"}).json()]
     assert solicitud["id"] not in ids_gerente
+
+
+def test_comentarios_u_observaciones_siempre_y_opcionales(empresa_con_organigrama):
+    """18/11/2026: todo permiso admite comentarios u observaciones, aparte del
+    motivo (que vacaciones no pide), y son opcionales."""
+    e = empresa_con_organigrama
+    _, ana = e["ana"]
+    _, jefa = e["jefa"]
+    con_texto = _pedir(ana, e["vacaciones"], observaciones="  Dejo el turno cubierto.  ")
+    assert con_texto["observaciones"] == "Dejo el turno cubierto."
+    detalle = jefa.get(f"{SOLICITUDES}{con_texto['id']}/").json()
+    assert detalle["observaciones"] == "Dejo el turno cubierto."
+
+    sin_texto = _pedir(ana, e["vacaciones"], desde="2026-12-07", hasta="2026-12-08")
+    assert sin_texto["observaciones"] == ""

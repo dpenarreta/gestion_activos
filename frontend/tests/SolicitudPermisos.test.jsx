@@ -189,6 +189,11 @@ describe("Solicitud de permisos", () => {
     fireEvent.change(within(ventana).getByLabelText(/^Motivo/), {
       target: { value: "Viaje familiar" },
     });
+    // 18/11/2026: comentarios u observaciones, siempre y opcionales.
+    fireEvent.change(
+      within(ventana).getByLabelText(/^Comentarios u observaciones/),
+      { target: { value: "Regreso el lunes temprano" } },
+    );
     fireEvent.click(
       within(ventana).getByRole("button", { name: "Enviar solicitud" }),
     );
@@ -199,6 +204,7 @@ describe("Solicitud de permisos", () => {
           desde: "2026-11-02",
           hasta: "2026-11-06",
           motivo: "Viaje familiar",
+          observaciones: "Regreso el lunes temprano",
         },
         null,
       ),

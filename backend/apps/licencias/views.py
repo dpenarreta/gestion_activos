@@ -222,6 +222,7 @@ class SolicitudViewSet(viewsets.GenericViewSet):
             hora_desde=datos.get("hora_desde"),
             hora_hasta=datos.get("hora_hasta"),
             motivo=datos["motivo"],
+            observaciones=datos.get("observaciones", ""),
             adjunto=datos.get("adjunto"),
             tipo_adjunto=getattr(entrada, "_tipo", ""),
         )

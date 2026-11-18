@@ -304,6 +304,7 @@ def crear(
     desde,
     hasta,
     motivo="",
+    observaciones="",
     adjunto=None,
     tipo_adjunto="",
     hora_desde=None,
@@ -341,6 +342,7 @@ def crear(
         hora_desde=hora_desde if flujo.por_horas else None,
         hora_hasta=hora_hasta if flujo.por_horas else None,
         motivo=motivo.strip(),
+        observaciones=(observaciones or "").strip()[:1000],
     )
     if adjunto:
         solicitud.adjunto.save(adjunto.name, adjunto, save=False)
