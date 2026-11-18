@@ -286,11 +286,9 @@ export function semanasDelMes(anio, mes) {
   return semanas;
 }
 
-/** El mes anterior o el siguiente. */
-export function moverMes({ anio, mes }, delta) {
-  const total = anio * 12 + (mes - 1) + delta;
-  return { anio: Math.floor(total / 12), mes: (total % 12) + 1 };
-}
+/** El mes anterior o el siguiente: desde la US-030 (17/11/2026) uno solo
+ * para los tres calendarios, en `utils/calendario.js`. */
+export { moverMes } from "../utils/calendario";
 
 /** «13 de noviembre de 2026» de «AAAA-MM-DD». */
 export function diaLargo(iso) {

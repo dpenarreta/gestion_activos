@@ -31,6 +31,7 @@ import {
   textoReviseGrupo,
   traspasaLaAdministracion,
 } from "../../chat/grupos";
+import { PISTA_CONTACTO, useAbrirContacto } from "../../chat/contacto";
 import { usePresencia } from "../../chat/usePresencia";
 import { Alerta, Boton, BotonIcono, Cargando, ErrorConReintento } from "../../componentes/comunes";
 import { Icono } from "../../componentes/Icono";
@@ -91,6 +92,8 @@ export function Participantes({ id, empresa = null }) {
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const router = useRouter();
+  // US-031 (CA-4): la misma forma de abrir la tarjeta que en el resto del chat.
+  const abrirContacto = useAbrirContacto();
   const navegacion = useNavigation();
   const alturaCabecera = useAlturaCabecera();
   const { usuario } = useSesion();
@@ -572,15 +575,10 @@ export function Participantes({ id, empresa = null }) {
               {/* Tocar a alguien abre su ficha de contacto (16/11/2026). */}
               <Pressable
                 testID={`participante-${p.id}`}
-                onPress={() =>
-                  router.push({
-                    pathname: "/chat/contacto/[id]",
-                    params: empresa ? { id: String(p.id), empresa } : { id: String(p.id) },
-                  })
-                }
+                onPress={() => abrirContacto(p.id, empresa)}
                 style={({ pressed }) => [estilos.persona, pressed && estilos.presionado]}
                 accessibilityRole="button"
-                accessibilityHint="Abre su correo, teléfono, extensión y área."
+                accessibilityHint={PISTA_CONTACTO}
                 accessibilityLabel={[
                   p.nombre,
                   esUsted ? "Usted" : null,

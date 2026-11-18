@@ -6,10 +6,11 @@ import { anunciar } from "../../accesibilidad/anunciar";
 import { mensajeDeError } from "../../api/errores";
 import { chatService, directorioService } from "../../api/servicios";
 import { useChat, useChatVisible } from "../../chat/ChatContext";
+import { PISTA_CONTACTO, useAbrirContacto } from "../../chat/contacto";
 import { iniciales, textoPresencia } from "../../chat/formato";
 import { usePresencia } from "../../chat/usePresencia";
 import { ESPERA_BUSCAR_MS, MAXIMO_RESULTADOS, TEXTO_HAY_MAS, textoDeResultados } from "../../utils/busqueda";
-import { Alerta, ErrorConReintento } from "../../componentes/comunes";
+import { Alerta, BotonIcono, ErrorConReintento } from "../../componentes/comunes";
 import { AREA_TACTIL } from "../../tema/colores";
 import { useColores, useEstilos } from "../../tema/apariencia";
 import { crearEstilos } from "../../tema/tipografia";
@@ -23,6 +24,15 @@ import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
  * Mismo patrón accesible que el buscador del reemplazo (US-010): una pausa al
  * escribir, el número de resultados anunciado y «Reintentar» si falla.
  * Elegir dos veces no crea ni abre dos veces.
+ *
+ * US-031 (CA-1, 18/11/2026, a pedido del usuario): a la derecha de cada
+ * persona, «Ver la tarjeta de …» abre su tarjeta de contacto sin abrir ni
+ * crear el chat; el resto de la fila sigue escribiéndole. Son dos botones
+ * hermanos (no uno dentro de otro) para que el lector de pantalla llegue a
+ * los dos y la fila conserve su nombre. El buscador de los grupos
+ * (`BuscadorDePersonas`, al crear uno o agregar participantes) no lo lleva:
+ * allí tocar a alguien lo agrega y la tarjeta se ve después, en
+ * «Participantes».
  */
 // Una sola pausa para todos los buscadores (US-014, QA-TECH).
 export { ESPERA_BUSCAR_MS };
@@ -35,6 +45,7 @@ export function NuevoMensaje() {
   useChatVisible();
   const router = useRouter();
   const { cargarConversaciones } = useChat();
+  const abrirContacto = useAbrirContacto();
   const [texto, setTexto] = useState("");
   const [resultados, setResultados] = useState(null);
   const [buscando, setBuscando] = useState(false);
@@ -165,33 +176,45 @@ export function NuevoMensaje() {
         const suya = presencia[String(p.id)];
         const detalle = [suya ? textoPresencia(suya) : null, p.cargo, p.area].filter(Boolean).join(". ");
         return (
-          <Pressable
-            testID={`persona-${p.id}`}
-            onPress={() => escribirA(p)}
-            disabled={Boolean(abriendo)}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: Boolean(abriendo), busy: abriendo === p.id }}
-            accessibilityLabel={[p.nombre, detalle].filter(Boolean).join(". ")}
-            accessibilityHint="Abre el mensaje directo con esta persona"
-            style={({ pressed }) => [estilos.persona, pressed && estilos.presionada]}
-          >
-            {/* El mismo avatar que la lista de chats: iniciales amarillas
-                sobre negro (12,7:1) (N-12). */}
-            <View style={estilos.avatar}>
-              {abriendo === p.id ? (
-                <ActivityIndicator color={colores.acento} />
-              ) : (
-                <Text style={estilos.iniciales} maxFontSizeMultiplier={1.3}>
-                  {iniciales(p.nombre)}
-                </Text>
-              )}
-            </View>
-            <View style={estilos.personaTexto}>
-              <Text style={estilos.nombre}>{p.nombre}</Text>
-              {suya ? <Presencia presencia={suya} compacta /> : null}
-              {p.cargo || p.area ? <Text style={estilos.tenue}>{[p.cargo, p.area].filter(Boolean).join(" · ")}</Text> : null}
-            </View>
-          </Pressable>
+          <View style={estilos.persona}>
+            <Pressable
+              testID={`persona-${p.id}`}
+              onPress={() => escribirA(p)}
+              disabled={Boolean(abriendo)}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: Boolean(abriendo), busy: abriendo === p.id }}
+              accessibilityLabel={[p.nombre, detalle].filter(Boolean).join(". ")}
+              accessibilityHint="Abre el mensaje directo con esta persona"
+              style={({ pressed }) => [estilos.personaBoton, pressed && estilos.presionada]}
+            >
+              {/* El mismo avatar que la lista de chats: iniciales amarillas
+                  sobre negro (12,7:1) (N-12). */}
+              <View style={estilos.avatar}>
+                {abriendo === p.id ? (
+                  <ActivityIndicator color={colores.acento} />
+                ) : (
+                  <Text style={estilos.iniciales} maxFontSizeMultiplier={1.3}>
+                    {iniciales(p.nombre)}
+                  </Text>
+                )}
+              </View>
+              <View style={estilos.personaTexto}>
+                <Text style={estilos.nombre}>{p.nombre}</Text>
+                {suya ? <Presencia presencia={suya} compacta /> : null}
+                {p.cargo || p.area ? <Text style={estilos.tenue}>{[p.cargo, p.area].filter(Boolean).join(" · ")}</Text> : null}
+              </View>
+            </Pressable>
+            {/* US-031 (CA-1): la tarjeta, sin abrir el chat. Mientras se abre
+                un chat no se ofrece, para no mezclar dos navegaciones. */}
+            <BotonIcono
+              testID={`tarjeta-${p.id}`}
+              icono="card-account-details-outline"
+              etiqueta={`Ver la tarjeta de ${p.nombre}`}
+              pista={PISTA_CONTACTO}
+              deshabilitado={Boolean(abriendo)}
+              onPress={() => abrirContacto(p.id)}
+            />
+          </View>
         );
       }}
     />
@@ -206,16 +229,26 @@ const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   entrada: CONTROLES.entrada,
   buscando: { flexDirection: "row", alignItems: "center", gap: 8 },
   tenue: { fontSize: 14, color: colores.tintaSuave },
+  // La fila: el botón de escribir (todo lo que no es la tarjeta) y, a la
+  // derecha, el de la tarjeta (48/44 de `BotonIcono`), US-031.
   persona: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingRight: 4,
+    borderRadius: 10,
+    backgroundColor: colores.superficie,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    overflow: "hidden",
+  },
+  personaBoton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     minHeight: AREA_TACTIL,
     padding: 12,
-    borderRadius: 10,
-    backgroundColor: colores.superficie,
-    borderWidth: 1,
-    borderColor: colores.borde,
   },
   presionada: { backgroundColor: colores.realce },
   avatar: {

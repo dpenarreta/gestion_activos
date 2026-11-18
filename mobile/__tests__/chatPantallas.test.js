@@ -156,8 +156,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  jest.useRealTimers();
+  // Primero los espías y luego los relojes: un espía puesto sobre el
+  // `setTimeout` falso (useMedianoche) lo devolvería al restaurarse y las
+  // pruebas siguientes se quedarían sin temporizadores reales (US-031).
   jest.restoreAllMocks();
+  jest.useRealTimers();
 });
 
 function textosAnunciados() {
@@ -535,6 +538,23 @@ describe("ficha de contacto (16/11/2026)", () => {
     });
     await render(<Participantes id="7" empresa="2" />);
     await fireEvent.press(await screen.findByTestId("participante-9"));
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
+  });
+
+  it("O1 (US-031): desde los participantes, dos toques seguidos abren una sola ficha", async () => {
+    chatService.conversacion.mockResolvedValueOnce({
+      id: 7,
+      tipo: "grupo",
+      nombre: "Equipo TI",
+      miembros: 1,
+      administra: false,
+      participantes: [{ ...CARLA, administra: false }],
+    });
+    await render(<Participantes id="7" empresa="2" />);
+    const fila = await screen.findByTestId("participante-9");
+    await fireEvent.press(fila);
+    await fireEvent.press(fila);
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
     expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
   });
 });
@@ -925,6 +945,140 @@ describe("US-026: modo oscuro", () => {
       </ChatProvider>,
     );
     expect(await screen.findByText("Canal general")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+  });
+});
+
+describe("US-031: la tarjeta de contacto desde «Nuevo mensaje» y la lista de chats", () => {
+  const { StyleSheet } = require("react-native");
+  const { AREA_TACTIL } = require("../src/tema/colores");
+  const { PISTA_CONTACTO, rutaDelContacto } = require("../src/chat/contacto");
+  const { BuscadorDePersonas } = require("../src/pantallas/chat/BuscadorDePersonas");
+
+  afterEach(olvidarApariencia);
+
+  const GRUPO = { ...CONVERSACIONES[0], id: 7, tipo: "grupo", nombre: "Equipo TI", miembros: 3 };
+  const AREA = { ...CONVERSACIONES[0], id: 8, tipo: "area", nombre: "Cartera", miembros: 6 };
+
+  it("CA-4: una sola ruta; la empresa solo si se conoce", () => {
+    expect(rutaDelContacto(9)).toEqual({ pathname: "/chat/contacto/[id]", params: { id: "9" } });
+    expect(rutaDelContacto("9", 2)).toEqual({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
+    expect(rutaDelContacto(null)).toBeNull();
+    expect(rutaDelContacto(undefined, "2")).toBeNull();
+  });
+
+  it("CA-1: cada persona tiene «Ver la tarjeta de …», que la abre sin crear el chat", async () => {
+    await render(
+      <ChatProvider>
+        <NuevoMensaje />
+      </ChatProvider>,
+    );
+    const tarjeta = await screen.findByTestId("tarjeta-9");
+    expect(tarjeta.props.accessibilityRole).toBe("button");
+    expect(tarjeta.props.accessibilityLabel).toBe("Ver la tarjeta de Carla Ruiz");
+    expect(tarjeta.props.accessibilityHint).toBe(PISTA_CONTACTO);
+    expect(screen.getByLabelText("Ver la tarjeta de Luis Mora")).toBeTruthy();
+    // 48 dp en Android, 44 pt en iOS.
+    expect(StyleSheet.flatten(tarjeta.props.style).minWidth).toBe(AREA_TACTIL);
+    expect(StyleSheet.flatten(tarjeta.props.style).minHeight).toBe(AREA_TACTIL);
+    await fireEvent.press(tarjeta);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9" } });
+    expect(chatService.directa).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it("CA-1: dos toques seguidos abren una sola tarjeta", async () => {
+    await render(<NuevoMensaje />);
+    const tarjeta = await screen.findByTestId("tarjeta-9");
+    await fireEvent.press(tarjeta);
+    await fireEvent.press(tarjeta);
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+  });
+
+  it("CA-1: la fila conserva su nombre y sigue abriendo el chat; mientras se abre, la tarjeta no se ofrece", async () => {
+    const espera = pendiente();
+    chatService.directa.mockReturnValueOnce(espera.promesa);
+    await render(
+      <ChatProvider>
+        <NuevoMensaje />
+      </ChatProvider>,
+    );
+    const fila = await screen.findByTestId("persona-9");
+    expect(fila.props.accessibilityLabel).toBe("Carla Ruiz. Analista. Cartera");
+    expect(fila.props.accessibilityHint).toBe("Abre el mensaje directo con esta persona");
+    // La tarjeta no está dentro del botón de la fila: son hermanos.
+    expect(within(fila).queryByTestId("tarjeta-9")).toBeNull();
+    await tocarSinEsperar(fila);
+    expect(chatService.directa).toHaveBeenCalledWith(9);
+    expect(screen.getByTestId("tarjeta-9").props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => espera.resolver(CONVERSACIONES[1]));
+    expect(mockRouter.replace).toHaveBeenCalledWith("/chat/conversacion/5");
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("CA-1: el buscador de los grupos (crear y agregar) no lleva la tarjeta", async () => {
+    await render(<BuscadorDePersonas etiqueta="Participantes" onElegir={jest.fn()} />);
+    expect(await screen.findByText("Carla Ruiz")).toBeTruthy();
+    expect(screen.queryByLabelText(/^Ver la tarjeta de/)).toBeNull();
+  });
+
+  it("CA-3: en un directo el avatar abre la tarjeta del otro; el resto de la fila, la conversación", async () => {
+    await render(
+      <ChatProvider>
+        <ListaChats />
+      </ChatProvider>,
+    );
+    await screen.findByText("Usted: Hola");
+    const avatar = screen.getByTestId("avatar-5");
+    expect(avatar.props.accessibilityRole).toBe("button");
+    expect(avatar.props.accessibilityLabel).toBe("Ver la tarjeta de Carla Ruiz");
+    expect(avatar.props.accessibilityHint).toBe(PISTA_CONTACTO);
+    expect(StyleSheet.flatten(avatar.props.style).minWidth).toBe(AREA_TACTIL);
+    expect(StyleSheet.flatten(avatar.props.style).minHeight).toBe(AREA_TACTIL);
+    expect(within(avatar).getByText("CR")).toBeTruthy();
+    await fireEvent.press(avatar);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: String(CARLA.id) } });
+    expect(mockRouter.push).not.toHaveBeenCalledWith("/chat/conversacion/5");
+
+    const fila = screen.getByTestId("conversacion-5");
+    // El nombre de la fila no cambió y el avatar no está dentro de ella.
+    expect(fila.props.accessibilityLabel).toBe("Carla Ruiz. 1 mensaje sin leer. Usted: Hola. " + screen.getByTestId("hora-5").props.children);
+    expect(fila.props.accessibilityHint).toBe("Abre la conversación");
+    expect(within(fila).queryByTestId("avatar-5")).toBeNull();
+    await fireEvent.press(fila);
+    expect(mockRouter.push).toHaveBeenLastCalledWith("/chat/conversacion/5");
+  });
+
+  it("CA-3: en el canal general, los grupos y las áreas el avatar no es un botón aparte: abre la conversación", async () => {
+    chatService.conversaciones.mockResolvedValue([...CONVERSACIONES, GRUPO, AREA]);
+    await render(
+      <ChatProvider>
+        <ListaChats />
+      </ChatProvider>,
+    );
+    await screen.findByText("Equipo TI");
+    for (const id of [1, 7, 8]) {
+      expect(screen.queryByTestId(`avatar-${id}`)).toBeNull();
+      await fireEvent.press(screen.getByTestId(`conversacion-${id}`));
+      expect(mockRouter.push).toHaveBeenLastCalledWith(`/chat/conversacion/${id}`);
+    }
+    expect(screen.queryAllByLabelText(/^Ver la tarjeta de/)).toHaveLength(1);
+    expect(mockRouter.push).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: "/chat/contacto/[id]" }));
+  });
+
+  it("CA-5: «Nuevo mensaje» en oscuro, sin colores fijos del modo claro", async () => {
+    const vista = await renderEnOscuro(<NuevoMensaje />);
+    expect(await screen.findByTestId("tarjeta-9")).toBeTruthy();
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+  });
+
+  it("CA-5: la lista de chats en oscuro con el avatar tocable", async () => {
+    const vista = await renderEnOscuro(
+      <ChatProvider>
+        <ListaChats />
+      </ChatProvider>,
+    );
+    expect(await screen.findByTestId("avatar-5")).toBeTruthy();
     expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });

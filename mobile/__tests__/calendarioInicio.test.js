@@ -71,8 +71,8 @@ describe("lo puro del calendario", () => {
     const dias = diasDeLaCuadricula(2026, 11);
     expect(dias).toHaveLength(42);
     // El 1 de noviembre de 2026 es domingo: la cuadrícula arranca el lunes 26/10.
-    expect(dias[0]).toEqual({ iso: "2026-10-26", numero: 26, delMes: false });
-    expect(dias[6]).toEqual({ iso: "2026-11-01", numero: 1, delMes: true });
+    expect(dias[0]).toEqual({ iso: "2026-10-26", numero: 26, delMes: false, finDeSemana: false });
+    expect(dias[6]).toEqual({ iso: "2026-11-01", numero: 1, delMes: true, finDeSemana: true });
   });
 
   test("una fecha de varios días cae en cada uno", () => {

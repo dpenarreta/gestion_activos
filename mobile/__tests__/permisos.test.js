@@ -1318,3 +1318,177 @@ describe("US-026: modo oscuro", () => {
     expect(coloresClarosEn(vista.toJSON())).toEqual([]);
   });
 });
+
+describe("US-030: calendario para elegir las fechas", () => {
+  // O-4: reloj fijo, martes 17 de noviembre de 2026 a las 10:00. Las
+  // pausas de la evaluación corren con el reloj falso (`waitFor` lo avanza).
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date(2026, 10, 17, 10, 0, 0) });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const HOY = "2026-11-17";
+  const del = (d) => `2026-11-${d}`;
+  const tocarDia = (iso) => fireEvent.press(screen.getByTestId(`calendario-fechas-dia-${iso}`));
+  const pasar = (ms) => act(async () => jest.advanceTimersByTime(ms));
+
+  it("CA-1: debajo de «Desde» y «Hasta», abierto en el mes de hoy", async () => {
+    await nuevaConTipo(1);
+    const bloque = screen.getByTestId("bloque-fechas");
+    expect(within(bloque).getByTestId("calendario-fechas-mes").props.children).toBe("Noviembre 2026");
+    expect(within(bloque).getByTestId(`calendario-fechas-dia-${HOY}`).props.accessibilityLabel).toBe(
+      "Martes 17 de noviembre de 2026, inicio y fin del período, hoy",
+    );
+  });
+
+  it("CA-2 a CA-4: lo elegido llega a los campos, al conteo y a la evaluación con su pausa", async () => {
+    await nuevaConTipo(1);
+    licenciasService.evaluar.mockClear();
+
+    await tocarDia(del(20));
+    await tocarDia(del(24));
+
+    expect(screen.getByTestId("fecha-desde").props.accessibilityLabel).toBe("Desde (obligatorio): 20 de noviembre de 2026");
+    expect(screen.getByTestId("fecha-hasta").props.accessibilityLabel).toBe("Hasta (obligatorio): 24 de noviembre de 2026");
+    // El conteo, al instante y el mismo en los dos sitios.
+    expect(screen.getByText(/^5 días de calendario\. Cuántos cuentan/)).toBeTruthy();
+    expect(screen.getByTestId("calendario-fechas-resumen").props.children).toBe("Del 20/11/2026 al 24/11/2026: 5 días");
+    // Toques seguidos: una sola consulta tras la pausa, con el período final.
+    expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(true);
+    await waitFor(() => expect(licenciasService.evaluar).toHaveBeenCalledWith("1", del(20), del(24)));
+    expect(licenciasService.evaluar).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(false));
+    expect(mockPrevencion.activa).toBe(true);
+  });
+
+  it("O-1: con más de 400 ms entre toques vale la evaluación del período final, aunque la primera llegue tarde", async () => {
+    await nuevaConTipo(1);
+    const primera = pendiente();
+    const segunda = pendiente();
+    licenciasService.evaluar.mockReset();
+    licenciasService.evaluar.mockReturnValueOnce(primera.promesa).mockReturnValueOnce(segunda.promesa);
+
+    await tocarDia(del(20));
+    await pasar(500);
+    expect(licenciasService.evaluar).toHaveBeenLastCalledWith("1", del(20), del(20));
+    await tocarDia(del(24));
+    await pasar(500);
+    expect(licenciasService.evaluar).toHaveBeenCalledTimes(2);
+    expect(licenciasService.evaluar).toHaveBeenLastCalledWith("1", del(20), del(24));
+
+    // La del período final llega primero; la vieja, después, se descarta.
+    await act(async () =>
+      segunda.resolver({ reglas: [{ clave: "fin", estado: "ok", texto: "Período final.", detalle: "" }], bloquea: false }),
+    );
+    await act(async () =>
+      primera.resolver({ reglas: [{ clave: "vieja", estado: "falla", texto: "Período viejo.", detalle: "" }], bloquea: true }),
+    );
+
+    expect(screen.getByText("Período final.")).toBeTruthy();
+    expect(screen.queryByText("Período viejo.")).toBeNull();
+    expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(false);
+  });
+
+  it("CA-3: un error de las fechas se borra al elegir en el calendario y se envía lo elegido", async () => {
+    licenciasService.solicitar
+      .mockRejectedValueOnce(error400({ hasta: ["La fecha de fin no es válida."] }))
+      .mockResolvedValueOnce(detalle({ id: 40 }));
+    await nuevaConTipo(1);
+    await fireEvent.press(screen.getByTestId("enviar-solicitud"));
+    expect(await screen.findByText("Revise los campos marcados: Hasta.")).toBeTruthy();
+    expect(screen.getByLabelText(/^Hasta \(obligatorio\).*Error: La fecha de fin no es válida/)).toBeTruthy();
+
+    await tocarDia(del(23));
+    await tocarDia(del(25));
+    expect(screen.queryByText("La fecha de fin no es válida.", { includeHiddenElements: true })).toBeNull();
+
+    await waitFor(() => expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(false));
+    await fireEvent.press(screen.getByTestId("enviar-solicitud"));
+    await waitFor(() => expect(licenciasService.solicitar).toHaveBeenCalledTimes(2));
+    expect(licenciasService.solicitar.mock.calls[1][0]).toMatchObject({ flujo: "1", desde: del(23), hasta: del(25) });
+  });
+
+  it("CA-3: cambiar «Desde» con su selector mueve el calendario al mes de la fecha", async () => {
+    await nuevaConTipo(1);
+    await fireEvent.press(screen.getByTestId("fecha-desde"));
+    await act(async () => screen.getByTestId("selector-nativo").props.onValueChange(null, new Date(2031, 2, 4)));
+
+    expect(screen.getByTestId("calendario-fechas-mes").props.children).toBe("Marzo 2031");
+    // «Hasta» quedaba antes: pasa a ser el mismo día (`fijarDesde`).
+    expect(screen.getByTestId("calendario-fechas-dia-2031-03-04").props.accessibilityLabel).toBe(
+      "Martes 4 de marzo de 2031, inicio y fin del período",
+    );
+    expect(screen.getByText(/^1 día de calendario\./)).toBeTruthy();
+  });
+
+  it("CA-3: cambiar «Hasta» con su selector se refleja en el período", async () => {
+    await nuevaConTipo(1);
+    await tocarDia(del(20));
+    await fireEvent.press(screen.getByTestId("fecha-hasta"));
+    await act(async () => screen.getByTestId("selector-nativo").props.onValueChange(null, new Date(2026, 10, 25)));
+
+    expect(screen.getByTestId(`calendario-fechas-dia-${del(25)}`).props.accessibilityLabel).toBe(
+      "Miércoles 25 de noviembre de 2026, fin del período",
+    );
+    expect(screen.getByTestId(`calendario-fechas-dia-${del(22)}`).props.accessibilityLabel).toBe(
+      "Domingo 22 de noviembre de 2026, dentro del período",
+    );
+    expect(screen.getByText(/^6 días de calendario\./)).toBeTruthy();
+  });
+
+  it("CA-5: por horas el calendario elige un solo día", async () => {
+    await nuevaConTipo(3);
+    licenciasService.evaluar.mockClear();
+    await tocarDia(del(20));
+    await tocarDia(del(24));
+
+    expect(screen.getByTestId("fecha-dia").props.accessibilityLabel).toBe("Fecha (obligatorio): 24 de noviembre de 2026");
+    expect(screen.getByTestId(`calendario-fechas-dia-${del(24)}`).props.accessibilityLabel).toBe(
+      "Martes 24 de noviembre de 2026, día elegido",
+    );
+    expect(screen.getByTestId(`calendario-fechas-dia-${del(20)}`).props.accessibilityState.selected).toBe(false);
+    await waitFor(() => expect(licenciasService.evaluar).toHaveBeenCalledWith("3", del(24), del(24)));
+  });
+
+  it("O-2: al pasar a por horas y volver a por días, la elección empieza de cero", async () => {
+    await nuevaConTipo(1);
+    // Primer toque por días: el calendario espera el último día.
+    await tocarDia(del(10));
+    await fireEvent.press(screen.getByTestId("cambiar-tipo"));
+    await fireEvent.press(screen.getByTestId("tipo-3"));
+    expect(screen.getByTestId("fecha-dia")).toBeTruthy();
+    await fireEvent.press(screen.getByTestId("cambiar-tipo"));
+    await fireEvent.press(screen.getByTestId("tipo-1"));
+
+    // El toque del 20 es el primero otra vez: período del 20 al 20.
+    await tocarDia(del(20));
+    expect(screen.getByTestId("fecha-desde").props.accessibilityLabel).toBe("Desde (obligatorio): 20 de noviembre de 2026");
+    expect(screen.getByTestId("fecha-hasta").props.accessibilityLabel).toBe("Hasta (obligatorio): 20 de noviembre de 2026");
+    expect(screen.getByTestId("calendario-fechas-resumen").props.children).toBe("20/11/2026: 1 día");
+  });
+
+  it("CA-7: Nueva solicitud con el calendario en oscuro", async () => {
+    try {
+      await renderEnOscuro(conResumen(<NuevaSolicitud />));
+      await fireEvent.press(await screen.findByTestId("tipo-1"));
+      await tocarDia(del(20));
+      await tocarDia(del(24));
+      expect(coloresClarosEn(screen.toJSON())).toEqual([]);
+    } finally {
+      olvidarApariencia();
+    }
+  });
+
+  it("cada día mide 48 de ancho con 360 dp y 44 con 320 dp", async () => {
+    await nuevaConTipo(1);
+    const { StyleSheet } = require("react-native");
+    const margen = StyleSheet.flatten(screen.getByTestId("calendario-fechas").props.style).marginHorizontal;
+    const relleno = StyleSheet.flatten(screen.getByTestId("nueva-solicitud-formulario").props.contentContainerStyle).padding;
+    // Ancho de la pantalla menos el relleno que queda a cada lado y el borde de 1.
+    const celda = (pantalla) => (pantalla - 2 * (relleno + margen) - 2) / 7;
+    expect(celda(360)).toBeGreaterThanOrEqual(48);
+    expect(celda(320)).toBeGreaterThanOrEqual(44);
+  });
+});

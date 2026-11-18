@@ -7,6 +7,7 @@ import { useIrAlBloque } from "../../accesibilidad/irAlBloque";
 import { erroresPorCampo, mensajeDeError, mensajeDeFormulario } from "../../api/errores";
 import { licenciasService } from "../../api/servicios";
 import { Alerta, Boton, Cargando, ErrorConReintento, Vacio } from "../../componentes/comunes";
+import { CalendarioDeRango } from "../../componentes/CalendarioDeRango";
 import { Icono } from "../../componentes/Icono";
 import { SelectorFecha } from "../../componentes/SelectorFecha";
 import {
@@ -26,6 +27,7 @@ import { useColores, useEstilos } from "../../tema/apariencia";
 import { CampoTexto, ReglasDelPermiso } from "./piezas";
 import { ReemplazoEnAusencia } from "./ReemplazoEnAusencia";
 import { crearEstilos } from "../../tema/tipografia";
+import { diasDeCalendario } from "../../utils/calendario";
 import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
 
 /**
@@ -369,6 +371,15 @@ export function NuevaSolicitud({ deVacaciones = false }) {
     setErrores((e) => ({ ...e, desde: undefined, hasta: undefined }));
   }
 
+  /** US-030: el período elegido en el calendario. El calendario ya da
+   * «Hasta» igual o posterior a «Desde»; pasa por el mismo estado que los
+   * campos, así que la evaluación del servidor sigue con su pausa. */
+  function fijarRango({ desde, hasta }) {
+    setTocado(true);
+    setValores((v) => ({ ...v, desde, hasta: porHoras ? desde : hasta }));
+    setErrores((e) => ({ ...e, desde: undefined, hasta: undefined }));
+  }
+
   async function elegirAdjunto(como) {
     setOpcionesAdjunto(false);
     setErrores((e) => ({ ...e, adjunto: undefined }));
@@ -511,10 +522,8 @@ export function NuevaSolicitud({ deVacaciones = false }) {
   }
 
   const minutos = porHoras ? minutosEntre(valores.hora_desde, valores.hora_hasta) : null;
-  const totalDias =
-    !fechasAlReves && valores.desde && valores.hasta
-      ? Math.round((new Date(`${valores.hasta}T00:00:00`) - new Date(`${valores.desde}T00:00:00`)) / 86400000) + 1
-      : null;
+  // El mismo cálculo que el calendario de rango (US-030, CA-4).
+  const totalDias = fechasAlReves ? null : diasDeCalendario(valores.desde, valores.hasta);
   const desactivado = enviando || bloquea || revisando || fechasAlReves;
 
   return (
@@ -617,6 +626,17 @@ export function NuevaSolicitud({ deVacaciones = false }) {
             onCambio={fijarDesde}
             error={errores.desde ?? errores.hasta}
           />
+          {/* US-030, CA-5: por horas, el calendario elige un solo día. */}
+          <CalendarioDeRango
+            key="horas"
+            testID="calendario-fechas"
+            style={estilos.calendario}
+            unDia
+            desde={valores.desde}
+            hasta={valores.desde}
+            hoy={hoy}
+            onCambio={({ desde }) => fijarDesde(desde)}
+          />
           <View style={estilos.fila}>
             <SelectorFecha
               testID="hora-desde"
@@ -671,6 +691,19 @@ export function NuevaSolicitud({ deVacaciones = false }) {
               error={errores.hasta}
             />
           </View>
+          {/* US-030: el período también se elige en el calendario, que se
+              mantiene al día con los dos campos. */}
+          {/* O-2: la clave asegura un calendario nuevo al pasar de un permiso
+              por horas a uno por días (y al revés): la elección empieza de cero. */}
+          <CalendarioDeRango
+            key="dias"
+            testID="calendario-fechas"
+            style={estilos.calendario}
+            desde={valores.desde}
+            hasta={valores.hasta}
+            hoy={hoy}
+            onCambio={fijarRango}
+          />
           <Text style={estilos.resumen} accessibilityLiveRegion="polite">
             {/* Los días que cuentan (laborables, feriados, fines de semana)
                 los dice el servidor en las restricciones de abajo. */}
@@ -822,6 +855,10 @@ const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   contenido: { padding: 16, gap: 16, paddingBottom: 40 },
   leyenda: { fontSize: 14, color: colores.tintaSuave },
   grupo: { gap: 8 },
+  // US-030 (QA): el calendario toma 12 de los 16 de relleno de cada lado
+  // para que cada día mida 48 de ancho con 360 dp y 44 con 320 dp:
+  // (ancho − 2·4 − 2 de borde) / 7.
+  calendario: { marginHorizontal: -12 },
   fila: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   etiqueta: { fontSize: 15, fontWeight: "600", color: colores.tinta },
   obligatorio: { color: colores.malTexto },

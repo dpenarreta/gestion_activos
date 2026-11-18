@@ -1,7 +1,8 @@
-import { act, fireEvent, render, screen } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, within } from "@testing-library/react-native";
 import * as Linking from "expo-linking";
 import * as Notifications from "expo-notifications";
-import { AccessibilityInfo, Alert } from "react-native";
+import React from "react";
+import { AccessibilityInfo, Alert, View } from "react-native";
 
 import { Cuenta } from "../src/pantallas/Cuenta";
 import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
@@ -39,7 +40,37 @@ jest.mock("../src/api/servicios", () => ({
 }));
 
 const mockRouter = { push: jest.fn() };
-jest.mock("expo-router", () => ({ useRouter: () => mockRouter }));
+// La cabecera de la pila: «Cerrar sesión» va en `headerRight` (17/11/2026).
+const mockCabecera = { headerRight: null, avisar: null };
+const mockNavegacion = {
+  setOptions: (opciones) => {
+    if ("headerRight" in opciones) {
+      mockCabecera.headerRight = opciones.headerRight;
+      mockCabecera.avisar?.();
+    }
+  },
+};
+jest.mock("expo-router", () => ({
+  useRouter: () => mockRouter,
+  useNavigation: () => mockNavegacion,
+}));
+
+/** La pantalla con lo que pone en la cabecera, como la dibuja la pila. */
+function CuentaConCabecera() {
+  const [, forzar] = React.useState(0);
+  React.useLayoutEffect(() => {
+    mockCabecera.avisar = () => forzar((n) => n + 1);
+    return () => {
+      mockCabecera.avisar = null;
+    };
+  }, []);
+  return (
+    <>
+      <View testID="cabecera">{mockCabecera.headerRight ? mockCabecera.headerRight() : null}</View>
+      <Cuenta />
+    </>
+  );
+}
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -55,7 +86,7 @@ describe("Cuenta", () => {
       }),
     );
     Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
 
     await act(async () => {
       fireEvent.press(screen.getByTestId("empresa-5"));
@@ -74,7 +105,7 @@ describe("Cuenta", () => {
 
   it("con los avisos activados ofrece abrir los ajustes del teléfono", async () => {
     Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
 
     expect(
       await screen.findByText(
@@ -94,7 +125,7 @@ describe("Cuenta", () => {
         responder = r;
       }),
     );
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
     expect(
       screen.getByLabelText("Consultando el estado de los avisos…"),
     ).toBeTruthy();
@@ -113,7 +144,7 @@ describe("Cuenta", () => {
     Notifications.requestPermissionsAsync.mockResolvedValue({
       status: "granted",
     });
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
 
     await fireEvent.press(
       await screen.findByRole("button", { name: "Activar los avisos" }),
@@ -129,7 +160,7 @@ describe("Cuenta", () => {
     Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
     const alerta = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     mockSesion.cerrarSesion.mockRejectedValueOnce(new Error("inesperado"));
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Cerrar sesión" }),
@@ -152,7 +183,7 @@ describe("Cuenta", () => {
   it("«Cerrar sesión» pide confirmación antes de cerrar", async () => {
     Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
     const alerta = jest.spyOn(Alert, "alert").mockImplementation(() => {});
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
 
     await fireEvent.press(
       screen.getByRole("button", { name: "Cerrar sesión" }),
@@ -167,11 +198,45 @@ describe("Cuenta", () => {
   });
 });
 
+describe("«Cerrar sesión» en la cabecera (17/11/2026)", () => {
+  it("va en la barra de «Mi perfil» (headerRight) y ya no al final ni dentro de la pantalla", async () => {
+    Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
+    await render(<CuentaConCabecera />);
+    const boton = await screen.findByRole("button", { name: "Cerrar sesión" });
+    expect(screen.getAllByRole("button", { name: "Cerrar sesión" })).toHaveLength(1);
+    expect(within(screen.getByTestId("cabecera")).getByRole("button", { name: "Cerrar sesión" })).toBe(boton);
+  });
+});
+
+describe("«Mi estado» arriba (17/11/2026)", () => {
+  it("el bloque del chat va antes del perfil", async () => {
+    Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
+    await render(<CuentaConCabecera />);
+    await screen.findByRole("header", { name: "Chat" });
+    const textos = [];
+    const recorrer = (nodo) => {
+      if (nodo == null) return;
+      if (typeof nodo === "string") return textos.push(nodo);
+      if (Array.isArray(nodo)) return nodo.forEach(recorrer);
+      (nodo.children ?? []).forEach(recorrer);
+    };
+    recorrer(screen.toJSON());
+    const chat = textos.indexOf("Chat");
+    const datos = textos.indexOf("Mis datos");
+    expect(chat).toBeGreaterThan(-1);
+    if (datos > -1) expect(chat).toBeLessThan(datos);
+    // Lo primero con letras de la pantalla (debajo de la cabecera) es «Chat».
+    const cabecera = textos.indexOf("Cerrar sesión");
+    const primero = textos.findIndex((t, i) => i > cabecera && /[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(t));
+    expect(textos[primero]).toBe("Chat");
+  });
+});
+
 describe("Cuenta con una sola empresa (16/11/2026)", () => {
   it("no muestra el bloque «Empresa»", async () => {
     const antes = mockSesion.empresas;
     mockSesion.empresas = [{ id: 1, nombre: "Laar Courier", roles: [] }];
-    await render(<Cuenta />);
+    await render(<CuentaConCabecera />);
     expect(screen.queryByRole("header", { name: "Empresa" })).toBeNull();
     expect(screen.queryByText("Laar Courier")).toBeNull();
     mockSesion.empresas = antes;

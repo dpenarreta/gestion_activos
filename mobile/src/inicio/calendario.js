@@ -1,4 +1,5 @@
 import { paletaActiva } from "../tema/colores";
+import { diaConNombre, MESES, sumarDias } from "../utils/calendario";
 
 /**
  * El calendario de Inicio en la app (16/11/2026, a pedido del usuario): el
@@ -66,74 +67,17 @@ export function enGrupo(evento, grupo) {
   return !tipos || tipos.includes(evento?.tipo);
 }
 
-const MESES = [
-  "enero",
-  "febrero",
-  "marzo",
-  "abril",
-  "mayo",
-  "junio",
-  "julio",
-  "agosto",
-  "septiembre",
-  "octubre",
-  "noviembre",
-  "diciembre",
-];
-
-const DIAS_LARGOS = [
-  "domingo",
-  "lunes",
-  "martes",
-  "miércoles",
-  "jueves",
-  "viernes",
-  "sábado",
-];
-
-/** De lunes a domingo, como el calendario de Inicio de la web. */
-export const DIAS_DE_LA_SEMANA = [
-  { corto: "Lun", largo: "lunes" },
-  { corto: "Mar", largo: "martes" },
-  { corto: "Mié", largo: "miércoles" },
-  { corto: "Jue", largo: "jueves" },
-  { corto: "Vie", largo: "viernes" },
-  { corto: "Sáb", largo: "sábado" },
-  { corto: "Dom", largo: "domingo" },
-];
-
-const dos = (n) => String(n).padStart(2, "0");
-
-function aIso(fecha) {
-  return `${fecha.getUTCFullYear()}-${dos(fecha.getUTCMonth() + 1)}-${dos(fecha.getUTCDate())}`;
-}
-
-function deIso(iso) {
-  const [a, m, d] = String(iso).split("-").map(Number);
-  return new Date(Date.UTC(a, m - 1, d));
-}
-
-/** «AAAA-MM-DD» más (o menos) `n` días. */
-export function sumarDias(iso, n) {
-  const fecha = deIso(iso);
-  fecha.setUTCDate(fecha.getUTCDate() + n);
-  return aIso(fecha);
-}
-
-/** Los 42 días (6 semanas, desde el lunes) que se dibujan para un mes. */
-export function diasDeLaCuadricula(anio, mes) {
-  const primero = new Date(Date.UTC(anio, mes - 1, 1));
-  const corrimiento = (primero.getUTCDay() + 6) % 7; // lunes = 0
-  const inicio = aIso(new Date(Date.UTC(anio, mes - 1, 1 - corrimiento)));
-  return Array.from({ length: 42 }, (_, i) => {
-    const iso = sumarDias(inicio, i);
-    return {
-      iso,
-      numero: Number(iso.slice(8)),
-      delMes: Number(iso.slice(5, 7)) === mes,
-    };
-  });
-}
+// La cuadrícula, los meses, los nombres de los días y `sumarDias` viven desde la
+// US-030 (17/11/2026) en `utils/calendario.js`, que comparten Inicio, la
+// Matriz y el calendario de rango de los permisos. Se reexportan aquí para
+// no cambiar quién los importa.
+export {
+  DIAS_DE_LA_SEMANA,
+  diaConNombre,
+  diasDeLaCuadricula,
+  sumarDias,
+  tituloDelMes,
+} from "../utils/calendario";
 
 /** Cada día («AAAA-MM-DD») con lo que cae en él, incluidos los días
  * intermedios de las fechas que duran varios. */
@@ -152,16 +96,6 @@ export function porDia(apariciones = []) {
     }
   }
   return mapa;
-}
-
-export function tituloDelMes(anio, mes) {
-  return `${MESES[mes - 1].charAt(0).toUpperCase()}${MESES[mes - 1].slice(1)} ${anio}`;
-}
-
-/** «lunes 16 de noviembre». */
-export function diaConNombre(iso) {
-  const fecha = deIso(iso);
-  return `${DIAS_LARGOS[fecha.getUTCDay()]} ${fecha.getUTCDate()} de ${MESES[fecha.getUTCMonth()]}`;
 }
 
 function diaYMes(iso) {

@@ -24,6 +24,8 @@ import {
   TEXTO_NO_ENCONTRADA,
   TEXTO_SIN_MENSAJES,
 } from "../src/pantallas/chat/Conversacion";
+import { PISTA_CONTACTO } from "../src/chat/contacto";
+import { AREA_TACTIL } from "../src/tema/colores";
 import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 /**
@@ -1394,5 +1396,105 @@ describe("US-026: modo oscuro", () => {
     const { paletaOscura } = require("../src/tema/colores");
     expect(StyleSheet.flatten(screen.getByText("Mensaje 11").props.style).color).toBe(paletaOscura.sobreBurbujaPropia);
     expect(StyleSheet.flatten(screen.getByText("Mensaje 10").props.style).color).toBe(paletaOscura.tinta);
+  });
+});
+
+describe("US-031: el título de la cabecera abre la tarjeta o la información del grupo (CA-2)", () => {
+  afterEach(olvidarApariencia);
+
+  /** Pinta lo último que la pantalla puso en `headerTitle`. */
+  async function renderTitulo(renderizar = render) {
+    const opciones = opcionesDeCabecera();
+    return renderizar(opciones.headerTitle({ tintColor: undefined, children: opciones.title }));
+  }
+
+  it("en un directo el nombre es un botón que abre la tarjeta, en la empresa del chat", async () => {
+    await render(<Conversacion id="5" empresa="2" />);
+    await screen.findByText("Mensaje 11");
+    expect(opcionesDeCabecera().title).toBe("Carla Ruiz");
+    await renderTitulo();
+    const titulo = screen.getByTestId("titulo-conversacion");
+    expect(titulo.props.accessibilityRole).toBe("button");
+    expect(titulo.props.accessibilityLabel).toBe("Ver el contacto de Carla Ruiz");
+    expect(titulo.props.accessibilityHint).toBe(PISTA_CONTACTO);
+    expect(screen.getByText("Carla Ruiz")).toBeTruthy();
+    // Área táctil de 48/44.
+    const { StyleSheet } = require("react-native");
+    expect(StyleSheet.flatten(titulo.props.style).minHeight).toBe(AREA_TACTIL);
+    await fireEvent.press(titulo);
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
+  });
+
+  it("O1: dos toques seguidos en el título abren una sola tarjeta; con la letra grande crece hasta 1,5", async () => {
+    await render(<Conversacion id="5" empresa="2" />);
+    await screen.findByText("Mensaje 11");
+    await renderTitulo();
+    expect(screen.getByText("Carla Ruiz").props.maxFontSizeMultiplier).toBe(1.5);
+    const titulo = screen.getByTestId("titulo-conversacion");
+    await fireEvent.press(titulo);
+    await fireEvent.press(titulo);
+    expect(mockRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9", empresa: "2" } });
+  });
+
+  it("sin empresa en la ruta, la tarjeta se abre en la empresa activa (sin `empresa`)", async () => {
+    await render(<Conversacion id="5" />);
+    await screen.findByText("Mensaje 11");
+    await renderTitulo();
+    await fireEvent.press(screen.getByTestId("titulo-conversacion"));
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/contacto/[id]", params: { id: "9" } });
+  });
+
+  it("el ícono de la derecha se mantiene y lleva la misma pista", async () => {
+    await render(<Conversacion id="5" empresa="2" />);
+    await screen.findByText("Mensaje 11");
+    await renderCabeceraDerecha();
+    const boton = screen.getByTestId("ver-contacto");
+    expect(boton.props.accessibilityHint).toBe(PISTA_CONTACTO);
+  });
+
+  it("en un grupo el título abre «Información del grupo», lo mismo que su ícono", async () => {
+    await render(<Conversacion id="7" empresa="2" />);
+    await screen.findByText("Grupo · 3 participantes");
+    await renderTitulo();
+    const titulo = screen.getByTestId("titulo-conversacion");
+    expect(titulo.props.accessibilityLabel).toBe("Información de Equipo TI");
+    expect(titulo.props.accessibilityHint).toBe(PISTA_INFORMACION);
+    await fireEvent.press(titulo);
+    expect(mockRouter.push).toHaveBeenCalledWith({
+      pathname: "/chat/participantes/[id]",
+      params: { id: "7", empresa: "2", grupo: "1" },
+    });
+    expect(mockRouter.push).not.toHaveBeenCalledWith(expect.objectContaining({ pathname: "/chat/contacto/[id]" }));
+  });
+
+  it("en el canal general el título abre los participantes, como su ícono", async () => {
+    mockChat.conversaciones = [{ ...GRUPO, id: 1, tipo: "general", nombre: "Canal general", administra: false }];
+    await render(<Conversacion id="1" />);
+    await screen.findByText("Mensaje 11");
+    await renderTitulo();
+    const titulo = screen.getByTestId("titulo-conversacion");
+    expect(titulo.props.accessibilityLabel).toBe("Ver los participantes de Canal general");
+    await fireEvent.press(titulo);
+    expect(mockRouter.push).toHaveBeenCalledWith({ pathname: "/chat/participantes/[id]", params: { id: "1" } });
+  });
+
+  it("mientras no se sabe qué conversación es, el título es solo texto (B5)", async () => {
+    mockChat.conversaciones = [];
+    chatService.conversacion.mockReturnValue(new Promise(() => {}));
+    await render(<Conversacion id="7" />);
+    await screen.findByText("Mensaje 11");
+    expect(opcionesDeCabecera().headerTitle).toBeUndefined();
+  });
+
+  it("en oscuro el título no lleva colores fijos del modo claro (CA-5)", async () => {
+    await renderEnOscuro(<Conversacion id="5" />);
+    await screen.findByText("Mensaje 11");
+    const vista = await renderTitulo(renderEnOscuro);
+    expect(coloresClarosEn(vista.toJSON())).toEqual([]);
+    const { StyleSheet } = require("react-native");
+    const { paletaOscura } = require("../src/tema/colores");
+    expect(StyleSheet.flatten(screen.getByText("Carla Ruiz").props.style).color).toBe(paletaOscura.sobreCabecera);
   });
 });

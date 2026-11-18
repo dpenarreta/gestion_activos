@@ -31,6 +31,7 @@ import {
   tomarFotoParaElChat,
 } from "../../chat/adjunto";
 import { registrarConversacionAbierta } from "../../chat/avisoEnPrimerPlano";
+import { PISTA_CONTACTO, useAbrirContacto } from "../../chat/contacto";
 import { useChat, useChatVisible } from "../../chat/ChatContext";
 import {
   claveDeDia,
@@ -341,9 +342,44 @@ export function Conversacion({ id, empresa = null }) {
     router.push({ pathname: "/chat/participantes/[id]", params });
   }, [router, id, empresa, esGrupo]);
 
+  // US-031 (CA-2, CA-4): la tarjeta de la otra persona, con la empresa del
+  // chat; la abren el ícono de la derecha y el título.
+  const abrirContacto = useAbrirContacto();
+  const verContacto = useCallback(() => abrirContacto(contactoId, empresa), [abrirContacto, contactoId, empresa]);
+
   useEffect(() => {
+    // US-031 (CA-2, 18/11/2026, a pedido del usuario): el título también se
+    // toca. En un directo abre la tarjeta; en un grupo (y en el canal
+    // general), lo mismo que su ícono. Mientras no se sabe qué conversación
+    // es (B5), el título es solo texto.
+    const accionDelTitulo = conversacion?.tipo && grupal ? abrirInformacion : contactoId ? verContacto : null;
     navegacion?.setOptions?.({
       title: nombre,
+      headerTitle: accionDelTitulo
+        ? ({ tintColor }) => (
+            <Pressable
+              testID="titulo-conversacion"
+              onPress={accionDelTitulo}
+              accessibilityRole="button"
+              accessibilityLabel={
+                grupal ? (esGrupo ? `Información de ${nombre}` : `Ver los participantes de ${nombre}`) : `Ver el contacto de ${nombre}`
+              }
+              accessibilityHint={grupal ? (esGrupo ? PISTA_INFORMACION : "Abre la lista de participantes") : PISTA_CONTACTO}
+              hitSlop={4}
+              style={({ pressed }) => [estilos.titulo, pressed && estilos.tituloPresionado]}
+            >
+              {/* Con la letra al 200 % el nombre crece hasta 1,5 veces: más
+                  no cabe en la cabecera (QA US-031, P3). */}
+              <Text
+                style={[estilos.tituloTexto, tintColor ? { color: tintColor } : null]}
+                numberOfLines={1}
+                maxFontSizeMultiplier={1.5}
+              >
+                {nombre}
+              </Text>
+            </Pressable>
+          )
+        : undefined,
       headerRight:
         conversacion?.tipo && grupal
           ? () => (
@@ -365,17 +401,13 @@ export function Conversacion({ id, empresa = null }) {
                   icono="card-account-details-outline"
                   variante="oscuro"
                   etiqueta={`Ver el contacto de ${nombre}`}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/chat/contacto/[id]",
-                      params: empresa ? { id: String(contactoId), empresa } : { id: String(contactoId) },
-                    })
-                  }
+                  pista={PISTA_CONTACTO}
+                  onPress={verContacto}
                 />
               )
             : undefined,
     });
-  }, [navegacion, nombre, grupal, conversacion?.tipo, router, id, empresa, contactoId, esGrupo, abrirInformacion]);
+  }, [navegacion, nombre, grupal, conversacion?.tipo, contactoId, esGrupo, abrirInformacion, verContacto, estilos]);
 
   // CA-11: mientras tiene el foco, su push no se muestra.
   useFocusEffect(useCallback(() => registrarConversacionAbierta(id, empresa), [id, empresa]));
@@ -1376,6 +1408,11 @@ const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   barraFila: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 },
   lineaDelGrupo: { minHeight: AREA_TACTIL, flexDirection: "row", alignItems: "center", gap: 2 },
   lineaPresionada: { opacity: 0.7 },
+  // US-031 (CA-2): el título tocable de la cabecera, con su área de 48/44 y
+  // el blanco sobre la cabecera negra en los dos modos.
+  titulo: { minHeight: AREA_TACTIL, justifyContent: "center", paddingHorizontal: 6, borderRadius: 8, maxWidth: "100%" },
+  tituloPresionado: { backgroundColor: colores.presionadoOscuro },
+  tituloTexto: { fontSize: 17, fontWeight: "600", color: colores.sobreCabecera },
   enlaceTenue: { fontSize: 14, color: colores.tintaSuave, textDecorationLine: "underline" },
   tenue: { fontSize: 14, color: colores.tintaSuave },
   tenueCentro: { fontSize: 15, color: colores.tintaTenue, textAlign: "center" },

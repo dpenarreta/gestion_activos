@@ -1,6 +1,6 @@
 import * as Linking from "expo-linking";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigation, useRouter } from "expo-router";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -19,6 +19,7 @@ import { useSesion } from "../sesion/SesionContext";
 import { useCerrarSesion } from "../sesion/useCerrarSesion";
 import { ResumenMiEstado } from "./chat/piezas";
 import { MiPerfil } from "./MiPerfil";
+import { AREA_TACTIL } from "../tema/colores";
 import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
 import { useRellenoDeLaBurbuja } from "../navegacion/BurbujaDeSoporte";
@@ -123,6 +124,35 @@ function BloqueAvisos() {
 }
 
 /**
+ * «Cerrar sesión» en la barra negra de «Mi perfil», a la derecha del título
+ * (17/11/2026, a pedido del usuario: visible sin bajar). Ícono y texto claros
+ * sobre la cabecera (`sobreCabecera`, 21:1 en los dos modos).
+ */
+function CerrarSesionEnCabecera({ cerrando, onPress }) {
+  const colores = useColores();
+  const estilos = useEstilos(fabricaDeEstilos);
+  return (
+    <Pressable
+      testID="cerrar-sesion"
+      onPress={onPress}
+      disabled={cerrando}
+      accessibilityRole="button"
+      accessibilityLabel="Cerrar sesión"
+      accessibilityState={{ disabled: cerrando, busy: cerrando }}
+      hitSlop={4}
+      style={({ pressed }) => [estilos.cerrarSesion, pressed && !cerrando && { backgroundColor: colores.presionadoOscuro }]}
+    >
+      {cerrando ? (
+        <ActivityIndicator color={colores.sobreCabecera} />
+      ) : (
+        <Icono nombre="logout" size={20} color={colores.sobreCabecera} />
+      )}
+      <Text style={estilos.cerrarSesionTexto}>Cerrar sesión</Text>
+    </Pressable>
+  );
+}
+
+/**
  * «Mi perfil» y la cuenta: quién está dentro, sus datos, cargo y línea de
  * supervisión (solo lectura, `MiPerfil`), y debajo la cuenta: quién está dentro, en qué empresa (con selector si tiene más de
  * una, CA-13), los avisos y «Cerrar sesión» (CA-4). La lista de empresas sale
@@ -137,6 +167,20 @@ export function Cuenta() {
   const router = useRouter();
   const { usuario, empresas, empresaActiva, cambiarEmpresa } = useSesion();
   const { cerrando, confirmarCierre } = useCerrarSesion();
+  const navegacion = useNavigation();
+  // `confirmarCierre` cambia en cada render: la cabecera solo se vuelve a
+  // fijar cuando cambia `cerrando` (si no, `setOptions` en bucle).
+  const cierreRef = useRef(confirmarCierre);
+  useLayoutEffect(() => {
+    cierreRef.current = confirmarCierre;
+  });
+  const alCerrar = useCallback(() => cierreRef.current(), []);
+
+  useLayoutEffect(() => {
+    navegacion?.setOptions?.({
+      headerRight: () => <CerrarSesionEnCabecera cerrando={cerrando} onPress={alCerrar} />,
+    });
+  }, [navegacion, cerrando, alCerrar]);
   const [cambiando, setCambiando] = useState(null);
   const [error, setError] = useState(null);
   const montado = useRef(true);
@@ -169,10 +213,19 @@ export function Cuenta() {
       contentContainerStyle={[estilos.contenido, rellenoBurbuja]}
     >
       {/* 16/11/2026, a pedido del usuario: el icono de la cuenta abre «Mi
-          perfil» (solo lectura); empresa, chat, avisos y cerrar sesión
+          perfil» (solo lectura); empresa, chat y avisos
           siguen debajo. */}
       {/* El nombre, el código y el cargo los pone el encabezado de
           `MiPerfil` (sin el correo, 16/11/2026). */}
+      {/* US-011: mi estado en el chat, el mismo de la web. Arriba de todo
+          (17/11/2026, a pedido del usuario), antes del perfil. */}
+      <View style={estilos.bloque}>
+        <Text style={estilos.subtitulo} accessibilityRole="header">
+          Chat
+        </Text>
+        <ResumenMiEstado onAbrir={() => router.push("/chat/mi-estado")} />
+      </View>
+
       <MiPerfil usuario={usuario} />
 
       {/* «Empresa» solo si tiene más de una, para elegir en cuál trabaja
@@ -231,23 +284,8 @@ export function Cuenta() {
         </View>
       ) : null}
 
-      {/* US-011: mi estado en el chat, el mismo de la web. */}
-      <View style={estilos.bloque}>
-        <Text style={estilos.subtitulo} accessibilityRole="header">
-          Chat
-        </Text>
-        <ResumenMiEstado onAbrir={() => router.push("/chat/mi-estado")} />
-      </View>
-
       <BloqueAvisos />
 
-      <Boton
-        titulo="Cerrar sesión"
-        icono="logout"
-        variante="secundario"
-        cargando={cerrando}
-        onPress={confirmarCierre}
-      />
     </ScrollView>
   );
 }
@@ -255,6 +293,15 @@ export function Cuenta() {
 const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 16, gap: 24 },
+  cerrarSesion: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minHeight: AREA_TACTIL,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  cerrarSesionTexto: { fontSize: 15, fontWeight: "600", color: colores.sobreCabecera },
   bloque: { gap: 8 },
   titulo: { fontSize: 22, fontWeight: "700", color: colores.tinta },
   subtitulo: { fontSize: 18, fontWeight: "700", color: colores.tinta },

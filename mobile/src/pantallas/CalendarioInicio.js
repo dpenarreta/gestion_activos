@@ -20,6 +20,7 @@ import {
   unicas,
 } from "../inicio/calendario";
 import { diaEnZona } from "../matriz/formato";
+import { moverMes } from "../utils/calendario";
 import { AREA_TACTIL } from "../tema/colores";
 import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
@@ -29,11 +30,6 @@ import { crearEstilos } from "../tema/tipografia";
 const ZONA = "America/Guayaquil";
 
 const SIN_EVENTOS = [];
-
-function moverMes({ anio, mes }, delta) {
-  const total = anio * 12 + (mes - 1) + delta;
-  return { anio: Math.floor(total / 12), mes: (total % 12) + 1 };
-}
 
 /** El mes en la pantalla se anuncia en iOS; en Android el título es una
  * región viva y ya se lee solo. */

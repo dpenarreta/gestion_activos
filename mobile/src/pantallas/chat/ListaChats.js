@@ -1,8 +1,9 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 import { FlatList, Pressable, Text, useWindowDimensions, View } from "react-native";
 
 import { useChat, useChatVisible } from "../../chat/ChatContext";
+import { PISTA_CONTACTO, useAbrirContacto } from "../../chat/contacto";
 import {
   esDeMisGrupos,
   esGrupal,
@@ -53,6 +54,7 @@ export function ListaChats({ soloGrupos = false }) {
   const estilos = useEstilos(fabricaDeEstilos);
   useChatVisible();
   const router = useRouter();
+  const abrirContacto = useAbrirContacto();
   const { conversaciones, estado, error, noLeidos, cargarConversaciones } = useChat();
   const [refrescando, setRefrescando] = useState(false);
   const { fontScale } = useWindowDimensions();
@@ -90,6 +92,26 @@ export function ListaChats({ soloGrupos = false }) {
       abriendoNuevo.current = false;
     }, CANDADO_NUEVO_MS);
   }
+
+  // Callbacks estables y la fila en `memo` (QA US-031, P3): el sondeo del
+  // chat no vuelve a pintar las filas que no cambiaron.
+  const abrirConversacion = useCallback((conversacion) => router.push(`/chat/conversacion/${conversacion.id}`), [router]);
+  // US-031 (CA-3): en un directo, el avatar abre la tarjeta de la otra
+  // persona (`otro`, de `views.resumen`), en la empresa activa.
+  const verContacto = useCallback((conversacion) => abrirContacto(conversacion.otro.id), [abrirContacto]);
+  const renderItem = useCallback(
+    ({ item }) => (
+      <FilaConversacion
+        conversacion={item}
+        sinLeer={noLeidos[String(item.id)] ?? 0}
+        presencia={item.tipo === "directa" ? presencia[String(item.otro?.id)] : null}
+        horaAbajo={horaAbajo}
+        onAbrir={abrirConversacion}
+        onVerContacto={item.tipo === "directa" && item.otro?.id ? verContacto : undefined}
+      />
+    ),
+    [noLeidos, presencia, horaAbajo, abrirConversacion, verContacto],
+  );
 
   async function refrescar() {
     setRefrescando(true);
@@ -170,15 +192,7 @@ export function ListaChats({ soloGrupos = false }) {
             </View>
           ) : null
         }
-        renderItem={({ item }) => (
-          <FilaConversacion
-            conversacion={item}
-            sinLeer={noLeidos[String(item.id)] ?? 0}
-            presencia={item.tipo === "directa" ? presencia[String(item.otro?.id)] : null}
-            horaAbajo={horaAbajo}
-            onAbrir={() => router.push(`/chat/conversacion/${item.id}`)}
-          />
-        )}
+        renderItem={renderItem}
         ItemSeparatorComponent={SeparadorDeFila}
         refreshControl={<Refresco refreshing={refrescando} onRefresh={refrescar} />}
       />
@@ -192,7 +206,23 @@ function SeparadorDeFila() {
   return <View style={estilos.separador} />;
 }
 
-export function FilaConversacion({ conversacion, sinLeer, presencia, onAbrir, horaAbajo = false }) {
+/**
+ * Una fila de la lista. Con `onVerContacto` (un directo, US-031 CA-3) el
+ * avatar es un botón aparte, hermano del de la fila y no anidado en él: así
+ * cada uno tiene su nombre para el lector de pantalla y la fila conserva el
+ * suyo. Sin él (canal general, grupos, áreas) todo es un solo botón, como
+ * antes, y el avatar abre la conversación.
+ */
+/* `onAbrir` y `onVerContacto` reciben la conversación: así los de la lista
+ * son los mismos en cada render y `memo` sirve. */
+export const FilaConversacion = memo(function FilaConversacion({
+  conversacion,
+  sinLeer,
+  presencia,
+  onAbrir,
+  onVerContacto,
+  horaAbajo = false,
+}) {
   const colores = useColores();
   const estilos = useEstilos(fabricaDeEstilos);
   const ultimo = textoUltimo(conversacion);
@@ -206,28 +236,23 @@ export function FilaConversacion({ conversacion, sinLeer, presencia, onAbrir, ho
   ]
     .filter(Boolean)
     .join(". ");
-  return (
-    <Pressable
-      testID={`conversacion-${conversacion.id}`}
-      onPress={onAbrir}
-      accessibilityRole="button"
-      accessibilityLabel={etiqueta}
-      accessibilityHint="Abre la conversación"
-      style={({ pressed }) => [estilos.item, sinLeer > 0 && estilos.itemNuevo, pressed && estilos.presionado]}
-    >
-      {/* Avatar de 44: en un directo, las iniciales; en el canal general y
-          los grupos, su ícono. Amarillo sobre negro (12,7:1). */}
-      <View style={estilos.avatar}>
-        {esGrupal(conversacion) ? (
-          <Icono nombre={ICONO_DE_TIPO[conversacion.tipo] ?? "chat-outline"} size={22} color={colores.acento} />
-        ) : (
-          // Con la letra grande, las iniciales crecen hasta 1,3 veces: más no
-          // caben en el círculo de 44 (N-01).
-          <Text style={estilos.iniciales} maxFontSizeMultiplier={1.3}>
-            {iniciales(conversacion.nombre)}
-          </Text>
-        )}
-      </View>
+  // Avatar de 44: en un directo, las iniciales; en el canal general y los
+  // grupos, su ícono. Amarillo sobre negro (12,7:1).
+  const avatar = (
+    <View style={estilos.avatar}>
+      {esGrupal(conversacion) ? (
+        <Icono nombre={ICONO_DE_TIPO[conversacion.tipo] ?? "chat-outline"} size={22} color={colores.acento} />
+      ) : (
+        // Con la letra grande, las iniciales crecen hasta 1,3 veces: más no
+        // caben en el círculo de 44 (N-01).
+        <Text style={estilos.iniciales} maxFontSizeMultiplier={1.3}>
+          {iniciales(conversacion.nombre)}
+        </Text>
+      )}
+    </View>
+  );
+  const cuerpo = (
+    <>
       <View style={estilos.texto}>
         <Text style={[estilos.nombre, sinLeer > 0 && estilos.nombreNuevo]}>{conversacion.nombre}</Text>
         {presencia ? <Presencia presencia={presencia} compacta /> : null}
@@ -248,9 +273,52 @@ export function FilaConversacion({ conversacion, sinLeer, presencia, onAbrir, ho
         ) : null}
         <InsigniaSinLeer cantidad={sinLeer} />
       </View>
-    </Pressable>
+    </>
   );
-}
+
+  if (!onVerContacto) {
+    return (
+      <Pressable
+        testID={`conversacion-${conversacion.id}`}
+        onPress={() => onAbrir(conversacion)}
+        accessibilityRole="button"
+        accessibilityLabel={etiqueta}
+        accessibilityHint="Abre la conversación"
+        style={({ pressed }) => [estilos.item, sinLeer > 0 && estilos.itemNuevo, pressed && estilos.presionado]}
+      >
+        {avatar}
+        {cuerpo}
+      </Pressable>
+    );
+  }
+
+  // El mismo dibujo que la fila de un solo botón: 16 a la izquierda del
+  // avatar y 12 entre el avatar y el texto (6 de cada botón).
+  return (
+    <View style={[estilos.itemDividido, sinLeer > 0 && estilos.itemNuevo]}>
+      <Pressable
+        testID={`avatar-${conversacion.id}`}
+        onPress={() => onVerContacto(conversacion)}
+        accessibilityRole="button"
+        accessibilityLabel={`Ver la tarjeta de ${conversacion.nombre}`}
+        accessibilityHint={PISTA_CONTACTO}
+        style={({ pressed }) => [estilos.avatarBoton, pressed && estilos.presionado]}
+      >
+        {avatar}
+      </Pressable>
+      <Pressable
+        testID={`conversacion-${conversacion.id}`}
+        onPress={() => onAbrir(conversacion)}
+        accessibilityRole="button"
+        accessibilityLabel={etiqueta}
+        accessibilityHint="Abre la conversación"
+        style={({ pressed }) => [estilos.cuerpoBoton, pressed && estilos.presionado]}
+      >
+        {cuerpo}
+      </Pressable>
+    </View>
+  );
+});
 
 const fabricaDeEstilos = (colores) => crearEstilos({
   pantalla: { flex: 1, backgroundColor: colores.fondo },
@@ -270,6 +338,30 @@ const fabricaDeEstilos = (colores) => crearEstilos({
     backgroundColor: colores.superficie,
   },
   itemNuevo: { backgroundColor: colores.realce },
+  // US-031 (CA-3): la fila de un directo, con el avatar y el resto como dos
+  // botones; cada uno ocupa todo el alto de la fila.
+  itemDividido: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: Math.max(72, AREA_TACTIL),
+    backgroundColor: colores.superficie,
+  },
+  avatarBoton: {
+    justifyContent: "center",
+    paddingLeft: 16,
+    paddingRight: 6,
+    minWidth: AREA_TACTIL,
+    minHeight: AREA_TACTIL,
+  },
+  cuerpoBoton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingLeft: 6,
+    paddingRight: 16,
+    paddingVertical: 10,
+  },
   presionado: { opacity: 0.85 },
   separador: { height: 1, marginLeft: 72, backgroundColor: colores.borde },
   avatar: {
