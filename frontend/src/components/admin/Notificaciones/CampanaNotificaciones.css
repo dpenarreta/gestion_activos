@@ -148,3 +148,222 @@
   border-radius: 50%;
   background: var(--mz-blue-500);
 }
+
+/* --- Cada módulo con su color, igual que en la app móvil (18/11/2026) ---
+
+   La paleta es la de mobile/src/tema/familias.js: el ícono en su color sobre
+
+   su fondo, y la etiqueta del módulo en su color con letra blanca (en oscuro,
+
+   letra negra sobre su tono claro). La familia la da `familiaDe` en
+
+   utils/coloresDeModulo.js; tests/ColoresDeModulo.test.js vigila que no se
+
+   separe de la app. */
+
+.campana-item--institucional {
+  --modulo-icono: #b45309;
+  --modulo-fondo: #fef3c7;
+  --modulo-etiqueta: #b45309;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--dashboards {
+  --modulo-icono: #2563eb;
+  --modulo-fondo: #dbeafe;
+  --modulo-etiqueta: #2563eb;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--soporte {
+  --modulo-icono: #7c3aed;
+  --modulo-fondo: #ede9fe;
+  --modulo-etiqueta: #7c3aed;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--gestionHumana {
+  --modulo-icono: #059669;
+  --modulo-fondo: #d1fae5;
+  --modulo-etiqueta: #047857;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--matriz {
+  --modulo-icono: #e11d48;
+  --modulo-fondo: #ffe4e6;
+  --modulo-etiqueta: #e11d48;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--ordenes {
+  --modulo-icono: #ea580c;
+  --modulo-fondo: #ffedd5;
+  --modulo-etiqueta: #c2410c;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--activos {
+  --modulo-icono: #0d9488;
+  --modulo-fondo: #ccfbf1;
+  --modulo-etiqueta: #0f766e;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--chat {
+  --modulo-icono: #0284c7;
+  --modulo-fondo: #e0f2fe;
+  --modulo-etiqueta: #0369a1;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--auditoria {
+  --modulo-icono: #4f46e5;
+  --modulo-fondo: #e0e7ff;
+  --modulo-etiqueta: #4f46e5;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--permisos {
+  --modulo-icono: #c026d3;
+  --modulo-fondo: #fae8ff;
+  --modulo-etiqueta: #a21caf;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--vacaciones {
+  --modulo-icono: #4d7c0f;
+  --modulo-fondo: #ecfccb;
+  --modulo-etiqueta: #4d7c0f;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--perfil {
+  --modulo-icono: #0e7490;
+  --modulo-fondo: #cffafe;
+  --modulo-etiqueta: #0e7490;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+.campana-item--sistema {
+  --modulo-icono: #444444;
+  --modulo-fondo: #ebebeb;
+  --modulo-etiqueta: #444444;
+  --modulo-sobre-etiqueta: #ffffff;
+}
+
+:root[data-theme="dark"] .campana-item--institucional {
+  --modulo-icono: #fde68a;
+  --modulo-fondo: #451a03;
+  --modulo-etiqueta: #fcd34d;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--dashboards {
+  --modulo-icono: #bfdbfe;
+  --modulo-fondo: #172554;
+  --modulo-etiqueta: #93c5fd;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--soporte {
+  --modulo-icono: #ddd6fe;
+  --modulo-fondo: #2e1065;
+  --modulo-etiqueta: #c4b5fd;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--gestionHumana {
+  --modulo-icono: #a7f3d0;
+  --modulo-fondo: #022c22;
+  --modulo-etiqueta: #6ee7b7;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--matriz {
+  --modulo-icono: #fecdd3;
+  --modulo-fondo: #4c0519;
+  --modulo-etiqueta: #fda4af;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--ordenes {
+  --modulo-icono: #fed7aa;
+  --modulo-fondo: #431407;
+  --modulo-etiqueta: #fdba74;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--activos {
+  --modulo-icono: #99f6e4;
+  --modulo-fondo: #042f2e;
+  --modulo-etiqueta: #5eead4;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--chat {
+  --modulo-icono: #bae6fd;
+  --modulo-fondo: #082f49;
+  --modulo-etiqueta: #7dd3fc;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--auditoria {
+  --modulo-icono: #c7d2fe;
+  --modulo-fondo: #1e1b4b;
+  --modulo-etiqueta: #a5b4fc;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--permisos {
+  --modulo-icono: #f5d0fe;
+  --modulo-fondo: #4a044e;
+  --modulo-etiqueta: #f0abfc;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--vacaciones {
+  --modulo-icono: #d9f99d;
+  --modulo-fondo: #1a2e05;
+  --modulo-etiqueta: #bef264;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--perfil {
+  --modulo-icono: #a5f3fc;
+  --modulo-fondo: #083344;
+  --modulo-etiqueta: #67e8f9;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+:root[data-theme="dark"] .campana-item--sistema {
+  --modulo-icono: #e1e1e1;
+  --modulo-fondo: #262626;
+  --modulo-etiqueta: #c4c4c4;
+  --modulo-sobre-etiqueta: #000000;
+}
+
+.campana-item .campana-item__icono {
+  background: var(--modulo-fondo);
+  color: var(--modulo-icono);
+  /* Un borde suave: sobre el fondo de «nueva» el cuadro no se funde. */
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--modulo-icono) 25%, transparent);
+}
+.campana-item .campana-item__modulo:empty {
+  display: none;
+}
+/* Las nuevas también responden al pasar el ratón y al enfocar. */
+.campana-item--nueva:hover,
+.campana-item--nueva:focus-visible {
+  background: var(--mz-blue-100);
+}
+.campana-item .campana-item__modulo {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--modulo-etiqueta);
+  color: var(--modulo-sobre-etiqueta);
+  text-transform: none;
+  letter-spacing: 0;
+}

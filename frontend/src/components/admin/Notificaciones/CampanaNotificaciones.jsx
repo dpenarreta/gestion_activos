@@ -8,6 +8,7 @@ import {
   sonarNotificacion,
   sonidoActivado,
 } from "../../../utils/sonidoNotificacion";
+import { familiaDe } from "../../../utils/coloresDeModulo";
 import { Icon } from "../../common/Icon/Icon";
 import "./CampanaNotificaciones.css";
 
@@ -66,7 +67,10 @@ export function ElementoNotificacion({ notificacion, onAbrir }) {
       )}
     </>
   );
-  const clase = `campana-item${notificacion.leida ? "" : " campana-item--nueva"}`;
+  // Cada módulo con su color, como en la app móvil (18/11/2026).
+  const clase = `campana-item campana-item--${familiaDe(notificacion)}${
+    notificacion.leida ? "" : " campana-item--nueva"
+  }`;
   return (
     <button
       type="button"
