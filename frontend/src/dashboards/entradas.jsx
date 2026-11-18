@@ -1,8 +1,13 @@
+import { useParams } from "react-router-dom";
+
 import { ModuloDashboards } from "./ModuloDashboards";
 import DashboardAreaPage from "./pages/dashboards/DashboardAreaPage";
 import DashboardHistoricoPage from "./pages/dashboards/DashboardHistoricoPage";
 import DashboardsListPage from "./pages/dashboards/DashboardsListPage";
 import PlantillaBasePage from "./pages/plantilla/PlantillaBasePage";
+import InteraccionPlataformaPage, {
+  DASHBOARD_INTERACCION,
+} from "./pages/interaccion/InteraccionPlataformaPage";
 
 /*
  * Las pantallas del módulo, cada una dentro de su raíz. Este archivo es la
@@ -19,9 +24,16 @@ export function Listado() {
 }
 
 export function Dashboard() {
+  const { dashboardId } = useParams();
+  // «Interacción de la plataforma» lo calcula el sistema: no se carga desde
+  // Excel ni se arma con el editor (18/11/2026).
   return (
     <ModuloDashboards>
-      <DashboardAreaPage />
+      {dashboardId === DASHBOARD_INTERACCION ? (
+        <InteraccionPlataformaPage />
+      ) : (
+        <DashboardAreaPage />
+      )}
     </ModuloDashboards>
   );
 }

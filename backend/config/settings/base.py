@@ -125,6 +125,7 @@ INSTALLED_APPS = [
     "apps.informes",
     "apps.mejora_continua",
     "apps.reuniones",
+    "apps.interaccion",
     "apps.escritorio",
     "apps.privacidad",
     "apps.nova",

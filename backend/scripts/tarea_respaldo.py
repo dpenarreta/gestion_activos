@@ -125,6 +125,8 @@ def main() -> int:
         # Chat (17/11/2026): «En reunión» para quien conectó su calendario de
         # Google. Sin Google configurado no consulta nada.
         ("estado_por_calendario", []),
+        # Interacción (18/11/2026): borra lo de más de 400 días.
+        ("purgar_interaccion", []),
     ):
         try:
             call_command(comando, *argumentos, stdout=registro, stderr=registro)

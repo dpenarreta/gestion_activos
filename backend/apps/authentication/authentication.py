@@ -78,6 +78,11 @@ class SessionAuthentication(JWTAuthentication):
         # Cada petición reinicia la cuenta: el plazo es de inactividad, no de
         # duración de la sesión.
         session.registrar_uso()
+        # El minuto conectado del día, para el dashboard de interacción
+        # (18/11/2026). Nunca interrumpe la petición.
+        from apps.interaccion.services import registrar_conexion
+
+        registrar_conexion(user)
 
         validated_token.session = session
         return user

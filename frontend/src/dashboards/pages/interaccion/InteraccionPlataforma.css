@@ -1,0 +1,99 @@
+/* Dashboard «Interacción de la plataforma» (18/11/2026). */
+
+.interaccion-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.interaccion-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.interaccion-kpi {
+  height: 100%;
+}
+
+.interaccion-fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.interaccion-grafico {
+  margin: 0;
+  padding: 16px;
+  min-width: 0;
+}
+
+.interaccion-titulo {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+
+.interaccion-tabla td,
+.interaccion-tabla th {
+  vertical-align: middle;
+}
+
+.interaccion-barra-col {
+  width: 30%;
+}
+
+.interaccion-barra {
+  display: block;
+  min-width: 2px;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: var(--series-1);
+}
+
+.interaccion-desplazable {
+  max-height: 360px;
+  overflow: auto;
+}
+
+.interaccion-correo {
+  overflow-wrap: anywhere;
+}
+
+.interaccion-tabla .text-end {
+  white-space: nowrap;
+}
+
+/* El encabezado queda a la vista al desplazar la lista larga. */
+.interaccion-desplazable thead th {
+  position: sticky;
+  top: 0;
+  background: var(--mz-raised);
+}
+
+.interaccion-desplazable:focus-visible {
+  outline: 2px solid var(--mz-foco, var(--series-1));
+  outline-offset: 2px;
+}
+
+.interaccion-resumen-tabla {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.interaccion-periodo .btn {
+  min-height: 44px;
+}
+
+.interaccion-cargando {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
