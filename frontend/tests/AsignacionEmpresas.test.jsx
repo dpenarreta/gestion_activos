@@ -129,22 +129,21 @@ describe("Asignación de empresas y roles a un usuario", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ofrece los roles por orden alfabético; los de cargo, a la vista pero deshabilitados", async () => {
+  it("ofrece los roles por orden alfabético y después los cargos, todos elegibles", async () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 
     const rol = await screen.findByRole("combobox", {
       name: "Rol en LaarCourier",
     });
+    // 18/11/2026: un cargo y su rol son lo mismo; el del cargo se elige aquí.
     expect(textos(rol)).toEqual([
       "Sin rol en esta empresa",
       "Auditor",
       "Solo consulta",
       "Soporte TI",
+      "Jefe de bodega",
     ]);
-    // 18/11/2026: los roles de cargo siempre aparecen, pero se dan con el cargo.
-    expect(deshabilitadas(rol)).toEqual([
-      "Jefe de bodega — se asigna con el cargo",
-    ]);
+    expect(deshabilitadas(rol)).toEqual([]);
   });
 
   it("cambiar el rol del desplegable cambia lo que se guarda", async () => {
@@ -213,11 +212,12 @@ describe("Asignación de empresas y roles a un usuario", () => {
     const otro = screen.getByRole("combobox", {
       name: "Otro rol en LaarCourier",
     });
-    // No se ofrece el que ya tiene.
+    // No se ofrece el que ya tiene; los cargos, al final.
     expect(textos(otro)).toEqual([
       "Seleccione un rol",
       "Auditor",
       "Solo consulta",
+      "Jefe de bodega",
     ]);
     fireEvent.change(otro, { target: { value: "11" } });
     fireEvent.click(screen.getByRole("button", { name: "Añadir" }));
@@ -289,7 +289,9 @@ describe("Asignación de empresas y roles a un usuario", () => {
     );
   });
 
-  it("el rol de cargo se muestra, no se elige, y viaja tal cual", async () => {
+  it("el rol de su cargo es un rol más: se ve, se cambia y viaja", async () => {
+    // 18/11/2026: un cargo y su rol son lo mismo. Elegir el rol de un cargo
+    // la ubica en el cargo al guardar (lo hace el servidor).
     get.mockResolvedValue(
       usuarioCon([
         { id: 10, name: "Soporte TI" },
@@ -298,13 +300,15 @@ describe("Asignación de empresas y roles a un usuario", () => {
     );
     render(<AsignacionEmpresas usuarioId="7" />);
 
+    const rol = await screen.findByRole("combobox", {
+      name: "Rol en LaarCourier",
+    });
+    expect(rol).toHaveValue("30");
     expect(
-      await screen.findByText(/Por su cargo en el organigrama: Jefe de bodega/),
+      within(screen.getByRole("list", { name: "Roles adicionales" })).getByText(
+        "Soporte TI",
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Rol en LaarCourier" }),
-    ).toHaveValue("10");
-    expect(screen.queryByText("Roles adicionales")).not.toBeInTheDocument();
     guardar();
     await waitFor(() =>
       expect(assignEmpresas).toHaveBeenCalledWith("7", [

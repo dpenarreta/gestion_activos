@@ -237,7 +237,11 @@ export function RolEnEmpresa({
   const delDesplegable = [
     ...opciones,
     ...manuales
-      .filter((id) => !opciones.some((rol) => rol.id === id))
+      .filter(
+        (id) =>
+          !opciones.some((rol) => rol.id === id) &&
+          !catalogoDeCargo.some((rol) => rol.id === id),
+      )
       .map((id) => ({ id, name: nombreDe(id) })),
   ];
 
@@ -342,7 +346,9 @@ export function RolEnEmpresa({
           textoBoton="Añadir otro rol"
           etiqueta={`Otro rol${enEmpresa}`}
           opciones={opciones.filter((rol) => !manuales.includes(rol.id))}
-          catalogoDeCargo={catalogoDeCargo}
+          catalogoDeCargo={catalogoDeCargo.filter(
+            (rol) => !manuales.includes(rol.id),
+          )}
           onAnadir={(rolId) => {
             onCambiar([...manuales, rolId, ...deCargo], false);
             anunciar(

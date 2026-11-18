@@ -181,6 +181,18 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
 
     _comprobar_alcance(actor, usuario, asignaciones, roles)
 
+    from apps.organizacion.roles_de_cargo import cargo_desde_roles, comprobar_un_cargo
+
+    for entrada in asignaciones:
+        comprobar_un_cargo(empresas[entrada["empresa_id"]], entrada.get("roles", []))
+    # Los roles que ya tenía en cada empresa: dar o quitar el rol de un cargo
+    # es entrar o salir de ese cargo (18/11/2026).
+    roles_previos = {
+        membresia.empresa_id: set(membresia.roles.values_list("pk", flat=True))
+        for membresia in MembresiaEmpresa.objects.filter(usuario=usuario)
+    }
+    cambios_de_cargo = []
+
     predeterminadas = [
         entrada["empresa_id"] for entrada in asignaciones if entrada.get("es_predeterminada")
     ]
@@ -216,10 +228,19 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
                 es_predeterminada=entrada["empresa_id"] == predeterminada,
             )
             membresia.roles.set([roles[rol] for rol in entrada.get("roles", [])])
-            # El rol de nivel no se elige a mano: lo pone el cargo de la
-            # persona en el organigrama (ver `organizacion.roles_de_cargo`).
+            # Un cargo y su rol son lo mismo: el rol de un cargo elegido aquí
+            # la ubica en ese cargo, y quitárselo la saca (18/11/2026). Luego
+            # el rol de cargo queda el del cargo que ocupa.
             from apps.organizacion.roles_de_cargo import ajustar_membresia
 
+            cambio = cargo_desde_roles(
+                usuario,
+                membresia.empresa,
+                entrada.get("roles", []),
+                roles_previos.get(entrada["empresa_id"], set()),
+            )
+            if cambio:
+                cambios_de_cargo.append((membresia.empresa, *cambio))
             ajustar_membresia(membresia)
             elegidas = entrada.get("areas")
             if elegidas is None:
@@ -227,6 +248,21 @@ def asignar_empresas(*, actor, usuario, asignaciones, context=None):
             membresia.areas_matriz.set(elegidas)
 
     sin_dejar_empresas_sin_gestor(reemplazar)
+
+    for empresa, antes, despues in cambios_de_cargo:
+        record_audit_event(
+            actor=actor,
+            action="institucional.cargo.asignado",
+            target=usuario,
+            module="institucional",
+            previous_values={"cargo": antes.id if antes else None},
+            new_values={
+                "cargo": despues.id if despues else None,
+                "empresa": empresa.nombre,
+                "desde": "roles del usuario",
+            },
+            context=context,
+        )
 
     record_audit_event(
         actor=actor,
@@ -246,8 +282,10 @@ FUERA_DE_SUS_EMPRESAS = (
 
 
 def _roles_manuales(roles) -> set[int]:
-    """Los roles elegidos a mano: los de cargo los pone el organigrama."""
-    return {rol.id for rol in roles if getattr(rol, "cargo_organigrama", None) is None}
+    """Los roles que se reparten. Desde el 18/11/2026 también los de cargo:
+    un cargo y su rol son lo mismo y se eligen en la ficha como cualquiera,
+    así que nadie da el de un cargo con permisos que no tiene."""
+    return {rol.id for rol in roles}
 
 
 def _comprobar_alcance(actor, usuario, asignaciones, roles):

@@ -35,6 +35,7 @@ from .views import (
     PlantillaPersonasView,
     ProveedorViewSet,
     RevertirVersionView,
+    RolesDeAsignacionView,
     SedeViewSet,
     TextosLegalesView,
     UnidadOrganizacionalViewSet,
@@ -71,6 +72,7 @@ urlpatterns = [
     path("organigrama/", OrganigramaView.as_view(), name="organigrama"),
     path("asignaciones/", AsignacionesView.as_view(), name="asignaciones"),
     path("asignaciones/area/", AreaDePersonaView.as_view(), name="asignaciones-area"),
+    path("asignaciones/roles/", RolesDeAsignacionView.as_view(), name="asignaciones-roles"),
     path("personas/<int:pk>/perfil/", PerfilDePersonaView.as_view(), name="persona-perfil"),
     path(
         "carga-personas/plantilla/",

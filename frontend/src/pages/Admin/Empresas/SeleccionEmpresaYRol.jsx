@@ -27,9 +27,10 @@ import "./Empresas.css";
  * (06/11/2026). No se agrupan con `<optgroup>`: el catálogo no trae área ni
  * nivel de los roles manuales, y quedan pocos.
  *
- * Los de cargo se dan eligiendo el cargo: quien puede asignar cargos recibe
- * ese campo en `campoCargo`, entre la empresa (los cargos son de ella) y el
- * rol. Con un cargo elegido, el rol deja de ser obligatorio (`rolOpcional`):
+ * Quien puede asignar cargos recibe el campo del cargo en `campoCargo`,
+ * entre la empresa (los cargos son de ella) y el rol; además, desde el
+ * 18/11/2026 el rol de un cargo se elige también en la lista de roles, y
+ * elegirlo la ubica en ese cargo (un cargo y su rol son lo mismo). Con un cargo elegido, el rol deja de ser obligatorio (`rolOpcional`):
  * la cuenta ya tiene el de su cargo (09/11/2026).
  */
 export function SeleccionEmpresaYRol({
@@ -38,7 +39,6 @@ export function SeleccionEmpresaYRol({
   onChange,
   errores = {},
   campoCargo = null,
-  ofreceCargo = Boolean(campoCargo),
   rolOpcional = false,
 }) {
   const [empresas, setEmpresas] = useState([]);
@@ -130,11 +130,8 @@ export function SeleccionEmpresaYRol({
                 ? "Lo que podrá hacer dentro de la empresa elegida. En otras empresas puede tener uno distinto."
                 : "Lo que podrá hacer dentro del sistema."
           } ${
-            // `ofreceCargo` y no `campoCargo`: en una empresa ajena el hueco
-            // lleva una nota, no el selector, y no se puede elegir «arriba».
-            ofreceCargo
-              ? "Los roles de un cargo (p. ej. Jefe de Cartera) se dan eligiendo el cargo arriba."
-              : "Los roles de los cargos del organigrama no se eligen aquí: los recibe al ocupar su cargo."
+            // Un cargo y su rol son lo mismo (18/11/2026).
+            "Elegir el rol de un cargo del organigrama la ubica en ese cargo."
           }`}
         >
           <select

@@ -222,7 +222,7 @@ describe("Alta de usuario con cargo del organigrama", () => {
     // El combobox Rol explica de dónde salen los roles de cargo.
     expect(
       screen.getByText(
-        /Los roles de un cargo \(p\. ej\. Jefe de Cartera\) se dan eligiendo el cargo arriba\./,
+        /Elegir el rol de un cargo del organigrama la ubica en ese cargo\./,
       ),
     ).toBeInTheDocument();
   });

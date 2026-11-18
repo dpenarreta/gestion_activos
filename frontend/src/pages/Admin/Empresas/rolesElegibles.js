@@ -21,9 +21,9 @@ export function rolesElegibles(catalogo) {
 
 /**
  * Los roles de los cargos del organigrama, en orden alfabético (18/11/2026,
- * pedido del usuario: «siempre deben de aparecer ahí»). Se muestran en los
- * desplegables de roles deshabilitados (`OpcionesDeRolesDeCargo`), para que
- * se sepa que existen y cómo se dan: ocupando el cargo.
+ * pedido del usuario: un cargo y su rol son lo mismo). Se eligen en los
+ * desplegables de roles como cualquier otro (`OpcionesDeRolesDeCargo`), y
+ * elegir uno ubica a la persona en ese cargo.
  */
 export function rolesDeCargo(catalogo) {
   return (catalogo ?? [])
@@ -34,4 +34,4 @@ export function rolesDeCargo(catalogo) {
 }
 
 /** El texto de cada rol de cargo en un desplegable. */
-export const TEXTO_ROL_DE_CARGO = "se asigna con el cargo";
+export const TEXTO_ROL_DE_CARGO = "la ubica en el cargo";

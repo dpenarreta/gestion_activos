@@ -15,6 +15,10 @@ se le marca en Configuración → Roles como a cualquier otro. Se crea, se
 renombra y se borra junto con su cargo. Quien ocupa un cargo recibe su rol en
 la membresía de esa empresa; si cambia de cargo, cambia de rol solo. Los roles
 personalizados se siguen asignando a mano y se suman a este.
+
+Un cargo y su rol son lo mismo (18/11/2026, decisión del usuario): el rol de
+un cargo también se elige en Configuración → Usuario, y elegirlo ubica a la
+persona en ese cargo; quitárselo la saca (`cargo_desde_roles`).
 """
 
 from django.contrib.auth.models import Group, Permission
@@ -179,3 +183,45 @@ def sincronizar(empresa, usuarios=None) -> None:
         membresias = membresias.filter(usuario__in=usuarios)
     for membresia in membresias:
         ajustar_membresia(membresia)
+
+
+class DosCargos(ValueError):
+    pass
+
+
+def comprobar_un_cargo(empresa, roles_pedidos) -> None:
+    """Una persona ocupa un solo cargo por empresa: entre los roles que se le
+    dan en una empresa, a lo más uno puede ser de un cargo."""
+    if len(set(roles_pedidos) & roles_de_cargo(empresa)) > 1:
+        raise DosCargos(
+            f"En {empresa.nombre} se eligieron dos roles de cargo: una persona ocupa un "
+            "solo cargo por empresa. Deje solo uno."
+        )
+
+
+def cargo_desde_roles(usuario, empresa, pedidos, previos):
+    """Lleva al organigrama lo que se eligió en los roles (18/11/2026): un rol
+    de cargo nuevo ubica a la persona en ese cargo; quitarle el rol del cargo
+    que ocupa la saca de él. Devuelve `(antes, despues)` con los cargos si
+    cambió algo, o None. No toca los roles: luego `ajustar_membresia` deja el
+    que corresponde."""
+    from apps.empresas.contexto import usando_empresa
+
+    from . import organigrama
+
+    de_cargo = roles_de_cargo(empresa)
+    nuevos = (set(pedidos) & de_cargo) - set(previos)
+    quitados = (set(previos) & de_cargo) - set(pedidos)
+    with usando_empresa(empresa):
+        perfil = DatosDeContacto.objects.filter(usuario=usuario).select_related("cargo").first()
+        actual = perfil.cargo if perfil and perfil.cargo_id else None
+        if nuevos:
+            cargo = Cargo.objects.todas().get(empresa=empresa, rol_id=next(iter(nuevos)))
+            if actual == cargo:
+                return None
+            organigrama.asignar(usuario, cargo)
+            return actual, cargo
+        if actual is not None and actual.rol_id in quitados:
+            organigrama.asignar(usuario, None)
+            return actual, None
+    return None

@@ -8,6 +8,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useUltimaPeticion } from "../../hooks/useUltimaPeticion";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { nombreDeCargo } from "./organigrama";
+import { RolesDePersona } from "./RolesDePersona";
 import "./Institucional.css";
 import { usePedirMotivo } from "../../components/common/PedirMotivo/PedirMotivo";
 
@@ -220,6 +221,17 @@ export function AsignacionCargos({ datos, onAsignado }) {
     if (puedeCambiarArea) cargarAreas();
   }, [puedeCambiarArea, cargarAreas]);
 
+  // Los roles de Configuración que se dan desde aquí (18/11/2026: un cargo
+  // y un rol son lo mismo). `null` mientras llegan; si fallan, la columna
+  // solo muestra los que ya tiene cada persona.
+  const [catalogoRoles, setCatalogoRoles] = useState(null);
+  useEffect(() => {
+    Promise.resolve()
+      .then(() => institucionalService.rolesParaAsignar())
+      .then((lista) => setCatalogoRoles(lista ?? []))
+      .catch(() => setCatalogoRoles([]));
+  }, []);
+
   // Solo cuenta la respuesta de lo último escrito: una lenta no pisa a la
   // más nueva (búsqueda en vivo, 06/11/2026).
   const nuevaPeticion = useUltimaPeticion();
@@ -364,6 +376,7 @@ export function AsignacionCargos({ datos, onAsignado }) {
               <th>Persona</th>
               <th>Correo</th>
               <th>Cargo</th>
+              <th>Otros roles</th>
               <th>Área</th>
             </tr>
           </thead>
@@ -392,6 +405,21 @@ export function AsignacionCargos({ datos, onAsignado }) {
                   </select>
                 </td>
                 <td>
+                  <RolesDePersona
+                    key={`${p.id}-${(p.roles ?? []).map((r) => r.id).join(",")}`}
+                    persona={p}
+                    catalogo={catalogoRoles}
+                    onCambio={(texto) => {
+                      setError(null);
+                      setAviso(texto);
+                    }}
+                    onError={(texto) => {
+                      setAviso(null);
+                      setError(texto);
+                    }}
+                  />
+                </td>
+                <td>
                   {puedeCambiarArea ? (
                     <CambiarArea
                       persona={p}
@@ -410,7 +438,7 @@ export function AsignacionCargos({ datos, onAsignado }) {
               </tr>
             ))}
             <FilaDeEstado
-              columnas={4}
+              columnas={5}
               cargando={personas === null}
               error={errorCarga}
               onReintentar={buscarPersonas}

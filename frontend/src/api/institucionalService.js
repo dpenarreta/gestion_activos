@@ -78,6 +78,18 @@ export const institucionalService = {
       .get(`${BASE}asignaciones/`, { params: q ? { q } : {} })
       .then((res) => res.data);
   },
+  /** Los roles de Configuración que se dan desde Asignación de cargos
+   * (18/11/2026: un cargo y un rol son lo mismo). */
+  rolesParaAsignar() {
+    return apiClient.get(`${BASE}asignaciones/roles/`).then((res) => res.data);
+  },
+  /** Dar o quitar un rol de Configuración a una persona (`accion`: «dar» o
+   * «quitar»), en la empresa activa. Devuelve `{usuario, roles}`. */
+  cambiarRol(usuario, rol, accion) {
+    return apiClient
+      .post(`${BASE}asignaciones/roles/`, { usuario, rol, accion })
+      .then((res) => res.data);
+  },
   /** El perfil de un cargo: objetivo, funciones, competencias y KPIs. */
   perfilCargo(id) {
     return apiClient.get(`${BASE}cargos/${id}/perfil/`).then((res) => res.data);

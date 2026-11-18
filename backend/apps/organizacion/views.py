@@ -785,6 +785,10 @@ class AsignacionesView(APIView):
             )
         }
         cargos = {uid: fila.cargo for uid, fila in perfiles.items() if fila.cargo_id}
+        # Los roles del sistema de cada persona en la empresa activa (los de
+        # cargo van en «cargo»): un cargo y un rol son lo mismo y se dan desde
+        # aquí también (18/11/2026).
+        roles_por_persona = _roles_del_sistema_de(personas)
         return Response(
             [
                 {
@@ -799,6 +803,7 @@ class AsignacionesView(APIView):
                         if p.id in cargos
                         else None
                     ),
+                    "roles": roles_por_persona.get(p.id, []),
                     # El área guardada en su perfil (US-005); la cambia
                     # `AreaDePersonaView`.
                     "area": areas.como_dato(
@@ -841,6 +846,109 @@ class AsignacionesView(APIView):
             context=get_request_context(request),
         )
         return Response({"usuario": usuario.id, "cargo": cargo.id if cargo else None})
+
+
+def _roles_del_sistema():
+    """Los roles que no son de un cargo (los de Configuración → Roles)."""
+    from django.contrib.auth.models import Group
+
+    return Group.objects.filter(cargo_organigrama__isnull=True).order_by("name")
+
+
+def _roles_del_sistema_de(personas) -> dict[int, list[dict]]:
+    from apps.empresas.models import MembresiaEmpresa
+
+    empresa = _empresa_activa()
+    if empresa is None:
+        return {}
+    resultado: dict[int, list[dict]] = {}
+    for membresia in MembresiaEmpresa.objects.filter(
+        empresa=empresa, usuario__in=personas
+    ).prefetch_related("roles__cargo_organigrama"):
+        resultado[membresia.usuario_id] = sorted(
+            (
+                {"id": rol.id, "nombre": rol.name}
+                for rol in membresia.roles.all()
+                if getattr(rol, "cargo_organigrama", None) is None
+            ),
+            key=lambda r: r["nombre"].lower(),
+        )
+    return resultado
+
+
+class RolesDeAsignacionView(APIView):
+    """Los roles del sistema desde «Asignación de cargos» (18/11/2026,
+    decisión del usuario: un cargo y un rol son lo mismo, y se dan desde la
+    ficha del usuario o desde el organigrama).
+
+    - `GET` → `[{"id", "nombre"}]`: los roles de Configuración que se pueden
+      dar (los de cargo se dan con el cargo).
+    - `POST {"usuario", "rol", "accion": "dar"|"quitar"}` → `{"usuario",
+      "roles": [...]}`: en la empresa activa. Nadie da un rol con permisos que
+      no tiene (`permisos_que_no_tiene`), como en la ficha del usuario.
+    """
+
+    permission_classes = [IsAuthenticated, AsignarCargosPermission]
+
+    def get(self, request):
+        return Response([{"id": rol.id, "nombre": rol.name} for rol in _roles_del_sistema()])
+
+    def post(self, request):
+        from apps.chat.services import personas_de_la_empresa
+        from apps.empresas.models import MembresiaEmpresa
+        from apps.permissions.authorization import permisos_que_no_tiene
+
+        accion = request.data.get("accion")
+        if accion not in ("dar", "quitar"):
+            return Response(
+                {"accion": ["Indique «dar» o «quitar»."]}, status=status.HTTP_400_BAD_REQUEST
+            )
+        rol = _roles_del_sistema().filter(pk=request.data.get("rol")).first()
+        if rol is None:
+            return Response(
+                {"rol": ["Ese rol no existe o es el de un cargo (se da con el cargo)."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        empresa = _empresa_activa()
+        usuario = personas_de_la_empresa().filter(pk=request.data.get("usuario")).first()
+        membresia = (
+            MembresiaEmpresa.objects.filter(usuario=usuario, empresa=empresa).first()
+            if usuario is not None and empresa is not None
+            else None
+        )
+        if membresia is None:
+            return Response(
+                {"usuario": ["Esa persona no está registrada en esta empresa."]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        faltan = permisos_que_no_tiene(
+            request.user, list(rol.permissions.values_list("codename", flat=True))
+        )
+        if faltan:
+            raise PermissionDenied(
+                f"No puede {'dar' if accion == 'dar' else 'quitar'} el rol «{rol.name}»: "
+                f"tiene permisos que usted no tiene ({', '.join(sorted(faltan))})."
+            )
+        antes = sorted(membresia.roles.values_list("pk", flat=True))
+        if accion == "dar":
+            membresia.roles.add(rol)
+        else:
+            membresia.roles.remove(rol)
+        record_audit_event(
+            actor=request.user,
+            action=f"institucional.rol.{'dado' if accion == 'dar' else 'quitado'}",
+            target=usuario,
+            module=MODULO_INSTITUCIONAL,
+            previous_values={"roles": antes},
+            new_values={
+                "roles": sorted(membresia.roles.values_list("pk", flat=True)),
+                "rol": rol.name,
+            },
+            context=get_request_context(request),
+        )
+        return Response(
+            {"usuario": usuario.id, "roles": _roles_del_sistema_de([usuario]).get(usuario.id, [])}
+        )
 
 
 class AreaDePersonaView(APIView):

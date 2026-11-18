@@ -4563,3 +4563,34 @@
     padding: 10px 0;
   }
 }
+
+/* Los otros roles de cada persona en Asignación de cargos (18/11/2026). */
+.asignacion-roles__lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.asignacion-roles__lista li {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border: 1px solid var(--mz-border);
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.asignacion-roles__lista .btn-link {
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.asignacion-roles__anadir {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  min-width: 200px;
+}

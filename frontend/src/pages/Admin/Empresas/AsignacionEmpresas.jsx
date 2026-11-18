@@ -174,14 +174,11 @@ export function AsignacionEmpresas({
         // Abierto si ya tiene globales, salvo con una sola empresa y sin rol
         // propio en ella: entonces el rol global ya se nombra bajo el
         // desplegable («Ya tiene…»), y abrirlo era volver a mostrarlo en dos
-        // sitios (auditoría UX/UI, 06/11/2026). Los de cargo no cuentan como
-        // rol propio: no los elige nadie.
-        const deCargo = new Set(
-          (catalogo ?? []).filter((rol) => rol.cargo).map((rol) => rol.id),
-        );
+        // sitios (auditoría UX/UI, 06/11/2026). El rol de su cargo cuenta
+        // como rol propio: desde el 18/11/2026 se elige aquí también.
         const sinRolPropio =
           todas.length === 1 &&
-          (asignadasAhora[todas[0].id] ?? []).every((id) => deCargo.has(id));
+          (asignadasAhora[todas[0].id] ?? []).length === 0;
         setAvanzadoAbierto(globales.length > 0 && !sinRolPropio);
         setMostrarAvanzado(false);
         setSinPrincipal({});
@@ -310,7 +307,9 @@ export function AsignacionEmpresas({
   const porId = Object.fromEntries(roles.map((rol) => [rol.id, rol]));
   const nombreDe = (id) =>
     porId[id]?.name ?? nombresConocidos[id] ?? `Rol ${id}`;
-  const esDeCargo = (id) => Boolean(porId[id]?.cargo);
+  // Un cargo y su rol son lo mismo (18/11/2026): el rol de un cargo se elige
+  // y se quita como cualquier otro, así que ninguno se aparta.
+  const esDeCargo = () => false;
   const ayudaId = "empresas-asignacion-ayuda";
   const verAvanzado =
     !unica ||
@@ -624,7 +623,6 @@ export function AsignacionEmpresas({
                   opciones={elegibles.filter(
                     (rol) => !rolesGlobales.includes(rol.id),
                   )}
-                  catalogoDeCargo={deCargoDelCatalogo}
                   onAnadir={(rolId) => {
                     anadirRolGlobal(rolId);
                     setAnuncio(

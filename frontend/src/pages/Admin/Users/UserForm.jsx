@@ -638,7 +638,6 @@ export function UserForm() {
                   empresaId={alta.empresaId}
                   rolId={alta.rolId}
                   rolOpcional={Boolean(cargoElegido)}
-                  ofreceCargo={conCargo}
                   campoCargo={
                     cargoAjeno ? (
                       <p className="mz-small mz-faint mb-0">
