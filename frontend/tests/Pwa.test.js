@@ -198,9 +198,13 @@ describe("El service worker", () => {
     expect(codigo).toMatch(/peticion\.method !== "GET"/);
   });
 
-  it("va a la red primero al navegar, para que un despliegue nuevo se vea", () => {
+  it("deja la navegación al navegador y solo sin red responde (v7)", () => {
+    /* Un `fetch` de la navegación desde el service worker fallaba en algunos
+       equipos con la red funcionando y mostraba «No se pudo abrir la
+       intranet» (18/11/2026). */
     expect(codigo).toMatch(/peticion\.mode === "navigate"/);
-    expect(codigo).toMatch(/fetch\(peticion\)\.catch/);
+    expect(codigo).toMatch(/navigator\.onLine === false/);
+    expect(codigo).not.toMatch(/fetch\(peticion\)\.catch/);
   });
 
   it("cae en la página que explica la falta de conexión", () => {

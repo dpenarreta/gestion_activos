@@ -28,7 +28,13 @@
 // de versión de `ActualizacionAutomatica` recibía la página vieja guardada al
 // instalar, creía que siempre había una versión nueva y recargaba la página
 // en cada clic. Se activa enseguida (`skipWaiting`) para cortar ese bucle.
-const VERSION = "v6";
+// v7 (18/11/2026): la navegación ya no pasa por el service worker. En Chrome
+// (causa sin precisar, propia del navegador o del equipo) el `fetch` de una
+// navegación desde el service worker fallaba aunque el servidor respondiera,
+// y se veía «No se pudo abrir la intranet» con la red funcionando (volver de
+// Google Calendar lo mostró). Ahora el navegador abre las páginas solo, y la
+// página sin conexión aparece únicamente si el equipo está sin red.
+const VERSION = "v7";
 const CACHE = `activos-armazon-${VERSION}`;
 
 const SIN_CONEXION = "/sin-conexion.html";
@@ -89,16 +95,16 @@ self.addEventListener("fetch", (evento) => {
   if (url.origin !== self.location.origin) return;
   if (esLaApi(url)) return; // que lo resuelva la red, y si falla, que falle.
 
-  // Navegación: siempre a la red primero, para que un despliegue nuevo se vea
-  // al instante. Sin conexión, la página que lo explica.
+  // Navegación: la resuelve el navegador, sin pasar por aquí (v7). Solo sin
+  // red se responde con la página que lo explica.
   if (peticion.mode === "navigate") {
-    evento.respondWith(
-      fetch(peticion).catch(() =>
+    if (self.navigator && self.navigator.onLine === false) {
+      evento.respondWith(
         caches
           .match(SIN_CONEXION)
           .then((respuesta) => respuesta ?? Response.error()),
-      ),
-    );
+      );
+    }
     return;
   }
 
