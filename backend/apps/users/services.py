@@ -296,16 +296,43 @@ class UserAdminService:
         _vigilando_gestores(
             lambda: user.save(update_fields=["status", "is_active", "updated_by", "updated_at"])
         )
+        nuevos = {"status": status}
+        if status == User.Status.ACTIVE:
+            empresa = UserAdminService._dar_empresa_si_no_tiene(user)
+            if empresa is not None:
+                nuevos["empresa"] = empresa.nombre
         record_audit_event(
             actor=actor,
             action=action,
             target=user,
             module="usuarios",
             previous_values={"status": previous_status},
-            new_values={"status": status},
+            new_values=nuevos,
             context=context,
         )
         return user
+
+    @staticmethod
+    def _dar_empresa_si_no_tiene(user: User):
+        """Una cuenta activa sin ninguna empresa no aparece en ninguna lista
+        (asignación de cargos, chat, responsables): las cuentas que crea la
+        sincronización con nómina nacen así, inactivas y sin empresa
+        (18/11/2026). Al activarla queda en la empresa de su ficha de
+        Empleado, o en la que se está trabajando. Devuelve la empresa dada, o
+        None si ya tenía alguna."""
+        from apps.empresas.models import MembresiaEmpresa
+        from apps.organizacion.fichas import _empresa_de
+
+        if user.membresias.exists():
+            return None
+        ficha = getattr(user, "empleado", None)
+        empresa = ficha.empresa if ficha is not None and ficha.empresa_id else _empresa_de(user)
+        if empresa is None:
+            return None
+        MembresiaEmpresa.objects.get_or_create(
+            usuario=user, empresa=empresa, defaults={"es_predeterminada": True}
+        )
+        return empresa
 
     @staticmethod
     def enable(*, actor: User, user: User, context: dict | None = None) -> User:

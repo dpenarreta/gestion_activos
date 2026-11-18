@@ -104,6 +104,22 @@ GLOBALES_A_PROPOSITO = {
         "El contador de los códigos OBL-0001 es global a propósito (§4.6): el "
         "código identifica un período en todo el grupo."
     ),
+    "chat.CalendarioGoogle": (
+        "La conexión de una persona con su propio calendario de Google: es de "
+        "la cuenta, no de una empresa, y su estado «En reunión» vale en todas."
+    ),
+    "chat.AvisoReunion": (
+        "La marca de que ya se avisó una reunión del calendario de una persona; "
+        "cuelga de su CalendarioGoogle, que es de la cuenta y no de una empresa."
+    ),
+    "notificaciones.DispositivoPush": (
+        "El teléfono de una persona registrado para recibir avisos push: es de "
+        "la cuenta y recibe los de todas sus empresas."
+    ),
+    "nomina.SincronizacionNomina": (
+        "Cada corrida de la sincronización con el procedimiento de nómina, que "
+        "es uno solo para todo el grupo: crea y actualiza cuentas, que son globales."
+    ),
     "branding.SiteTheme": (
         "La identidad visual es global por ahora. Está registrado como decisión "
         "pendiente en docs/multiempresa.md: si cada empresa debe tener la suya, "
