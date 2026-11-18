@@ -5,7 +5,8 @@ import { empresasService } from "../../../api/empresasService";
 import { rolesService } from "../../../api/rolesService";
 import { Campo } from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
-import { rolesElegibles } from "./rolesElegibles";
+import { OpcionesDeRolesDeCargo } from "./OpcionesDeRolesDeCargo";
+import { rolesDeCargo, rolesElegibles } from "./rolesElegibles";
 import "./Empresas.css";
 
 /**
@@ -44,6 +45,7 @@ export function SeleccionEmpresaYRol({
   // `null` mientras carga: con `[]` se leía «No hay roles creados todavía»
   // durante los segundos de la carga (auditoría UX/UI, 06/11/2026).
   const [roles, setRoles] = useState(null);
+  const [deCargo, setDeCargo] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export function SeleccionEmpresaYRol({
         );
         setEmpresas(activas);
         setRoles(rolesElegibles(catalogo));
+        setDeCargo(rolesDeCargo(catalogo));
         // Se propone la empresa en la que se está trabajando: dar de alta a
         // alguien es, casi siempre, darlo de alta donde uno está.
         const enCurso = Number(getEmpresaActiva());
@@ -159,6 +162,7 @@ export function SeleccionEmpresaYRol({
                 {rol.name}
               </option>
             ))}
+            <OpcionesDeRolesDeCargo roles={deCargo} />
           </select>
         </Campo>
         {roles !== null && roles.length === 0 && (

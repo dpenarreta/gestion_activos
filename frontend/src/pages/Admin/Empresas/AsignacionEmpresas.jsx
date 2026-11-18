@@ -15,7 +15,7 @@ import {
   RolEnEmpresa,
   fichaDeRol,
 } from "./ControlesDeRol";
-import { rolesElegibles } from "./rolesElegibles";
+import { rolesDeCargo, rolesElegibles } from "./rolesElegibles";
 import "./Empresas.css";
 
 /**
@@ -306,6 +306,7 @@ export function AsignacionEmpresas({
   if (!puedeVer) return null;
   const unica = empresas.length === 1;
   const elegibles = rolesElegibles(roles);
+  const deCargoDelCatalogo = rolesDeCargo(roles);
   const porId = Object.fromEntries(roles.map((rol) => [rol.id, rol]));
   const nombreDe = (id) =>
     porId[id]?.name ?? nombresConocidos[id] ?? `Rol ${id}`;
@@ -482,6 +483,7 @@ export function AsignacionEmpresas({
                       asignados={asignadas[empresa.id] ?? []}
                       sinPrincipal={Boolean(sinPrincipal[empresa.id])}
                       opciones={elegibles}
+                      catalogoDeCargo={deCargoDelCatalogo}
                       nombreDe={nombreDe}
                       esDeCargo={esDeCargo}
                       deshabilitado={!puedeAsignar || sinCatalogoDeRoles}
@@ -622,6 +624,7 @@ export function AsignacionEmpresas({
                   opciones={elegibles.filter(
                     (rol) => !rolesGlobales.includes(rol.id),
                   )}
+                  catalogoDeCargo={deCargoDelCatalogo}
                   onAnadir={(rolId) => {
                     anadirRolGlobal(rolId);
                     setAnuncio(

@@ -18,3 +18,20 @@ export function rolesElegibles(catalogo) {
       a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
     );
 }
+
+/**
+ * Los roles de los cargos del organigrama, en orden alfabético (18/11/2026,
+ * pedido del usuario: «siempre deben de aparecer ahí»). Se muestran en los
+ * desplegables de roles deshabilitados (`OpcionesDeRolesDeCargo`), para que
+ * se sepa que existen y cómo se dan: ocupando el cargo.
+ */
+export function rolesDeCargo(catalogo) {
+  return (catalogo ?? [])
+    .filter((rol) => rol.cargo)
+    .sort((a, b) =>
+      a.name.localeCompare(b.name, "es", { sensitivity: "base" }),
+    );
+}
+
+/** El texto de cada rol de cargo en un desplegable. */
+export const TEXTO_ROL_DE_CARGO = "se asigna con el cargo";

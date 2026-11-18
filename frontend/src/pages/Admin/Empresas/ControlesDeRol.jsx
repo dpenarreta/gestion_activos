@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { OpcionesDeRolesDeCargo } from "./OpcionesDeRolesDeCargo";
 
 /**
  * Las piezas con las que la ficha del usuario reparte roles.
@@ -88,6 +89,7 @@ export function AnadirRol({
   textoBoton,
   etiqueta,
   opciones,
+  catalogoDeCargo = [],
   onAnadir,
   botonRef,
   focoTrasAnadir,
@@ -156,6 +158,7 @@ export function AnadirRol({
               {rol.name}
             </option>
           ))}
+          <OpcionesDeRolesDeCargo roles={catalogoDeCargo} />
         </select>
         <button
           type="button"
@@ -200,6 +203,7 @@ export function RolEnEmpresa({
   asignados,
   sinPrincipal,
   opciones,
+  catalogoDeCargo = [],
   nombreDe,
   esDeCargo,
   deshabilitado,
@@ -282,6 +286,7 @@ export function RolEnEmpresa({
               {rol.name}
             </option>
           ))}
+          <OpcionesDeRolesDeCargo roles={catalogoDeCargo} />
         </select>
       </div>
 
@@ -337,6 +342,7 @@ export function RolEnEmpresa({
           textoBoton="Añadir otro rol"
           etiqueta={`Otro rol${enEmpresa}`}
           opciones={opciones.filter((rol) => !manuales.includes(rol.id))}
+          catalogoDeCargo={catalogoDeCargo}
           onAnadir={(rolId) => {
             onCambiar([...manuales, rolId, ...deCargo], false);
             anunciar(

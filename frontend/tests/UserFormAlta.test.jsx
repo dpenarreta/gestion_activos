@@ -118,7 +118,7 @@ describe("Alta de usuario", () => {
   /* Los de cargo eran la mayoría del catálogo y el servidor los descarta si
      se envían a mano: no se ofrecen, y el resto va por orden alfabético
      (06/11/2026). */
-  it("ofrece los roles por orden alfabético y sin los de cargo", async () => {
+  it("ofrece los roles por orden alfabético; los de cargo, deshabilitados", async () => {
     listarRoles.mockResolvedValue([
       ...ROLES,
       {
@@ -133,7 +133,9 @@ describe("Alta de usuario", () => {
     const rol = await screen.findByLabelText(/^Rol/);
     await waitFor(() =>
       expect(
-        [...rol.querySelectorAll("option")].map((o) => o.textContent),
+        [...rol.querySelectorAll("option:not(:disabled)")].map(
+          (o) => o.textContent,
+        ),
       ).toEqual([
         "Seleccione un rol",
         "Auditor",
@@ -141,6 +143,10 @@ describe("Alta de usuario", () => {
         "Soporte TI",
       ]),
     );
+    // 18/11/2026: los roles de cargo siempre aparecen, pero se dan con el cargo.
+    expect(
+      [...rol.querySelectorAll("option:disabled")].map((o) => o.textContent),
+    ).toEqual(["Jefe de bodega — se asigna con el cargo"]);
   });
 
   // Dar de alta a alguien es, casi siempre, darlo de alta donde uno está.

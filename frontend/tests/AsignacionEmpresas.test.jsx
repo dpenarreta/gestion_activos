@@ -79,8 +79,18 @@ function usuarioCon(rolesEnCourier, globales = []) {
   };
 }
 
+/** Las opciones que se pueden elegir (los roles de cargo van
+ * deshabilitados, aparte). */
 function textos(select) {
-  return [...select.querySelectorAll("option")].map((o) => o.textContent);
+  return [...select.querySelectorAll("option:not(:disabled)")].map(
+    (o) => o.textContent,
+  );
+}
+
+function deshabilitadas(select) {
+  return [...select.querySelectorAll("option:disabled")].map(
+    (o) => o.textContent,
+  );
 }
 
 function guardar() {
@@ -119,7 +129,7 @@ describe("Asignación de empresas y roles a un usuario", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("ofrece los roles por orden alfabético y sin los de cargo", async () => {
+  it("ofrece los roles por orden alfabético; los de cargo, a la vista pero deshabilitados", async () => {
     render(<AsignacionEmpresas usuarioId="7" />);
 
     const rol = await screen.findByRole("combobox", {
@@ -130,6 +140,10 @@ describe("Asignación de empresas y roles a un usuario", () => {
       "Auditor",
       "Solo consulta",
       "Soporte TI",
+    ]);
+    // 18/11/2026: los roles de cargo siempre aparecen, pero se dan con el cargo.
+    expect(deshabilitadas(rol)).toEqual([
+      "Jefe de bodega — se asigna con el cargo",
     ]);
   });
 
