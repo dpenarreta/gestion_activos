@@ -70,6 +70,31 @@ def _vacaciones(estado, hoy) -> str:
     return "en_curso" if estado.vacaciones_desde <= hoy else "proximas"
 
 
+def ventana_de_almuerzo(estado, ahora):
+    """`(inicio, fin)` del almuerzo de hoy según su horario, o None (sin
+    horario, fin de semana)."""
+    if estado is None or not estado.almuerzo_inicio:
+        return None
+    hoy = timezone.localdate(ahora)
+    if hoy.weekday() >= 5:
+        return None
+    inicio = timezone.make_aware(
+        datetime.datetime.combine(hoy, estado.almuerzo_inicio), timezone.get_current_timezone()
+    )
+    return inicio, inicio + datetime.timedelta(minutes=estado.almuerzo_minutos)
+
+
+def almuerzo_automatico(estado, ahora):
+    """Si ahora le toca su almuerzo (18/11/2026, pedido del usuario): con
+    horario configurado, de lunes a viernes, dentro de esa hora y sin haber
+    elegido otro estado durante ella hoy. Devuelve la hora de fin, o None."""
+    ventana = ventana_de_almuerzo(estado, ahora)
+    if ventana is None or estado.almuerzo_omitido == timezone.localdate(ahora):
+        return None
+    inicio, fin = ventana
+    return fin if inicio <= ahora < fin else None
+
+
 def vigente(estado, ahora=None) -> dict | None:
     """Lo que ven los demás: `{clave, texto, detalle, mensaje, desde, hasta,
     reemplazo}` o None si está disponible. Las vacaciones en curso mandan
@@ -109,6 +134,21 @@ def vigente(estado, ahora=None) -> dict | None:
                 "hasta": estado.hasta,
                 "reemplazo": None,
             }
+    # Sin otro estado, en su horario de almuerzo pasa sola a «En almuerzo»
+    # y vuelve sola al terminar (18/11/2026), como «En reunión» con el
+    # calendario.
+    fin_almuerzo = almuerzo_automatico(estado, ahora)
+    if fin_almuerzo is not None:
+        clave = EstadoChat.Estado.ALMUERZO
+        return {
+            "clave": clave,
+            "texto": TEXTOS[clave],
+            "detalle": f"{TEXTOS[clave]} hasta las {_hora(fin_almuerzo)}",
+            "mensaje": "",
+            "desde": None,
+            "hasta": fin_almuerzo,
+            "reemplazo": None,
+        }
     if vacaciones == "proximas":
         return {
             "clave": "vacaciones_proximas",
@@ -255,6 +295,8 @@ def guardar(usuario, datos: dict) -> dict:
     hoy = timezone.localdate(ahora)
     if "almuerzo_inicio" in datos:
         estado.almuerzo_inicio = datos["almuerzo_inicio"]
+        # Un horario nuevo vuelve a contar desde hoy.
+        estado.almuerzo_omitido = None
     if "almuerzo_minutos" in datos:
         minutos = datos["almuerzo_minutos"]
         if not ALMUERZO_MINIMO <= minutos <= ALMUERZO_MAXIMO:
@@ -282,6 +324,11 @@ def guardar(usuario, datos: dict) -> dict:
         estado.vacaciones_desde, estado.vacaciones_hasta = desde, hasta
         estado.mensaje_vacaciones = (datos.get("mensaje") or "").strip()[:140]
     elif clave:
+        # Elegir un estado durante su almuerzo manda: ese día ya no se le
+        # vuelve a poner «En almuerzo» solo (18/11/2026).
+        ventana = ventana_de_almuerzo(estado, ahora)
+        if ventana is not None and ventana[0] <= ahora < ventana[1]:
+            estado.almuerzo_omitido = hoy
         hasta_nuevo = None
         if clave == EstadoChat.Estado.FUERA_OFICINA:
             # Se valida antes de tocar nada: un 400 no deja el estado a medias.

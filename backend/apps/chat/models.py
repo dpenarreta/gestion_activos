@@ -146,6 +146,9 @@ class EstadoChat(BaseModel):
     #: Su horario de almuerzo: a qué hora sale y cuánto dura.
     almuerzo_inicio = models.TimeField(null=True, blank=True)
     almuerzo_minutos = models.PositiveSmallIntegerField(default=60)
+    #: El día en que la persona eligió otro estado durante su almuerzo: ese
+    #: día ya no pasa sola a «En almuerzo» (18/11/2026, `estados.almuerzo_automatico`).
+    almuerzo_omitido = models.DateField(null=True, blank=True)
 
     class Meta:
         verbose_name = "estado en el chat"
