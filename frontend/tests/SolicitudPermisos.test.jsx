@@ -259,7 +259,7 @@ describe("Solicitud de permisos", () => {
     expect(within(ventana).getByText("5 días en total")).toBeInTheDocument();
   });
 
-  it("debajo de los días muestra las restricciones y no deja enviar si falla una", async () => {
+  it("debajo de los días muestra las sugerencias y no deja enviar si falla una validación", async () => {
     servicio.evaluar.mockResolvedValue({
       bloquea: true,
       reglas: [
@@ -292,22 +292,31 @@ describe("Solicitud de permisos", () => {
     fireEvent.change(within(ventana).getByLabelText(/^Hasta/), {
       target: { value: "2026-11-04" },
     });
-    const restricciones = await within(ventana).findByRole("region", {
-      name: "Restricciones de este permiso",
+    const sugerencias = await within(ventana).findByRole("region", {
+      name: "Sugerencias de este permiso",
     });
     expect(servicio.evaluar).toHaveBeenLastCalledWith(
       "1",
       "2026-11-02",
       "2026-11-04",
     );
+    // Lo que bloquea va aparte, como error: no es una sugerencia.
+    const corregir = within(ventana).getByRole("alert", {
+      name: "",
+    });
+    expect(corregir).toHaveTextContent("Debe corregir para poder enviar");
+    expect(corregir).toHaveTextContent("Mínimo 5 días seguidos por solicitud.");
+    expect(corregir).toHaveTextContent("Ha elegido 3 días.");
+    // La sugerencia no cumplida, en su sección, con la nota de que no impide
+    // enviar (18/11/2026).
+    expect(within(sugerencias).getByText(/0 de 2 sábados/)).toBeInTheDocument();
     expect(
-      within(restricciones).getByText("Mínimo 5 días seguidos por solicitud."),
+      within(sugerencias).getByText(/no impiden enviar la solicitud/),
     ).toBeInTheDocument();
     expect(
-      within(restricciones).getByText("Ha elegido 3 días."),
-    ).toBeInTheDocument();
-    expect(
-      within(restricciones).getByText(/0 de 2 sábados/),
+      within(sugerencias).getByText(
+        "Sugerencia no cumplida (no impide enviar):",
+      ),
     ).toBeInTheDocument();
     expect(
       within(ventana).getByRole("button", { name: "Enviar solicitud" }),

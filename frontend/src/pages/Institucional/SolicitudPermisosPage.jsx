@@ -106,41 +106,80 @@ function hoyIso() {
 const ESTADO_REGLA = {
   ok: { icono: "check-circle-fill", nombre: "Cumple" },
   falla: { icono: "x-circle-fill", nombre: "No cumple" },
-  aviso: { icono: "exclamation-triangle-fill", nombre: "Atención" },
+  // Las reglas del tipo son sugerencias, no restricciones: no bloquean
+  // (18/11/2026, pedido del usuario; decide Talento Humano).
+  aviso: {
+    icono: "exclamation-triangle-fill",
+    nombre: "Sugerencia no cumplida (no impide enviar)",
+  },
   info: { icono: "info-circle-fill", nombre: "Para tener en cuenta" },
 };
 
-/** Las restricciones del tipo de permiso para las fechas elegidas, cada una
- * con si se cumple. Las que no se cumplen no dejan enviar. */
+/** Una regla, con su estado dicho también en texto para el lector. */
+function ReglaDelPermiso({ regla }) {
+  const estado = ESTADO_REGLA[regla.estado] ?? ESTADO_REGLA.info;
+  return (
+    <li className={`solicitud-regla solicitud-regla--${regla.estado}`}>
+      <Icon name={estado.icono} />
+      <div>
+        <span className="visually-hidden">{estado.nombre}: </span>
+        <span className="solicitud-regla__texto">{regla.texto}</span>
+        {regla.detalle && <small>{regla.detalle}</small>}
+      </div>
+    </li>
+  );
+}
+
+/** Las sugerencias del tipo de permiso para las fechas elegidas, cada una
+ * con si se cumple (18/11/2026: son sugerencias, no restricciones). Las
+ * sugerencias no bloquean: se puede enviar igual y decide Talento Humano.
+ * Solo las validaciones de datos («No cumple»: fechas cruzadas, días ya
+ * gozados…) no dejan enviar. */
 function RestriccionesDelPermiso({
   evaluacion,
-  titulo = "Restricciones de este permiso",
+  titulo = "Sugerencias de este permiso",
+  enDetalle = false,
 }) {
   if (!evaluacion?.reglas.length) return null;
+  // Lo que bloquea (validaciones de datos: fechas cruzadas, días ya
+  // gozados…) va aparte, como error: no son sugerencias (auditoría UX/UI).
+  const fallas = evaluacion.reglas.filter((r) => r.estado === "falla");
+  const sugerencias = evaluacion.reglas.filter((r) => r.estado !== "falla");
+  const sinCumplir = sugerencias.some((r) => r.estado === "aviso");
   return (
-    <section className="solicitud-reglas" aria-labelledby="sp-reglas">
-      <strong id="sp-reglas" className="solicitud-reglas__titulo">
-        {titulo}
-      </strong>
-      <ul>
-        {evaluacion.reglas.map((regla) => {
-          const estado = ESTADO_REGLA[regla.estado] ?? ESTADO_REGLA.info;
-          return (
-            <li
-              key={regla.clave}
-              className={`solicitud-regla solicitud-regla--${regla.estado}`}
-            >
-              <Icon name={estado.icono} />
-              <div>
-                <span className="visually-hidden">{estado.nombre}: </span>
-                <span className="solicitud-regla__texto">{regla.texto}</span>
-                {regla.detalle && <small>{regla.detalle}</small>}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+    <>
+      {fallas.length > 0 && (
+        <div className="mz-alert mz-alert--bad solicitud-reglas" role="alert">
+          <strong className="solicitud-reglas__titulo">
+            Debe corregir para poder enviar
+          </strong>
+          <ul>
+            {fallas.map((regla) => (
+              <ReglaDelPermiso key={regla.clave} regla={regla} />
+            ))}
+          </ul>
+        </div>
+      )}
+      {sugerencias.length > 0 && (
+        <section className="solicitud-reglas" aria-labelledby="sp-reglas">
+          <strong id="sp-reglas" className="solicitud-reglas__titulo">
+            {titulo}
+          </strong>
+          {sinCumplir && (
+            <p className="mz-small mb-1">
+              {enDetalle
+                ? "Son sugerencias del tipo de permiso: no se cumplieron todas, pero la decisión es de Talento Humano."
+                : "Son sugerencias, no restricciones: no impiden enviar la solicitud, y la decisión es de Talento Humano."}
+            </p>
+          )}
+          <ul>
+            {sugerencias.map((regla) => (
+              <ReglaDelPermiso key={regla.clave} regla={regla} />
+            ))}
+          </ul>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -1337,7 +1376,8 @@ function DetalleSolicitud({ id, onCambio, onCerrar }) {
             {solicitud.evaluacion?.reglas?.length > 0 && (
               <RestriccionesDelPermiso
                 evaluacion={solicitud.evaluacion}
-                titulo="Para decidir: saldo y restricciones"
+                titulo="Para decidir: saldo y sugerencias"
+                enDetalle
               />
             )}
 

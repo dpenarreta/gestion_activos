@@ -1157,12 +1157,12 @@ function EditorFlujo({
             className="flujo-bloque"
           >
             <h4 id="flujo-restricciones" className="flujo-seccion">
-              Restricciones
+              Sugerencias
             </h4>
             <p className="mz-faint mz-small mb-2">
               {flujo.unidad === "horas"
-                ? "Quien solicita las ve al elegir el día. Un permiso por horas es de un solo día: no lleva mínimo ni máximo de días."
-                : "Quien solicita las ve al elegir las fechas, con si las cumple. Son recomendaciones: si no se cumplen, se alerta a quien solicita y a quien aprueba, pero se puede enviar; la decisión es de Talento Humano. 0 es sin restricción."}
+                ? "Quien solicita las ve al elegir el día; no impiden enviar. Un permiso por horas es de un solo día: no lleva mínimo ni máximo de días."
+                : "Quien solicita las ve al elegir las fechas y sabe si las cumple. Son sugerencias, no restricciones: no impiden enviar; si no se cumplen, se avisa a quien solicita y a quien aprueba, y decide Talento Humano."}
             </p>
             <div className="row g-2">
               {flujo.unidad !== "horas" && (
@@ -1170,6 +1170,7 @@ function EditorFlujo({
                   <Campo
                     id="flujo-minimo"
                     etiqueta="Mínimo de días seguidos"
+                    ayuda="0 = sin mínimo"
                     error={errores.campos.dias_minimos}
                     className="col-6 col-md-3"
                   >
@@ -1184,6 +1185,7 @@ function EditorFlujo({
                   <Campo
                     id="flujo-maximo"
                     etiqueta="Máximo de días seguidos"
+                    ayuda="0 = sin máximo"
                     error={errores.campos.dias_maximos}
                     className="col-6 col-md-3"
                   >
@@ -1204,6 +1206,7 @@ function EditorFlujo({
                   <Campo
                     id="flujo-sabados"
                     etiqueta="Sábados por período"
+                    ayuda="0 = sin sugerencia"
                     error={errores.campos.sabados_por_periodo}
                     className="col-6 col-md-3"
                   >
@@ -1218,6 +1221,7 @@ function EditorFlujo({
                   <Campo
                     id="flujo-domingos"
                     etiqueta="Domingos por período"
+                    ayuda="0 = sin sugerencia"
                     error={errores.campos.domingos_por_periodo}
                     className="col-6 col-md-3"
                   >
@@ -1230,15 +1234,15 @@ function EditorFlujo({
                     />
                   </Campo>
                   <p className="col-12 col-md-6 mz-faint mz-small mb-0 align-self-end">
-                    Se recomienda que de cada período anual salgan al menos esos
+                    Se sugiere que de cada período anual salgan al menos esos
                     sábados y domingos. Si a un período ya no le alcanzan los
-                    días, se alerta; el sistema no marca días por su cuenta.
+                    días, se avisa; el sistema no marca días por su cuenta.
                   </p>
                 </>
               )}
               <Campo
                 id="flujo-indicaciones"
-                etiqueta="Otras indicaciones (una por línea; solo se informan)"
+                etiqueta="Otras sugerencias (una por línea; solo se muestran)"
                 error={errores.campos.restricciones}
                 className="col-12"
               >
