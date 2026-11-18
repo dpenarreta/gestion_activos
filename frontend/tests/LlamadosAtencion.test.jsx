@@ -48,6 +48,9 @@ const servicio = {
   confirmar: vi.fn(),
   rechazar: vi.fn(),
   anular: vi.fn(),
+  documentos: vi.fn(),
+  configuracion: vi.fn(),
+  guardarConfiguracion: vi.fn(),
 };
 vi.mock("../src/api/llamadosService", () => ({ llamadosService: servicio }));
 
@@ -144,6 +147,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   permisos.lista = ["llamados.emitir", "llamados.configurar"];
   servicio.causas.mockResolvedValue([CAUSA]);
+  servicio.documentos.mockResolvedValue([]);
+  servicio.configuracion.mockResolvedValue({
+    tope_porcentaje: null,
+    actualizado_por: null,
+    actualizado_en: null,
+  });
   servicio.variables.mockResolvedValue(VARIABLES);
   servicio.vistaPrevia.mockResolvedValue({
     texto: "Hola María, atención.",
@@ -825,7 +834,10 @@ describe("Detalle, confirmar, rechazar y anular", () => {
       expect(servicio.confirmar).toHaveBeenCalledWith("71", {
         descripcion: "No firmó el rol.",
         nivel_esperado: 13,
+        forma_sancion: "monto",
         monto: "10.00",
+        documento: null,
+        articulo: "",
       }),
     );
     // El detalle se cierra y la lista dice que quedó emitido.
@@ -875,6 +887,8 @@ describe("Detalle, confirmar, rechazar y anular", () => {
         nivel_esperado: 13,
         descripcion: "No firmó el rol.",
         justificacion_cambio: "Falta leve.",
+        documento: null,
+        articulo: "",
       }),
     );
   });

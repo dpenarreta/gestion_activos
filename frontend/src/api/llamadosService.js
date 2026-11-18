@@ -107,8 +107,17 @@ export const llamadosService = {
    * (opcionales). Con `nivel_esperado` desactualizado responde 409
    * `propuesta_cambio`. */
   confirmar(id, campos = {}) {
+    // `documento` y `articulo` van aunque estén vacíos: vacíos borran la
+    // razón del jefe; ausentes la conservan.
+    const { documento, articulo, ...resto } = campos;
+    const razon = {};
+    if (documento !== undefined) razon.documento = documento;
+    if (articulo !== undefined) razon.articulo = articulo;
     return apiClient
-      .post(`${BASE}llamados/${id}/confirmar/`, sinVacios(campos))
+      .post(`${BASE}llamados/${id}/confirmar/`, {
+        ...sinVacios(resto),
+        ...razon,
+      })
       .then(datos);
   },
   rechazar(id, motivo) {
@@ -124,6 +133,22 @@ export const llamadosService = {
   anular(id, motivo) {
     return apiClient
       .post(`${BASE}llamados/${id}/anular/`, { motivo })
+      .then(datos);
+  },
+
+  // --- Razón del reglamento y tope de la sanción (US-033) ------------------
+  /** Documentos institucionales activos para la razón del llamado. */
+  documentos() {
+    return apiClient.get(`${BASE}documentos/`).then(lista);
+  },
+  /** `{ tope_porcentaje, actualizado_por, actualizado_en }`. */
+  configuracion() {
+    return apiClient.get(`${BASE}configuracion/`).then(datos);
+  },
+  /** `topePorcentaje` vacío o `null` = sin tope. */
+  guardarConfiguracion(topePorcentaje) {
+    return apiClient
+      .put(`${BASE}configuracion/`, { tope_porcentaje: topePorcentaje })
       .then(datos);
   },
 

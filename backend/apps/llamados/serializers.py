@@ -13,7 +13,14 @@ from rest_framework import serializers
 from apps.adjuntos.validators import tipo_por_extension, validar_archivo
 
 from . import services
-from .models import AccionLlamado, CausaLlamado, LlamadoAtencion, NivelLlamado, TipoNivel
+from .models import (
+    AccionLlamado,
+    CausaLlamado,
+    FormaSancion,
+    LlamadoAtencion,
+    NivelLlamado,
+    TipoNivel,
+)
 
 # --- Campos que aceptan vacío en multipart ----------------------------------------------------
 
@@ -79,6 +86,45 @@ class MontoOpcional(serializers.Field):
         return None if value is None else f"{value:.2f}"
 
 
+class PorcentajeOpcional(serializers.Field):
+    """Un porcentaje con hasta dos decimales (acepta coma o punto) o nada. El
+    rango (mayor que 0, hasta 100 y el tope de la empresa) lo valida el
+    servicio, para que el error salga igual por cualquier camino."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("allow_null", True)
+        super().__init__(**kwargs)
+
+    def validate_empty_values(self, data):
+        if data == "":
+            if not self.allow_null:
+                self.fail("null")
+            return True, None
+        return super().validate_empty_values(data)
+
+    def to_internal_value(self, data):
+        texto = str(data).strip().replace(",", ".").rstrip("%").strip()
+        try:
+            valor = Decimal(texto)
+        except (InvalidOperation, ValueError):
+            raise serializers.ValidationError(
+                "Escriba un porcentaje válido, por ejemplo 5 o 12,5."
+            ) from None
+        if not valor.is_finite() or abs(valor) >= 1000:
+            raise serializers.ValidationError("Escriba un porcentaje válido, por ejemplo 5 o 12,5.")
+        if valor.as_tuple().exponent < -2:
+            raise serializers.ValidationError("Use como máximo dos decimales.")
+        return valor
+
+    def to_representation(self, value):
+        return _decimal(value)
+
+
+def _decimal(valor) -> str | None:
+    return None if valor is None else f"{valor:.2f}"
+
+
 def _persona(usuario) -> dict | None:
     if usuario is None:
         return None
@@ -108,6 +154,8 @@ class NivelEntradaSerializer(serializers.Serializer):
         trim_whitespace=False,
     )
     monto_sugerido = MontoOpcional()
+    #: Solo en las sanciones económicas, en lugar del monto (US-033, CA-7).
+    porcentaje_sugerido = PorcentajeOpcional()
     copia_jefe = serializers.BooleanField(default=False)
     activo = serializers.BooleanField(default=True)
 
@@ -132,6 +180,8 @@ def nivel_completo(nivel: NivelLlamado, usados: set, *, con_textos: bool = True)
         "asunto": nivel.asunto,
         "cuerpo": nivel.cuerpo,
         "monto_sugerido": _monto(nivel.monto_sugerido),
+        "porcentaje_sugerido": _decimal(nivel.porcentaje_sugerido),
+        "forma_sugerida": forma_sugerida(nivel),
         "copia_jefe": nivel.copia_jefe,
         "activo": nivel.activo,
         "en_uso": nivel.pk in usados,
@@ -152,8 +202,21 @@ def nivel_resumen(nivel: NivelLlamado) -> dict:
         "tipo_display": TipoNivel(nivel.tipo).label,
         "envia_correo": nivel.envia_correo,
         "monto_sugerido": _monto(nivel.monto_sugerido),
+        "porcentaje_sugerido": _decimal(nivel.porcentaje_sugerido),
+        "forma_sugerida": forma_sugerida(nivel),
         "copia_jefe": nivel.copia_jefe,
     }
+
+
+def forma_sugerida(nivel: NivelLlamado) -> str | None:
+    """Con qué forma parte el formulario de una sanción económica: `porcentaje`
+    si el nivel sugiere un porcentaje; si no, `monto`. None fuera de las
+    sanciones."""
+    if nivel.tipo != TipoNivel.SANCION_ECONOMICA:
+        return None
+    if nivel.porcentaje_sugerido is not None:
+        return FormaSancion.PORCENTAJE.value
+    return FormaSancion.MONTO.value
 
 
 def causa_completa(
@@ -211,6 +274,17 @@ class NuevoLlamadoSerializer(serializers.Serializer):
         max_length=services.MOTIVO_MAX, allow_blank=True, required=False, default=""
     )
     monto = MontoOpcional()
+    #: US-033: `monto` (fijo, USD) o `porcentaje` (del sueldo). Sin ella, la
+    #: del valor que llegue o la que sugiere el nivel.
+    forma_sancion = serializers.ChoiceField(
+        choices=FormaSancion.choices, required=False, allow_blank=True, allow_null=True
+    )
+    porcentaje = PorcentajeOpcional()
+    #: La razón del reglamento: un documento institucional activo y el artículo.
+    documento = EnteroOpcional()
+    articulo = serializers.CharField(
+        max_length=services.ARTICULO_MAX, allow_blank=True, required=False, default=""
+    )
     adjunto = serializers.FileField(required=False, allow_null=True, allow_empty_file=False)
 
     def validate_adjunto(self, archivo):
@@ -229,9 +303,48 @@ class ConfirmarSerializer(serializers.Serializer):
         max_length=services.MOTIVO_MAX, allow_blank=True, required=False, default=""
     )
     monto = MontoOpcional()
+    forma_sancion = serializers.ChoiceField(
+        choices=FormaSancion.choices, required=False, allow_blank=True, allow_null=True
+    )
+    porcentaje = PorcentajeOpcional()
     descripcion = serializers.CharField(
         max_length=services.DESCRIPCION_MAX, required=False, allow_blank=True
     )
+    #: Si llegan (aunque vacíos), reemplazan la razón que registró el jefe; si
+    #: no llegan, se conserva.
+    documento = EnteroOpcional()
+    articulo = serializers.CharField(
+        max_length=services.ARTICULO_MAX, allow_blank=True, required=False
+    )
+
+
+class ConfiguracionSerializer(serializers.Serializer):
+    """`PUT configuracion/`: el tope en % del sueldo; null o «» = sin tope."""
+
+    tope_porcentaje = PorcentajeOpcional(required=True)
+
+
+def configuracion(config) -> dict:
+    """La configuración del módulo; `config` None = aún sin guardar (sin tope)."""
+    if config is None:
+        return {"tope_porcentaje": None, "actualizado_por": None, "actualizado_en": None}
+    return {
+        "tope_porcentaje": _decimal(config.tope_porcentaje),
+        "actualizado_por": _persona(config.actualizado_por),
+        "actualizado_en": _fecha(config.updated_at) if config.actualizado_por_id else None,
+    }
+
+
+def documento_elegible(documento) -> dict:
+    """Un documento de la lista para elegir la razón del reglamento."""
+    return {
+        "id": documento.pk,
+        "titulo": documento.titulo,
+        "categoria": documento.categoria,
+        "categoria_display": documento.get_categoria_display(),
+        "version": documento.version,
+        "es_pdf": documento.extension == ".pdf",
+    }
 
 
 class MotivoSerializer(serializers.Serializer):
@@ -279,6 +392,49 @@ def _fecha(valor):
     return valor.isoformat() if valor else None
 
 
+#: Dónde se abre un documento institucional en el visor interno (la API de
+#: Códigos de conducta: exige el acuerdo de confidencialidad aceptado).
+URL_DOCUMENTO = "/organizacion/documentos/{}/archivo/"
+
+
+def documento_de(llamado: LlamadoAtencion) -> dict | None:
+    """El documento de la razón (US-033, CA-6). `disponible`: si todavía se
+    puede abrir (sigue existiendo y activo); el título es el que tenía al
+    registrarse el llamado."""
+    if not llamado.documento_titulo:
+        return None
+    documento = llamado.documento
+    disponible = documento is not None and documento.activo
+    return {
+        "id": llamado.documento_id,
+        "titulo": llamado.documento_titulo,
+        "categoria": documento.categoria if documento else None,
+        "categoria_display": documento.get_categoria_display() if documento else None,
+        "es_pdf": documento.extension == ".pdf" if documento else False,
+        "disponible": disponible,
+        "url": URL_DOCUMENTO.format(documento.pk) if disponible else None,
+    }
+
+
+def sancion_y_razon(llamado: LlamadoAtencion) -> dict:
+    """Los campos de US-033 que llevan la fila, el detalle y «Mi perfil»."""
+    forma = llamado.forma_sancion or None
+    return {
+        "forma_sancion": forma,
+        "forma_sancion_display": FormaSancion(forma).label if forma else "",
+        "porcentaje": _decimal(llamado.porcentaje),
+        # Con porcentaje el monto queda por calcular: el sueldo aún no está en
+        # el sistema (llegará con nómina).
+        "monto_por_calcular": forma == FormaSancion.PORCENTAJE and llamado.monto is None,
+        "sancion_texto": services.texto_sancion(
+            llamado.forma_sancion, llamado.monto, llamado.porcentaje
+        ),
+        "documento": documento_de(llamado),
+        "articulo": llamado.articulo,
+        "razon": services.texto_razon(llamado.documento_titulo, llamado.articulo),
+    }
+
+
 def llamado_fila(llamado: LlamadoAtencion) -> dict:
     """Una fila de la lista (el detalle añade el historial y el correo)."""
     emitido = llamado.estado in (LlamadoAtencion.Estado.EMITIDO, LlamadoAtencion.Estado.ANULADO)
@@ -297,14 +453,15 @@ def llamado_fila(llamado: LlamadoAtencion) -> dict:
         "fecha_hecho": llamado.fecha_hecho.isoformat(),
         "descripcion": llamado.descripcion,
         "monto": _monto(llamado.monto),
+        **sancion_y_razon(llamado),
         "justificacion_cambio": llamado.justificacion_nivel,
         # El motivo del rechazo o de la anulación, según el estado.
         "motivo": (
             llamado.motivo_rechazo
             if llamado.estado == LlamadoAtencion.Estado.RECHAZADO
-            else llamado.motivo_anulacion
-            if llamado.estado == LlamadoAtencion.Estado.ANULADO
-            else ""
+            else (
+                llamado.motivo_anulacion if llamado.estado == LlamadoAtencion.Estado.ANULADO else ""
+            )
         ),
         "solicitado_por": _persona(llamado.solicitado_por),
         "solicitado_en": _fecha(llamado.solicitado_en),
@@ -363,6 +520,9 @@ def llamado_detalle(llamado: LlamadoAtencion, usuario) -> dict:
             datos["propuesta_vigente"] = {
                 "nivel": _nivel(nivel.pk, nivel.nombre, nivel.tipo),
                 "monto_sugerido": _monto(nivel.monto_sugerido),
+                "porcentaje_sugerido": _decimal(nivel.porcentaje_sugerido),
+                "forma_sugerida": forma_sugerida(nivel),
+                "tope_porcentaje": _decimal(services.tope_porcentaje()),
                 "es_ultimo_nivel": vigente.es_ultimo,
                 "cambio": nivel.pk != llamado.nivel_propuesto_id,
                 "niveles": [nivel_resumen(n) for n in vigente.niveles],
@@ -384,6 +544,7 @@ def mio(llamado: LlamadoAtencion) -> dict:
         "nivel_tipo_display": TipoNivel(llamado.nivel_tipo).label,
         "descripcion": llamado.descripcion,
         "monto": _monto(llamado.monto),
+        **sancion_y_razon(llamado),
         "estado": llamado.estado,
         "anulado": llamado.estado == LlamadoAtencion.Estado.ANULADO,
         "emitido_en": _fecha(llamado.emitido_en),

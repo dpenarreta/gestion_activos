@@ -43,6 +43,7 @@ APPS_DE_NEGOCIO = frozenset(
         "notificaciones",
         "chat",
         "licencias",
+        "llamados",
         "sugerencias",
         "nomina",
         "capacitacion",

@@ -44,6 +44,9 @@ const servicio = {
   confirmar: vi.fn(),
   rechazar: vi.fn(),
   anular: vi.fn(),
+  documentos: vi.fn(),
+  configuracion: vi.fn(),
+  guardarConfiguracion: vi.fn(),
   reenviarCorreo: vi.fn(),
 };
 vi.mock("../src/api/llamadosService", () => ({ llamadosService: servicio }));
@@ -124,6 +127,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   permisos.lista = ["llamados.emitir", "llamados.configurar"];
   servicio.causas.mockResolvedValue([CAUSA]);
+  servicio.documentos.mockResolvedValue([]);
+  servicio.configuracion.mockResolvedValue({
+    tope_porcentaje: null,
+    actualizado_por: null,
+    actualizado_en: null,
+  });
   servicio.variables.mockResolvedValue([{ clave: "nombre" }]);
   servicio.vistaPrevia.mockResolvedValue({ texto: "Hola", desconocidas: [] });
   servicio.personas.mockResolvedValue([{ id: 5, nombre: "Ana Mora" }]);

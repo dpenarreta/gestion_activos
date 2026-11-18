@@ -4,12 +4,15 @@
  * desactiva (casilla «Causa activa» del formulario), para conservar el
  * historial.
  */
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
+import { llamadosService } from "../../../api/llamadosService";
+import { mensajeDeError } from "../../../utils/errores";
 import { Aviso } from "../comunes";
 import { FormularioCausa } from "./FormularioCausa";
+import { TopeDeSancion } from "./TopeDeSancion";
 
 export function CausasLlamados({
   causas,
@@ -22,6 +25,24 @@ export function CausasLlamados({
 }) {
   const [editando, setEditando] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [config, setConfig] = useState(null);
+  const [errorConfig, setErrorConfig] = useState(null);
+
+  const cargarConfig = useCallback(() => {
+    setErrorConfig(null);
+    return llamadosService
+      .configuracion()
+      .then(setConfig)
+      .catch((err) =>
+        setErrorConfig(
+          mensajeDeError(err, "No se pudo cargar el tope de la sanción."),
+        ),
+      );
+  }, []);
+
+  useEffect(() => {
+    cargarConfig();
+  }, [cargarConfig]);
 
   return (
     <div className="mz-stack">
@@ -122,9 +143,16 @@ export function CausasLlamados({
           </tbody>
         </table>
       </div>
+      <TopeDeSancion
+        config={config}
+        cargaError={errorConfig}
+        onReintentar={cargarConfig}
+        onGuardado={setConfig}
+      />
       {editando && (
         <FormularioCausa
           causa={editando === "nueva" ? null : editando}
+          tope={config?.tope_porcentaje ?? null}
           variables={variables}
           onCerrar={() => setEditando(null)}
           onGuardado={(guardada, fueEdicion) => {

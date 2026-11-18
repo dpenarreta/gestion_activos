@@ -5,7 +5,7 @@ import { llamadosService } from "../../api/llamadosService";
 import { Icon } from "../../components/common/Icon/Icon";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { mensajeDeError } from "../../utils/errores";
-import { formatearFecha, formatearMoneda } from "../../utils/formato";
+import { formatearFecha } from "../../utils/formato";
 import {
   SANCION,
   causaDe,
@@ -13,14 +13,22 @@ import {
   nombreDe,
   tipoDe,
 } from "../GestionHumana/LlamadosAtencion/llamadosComunes";
+import {
+  RazonDelLlamado,
+  SancionDelLlamado,
+} from "../GestionHumana/LlamadosAtencion/SancionYRazon";
 import "./MiCargo.css";
 
 const CELULAR = "(max-width: 575.98px)";
 
-function Monto({ llamado }) {
-  return tipoDe(llamado) === SANCION || llamado.monto
-    ? formatearMoneda(llamado.monto)
-    : "—";
+/** La razón dentro del reglamento, con el documento abrible en el visor. */
+function Razon({ llamado }) {
+  if (!llamado.documento && !llamado.articulo) return null;
+  return (
+    <div className="mz-small">
+      Razón: <RazonDelLlamado llamado={llamado} />
+    </div>
+  );
 }
 
 function Anulado() {
@@ -122,15 +130,16 @@ export function MisLlamados() {
                   <span>Fecha del hecho: {formatearFecha(l.fecha_hecho)}</span>
                   {l.numero && <span>N.º {l.numero}</span>}
                   <span>{nombreDe(nivelDe(l))}</span>
-                  {(tipoDe(l) === SANCION || l.monto) && (
+                  {(tipoDe(l) === SANCION || l.monto || l.sancion_texto) && (
                     <span>
-                      Monto de la sanción: <Monto llamado={l} />
+                      Sanción: <SancionDelLlamado llamado={l} nota="larga" />
                     </span>
                   )}
                 </div>
                 <p className="mb-0" style={{ whiteSpace: "pre-wrap" }}>
                   {l.descripcion}
                 </p>
+                <Razon llamado={l} />
                 {l.estado === "anulado" && <Anulado />}
               </li>
             ))}
@@ -148,7 +157,7 @@ export function MisLlamados() {
                   <th scope="col">Causa</th>
                   <th scope="col">Nivel</th>
                   <th scope="col">Descripción</th>
-                  <th scope="col">Monto de la sanción</th>
+                  <th scope="col">Sanción</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,9 +175,16 @@ export function MisLlamados() {
                         </>
                       )}
                     </td>
-                    <td style={{ whiteSpace: "pre-wrap" }}>{l.descripcion}</td>
-                    <td className="num">
-                      <Monto llamado={l} />
+                    <td>
+                      <span style={{ whiteSpace: "pre-wrap" }}>
+                        {l.descripcion}
+                      </span>
+                      <Razon llamado={l} />
+                    </td>
+                    <td
+                      className={l.forma_sancion === "porcentaje" ? "" : "num"}
+                    >
+                      <SancionDelLlamado llamado={l} />
                     </td>
                   </tr>
                 ))}

@@ -30,14 +30,22 @@ import { HistorialDeLaPersona } from "./HistorialDeLaPersona";
 import {
   SANCION,
   TIPOS,
+  camposDeSancion,
   comoPersona,
+  erroresDeSancion,
   jefeDe,
-  montoANumero,
   nivelPropuesto,
   nivelesDe,
+  razonTexto,
   nombreDe,
 } from "./llamadosComunes";
 import { RevisionDeEmision } from "./RevisionDeEmision";
+import {
+  CamposDeRazon,
+  RAZON_VACIA,
+  erroresDeRazon,
+  useSancion,
+} from "./SancionYRazon";
 
 const TIPOS_DE_ADJUNTO = ".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx";
 
@@ -63,7 +71,8 @@ export function FormularioLlamado({
   // Vacía y obligatoria: un valor por omisión (hoy) se aceptaría sin mirarlo.
   const [fechaHecho, setFechaHecho] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [monto, setMonto] = useState("");
+  const { sancion, cambiar, sugerir, reiniciar } = useSancion();
+  const [razon, setRazon] = useState(RAZON_VACIA);
   const [adjunto, setAdjunto] = useState(null);
   const [errores, setErrores] = useState({});
   const [error, setError] = useState(null);
@@ -78,6 +87,7 @@ export function FormularioLlamado({
   const niveles = nivelesDe(causa);
   const propuestoId = nivelPropuesto(propuesta);
   const personaId = persona[0]?.id;
+  const tope = propuesta?.tope_porcentaje ?? null;
   const fechaValida = Boolean(fechaHecho) && fechaHecho <= hoyLocal();
 
   // El nivel propuesto, su historial y el monto sugerido, al elegir persona,
@@ -90,7 +100,7 @@ export function FormularioLlamado({
       propuestoAnterior.current = null;
       setNivelId("");
       setJustificacion("");
-      setMonto("");
+      reiniciar();
     }
     setPropuesta(null);
     setErrorPropuesta(null);
@@ -111,12 +121,10 @@ export function FormularioLlamado({
         if (id === null) return;
         if (!nivelTocado.current) {
           setNivelId(String(id));
-          const sugerido =
-            datos.monto_sugerido ??
-            niveles.find((n) => String(n.id) === String(id))?.monto_sugerido;
-          if (sugerido !== null && sugerido !== undefined) {
-            setMonto(String(sugerido));
-          }
+          sugerir(
+            datos,
+            niveles.find((n) => String(n.id) === String(id)),
+          );
         } else if (
           propuestoAnterior.current !== null &&
           String(propuestoAnterior.current) !== String(id)
@@ -157,9 +165,7 @@ export function FormularioLlamado({
     nivelTocado.current = true;
     setNivelId(id);
     const nivel = niveles.find((n) => String(n.id) === String(id));
-    if (nivel?.tipo === SANCION && nivel.monto_sugerido != null) {
-      setMonto(String(nivel.monto_sugerido));
-    }
+    if (nivel?.tipo === SANCION) sugerir(nivel);
   }
 
   function buscarPersonas(texto) {
@@ -191,10 +197,11 @@ export function FormularioLlamado({
         faltan.justificacion_cambio =
           "Justifique por qué cambia el nivel propuesto.";
       }
-      if (nivel?.tipo === SANCION && montoANumero(monto) === null) {
-        faltan.monto = "Indique un monto válido, por ejemplo 10,50.";
+      if (nivel?.tipo === SANCION) {
+        Object.assign(faltan, erroresDeSancion(sancion, tope));
       }
     }
+    Object.assign(faltan, erroresDeRazon(razon));
     if (adjunto && adjunto.size > adjuntoMaximoMb * 1024 * 1024) {
       faltan.adjunto = `El adjunto no puede pasar de ${adjuntoMaximoMb} MB.`;
     }
@@ -213,8 +220,9 @@ export function FormularioLlamado({
       descripcion: descripcion.trim(),
       ...(emitir ? { nivel: nivelId } : {}),
       ...(cambia ? { justificacion_cambio: justificacion.trim() } : {}),
-      ...(emitir && nivel?.tipo === SANCION
-        ? { monto: montoANumero(monto) }
+      ...(emitir && nivel?.tipo === SANCION ? camposDeSancion(sancion) : {}),
+      ...(razon.documento
+        ? { documento: razon.documento, articulo: razon.articulo.trim() }
         : {}),
     };
     setGuardando(true);
@@ -256,7 +264,13 @@ export function FormularioLlamado({
   // Con lo escrito, cerrar pregunta «¿Descartar?» también al volver de la
   // revisión (los campos ya no están en pantalla).
   const sucio = Boolean(
-    personaId || causaId || fechaHecho || descripcion.trim() || adjunto,
+    personaId ||
+    causaId ||
+    fechaHecho ||
+    descripcion.trim() ||
+    adjunto ||
+    razon.documento ||
+    razon.articulo.trim(),
   );
   const listo =
     !calculando &&
@@ -270,7 +284,10 @@ export function FormularioLlamado({
         persona={persona[0]}
         causa={nombreDe(causa)}
         nivel={nivelElegido}
-        monto={monto}
+        sancion={sancion}
+        razon={razonTexto(razon.titulo, razon.articulo)}
+        documentoTitulo={razon.titulo}
+        articulo={razon.articulo.trim()}
         fechaHecho={fechaHecho}
         descripcion={descripcion}
         jefe={jefeDe(propuesta)}
@@ -434,8 +451,9 @@ export function FormularioLlamado({
             onNivel={elegirNivel}
             justificacion={justificacion}
             onJustificacion={setJustificacion}
-            monto={monto}
-            onMonto={setMonto}
+            sancion={sancion}
+            onSancion={cambiar}
+            tope={tope}
             errores={errores}
             deshabilitado={guardando || calculando}
           />
@@ -455,6 +473,13 @@ export function FormularioLlamado({
             onChange={(e) => setDescripcion(e.target.value)}
           />
         </Campo>
+        <CamposDeRazon
+          prefijo="llamado"
+          razon={razon}
+          onRazon={(parche) => setRazon((r) => ({ ...r, ...parche }))}
+          errores={errores}
+          deshabilitado={guardando}
+        />
         {adjunto ? (
           <div className="mz-campo">
             <span className="form-label d-block" id="llamado-adjunto-etiqueta">

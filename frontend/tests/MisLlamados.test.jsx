@@ -67,7 +67,7 @@ describe("Mis llamados de atención", () => {
       "Causa",
       "Nivel",
       "Descripción",
-      "Monto de la sanción",
+      "Sanción",
     ]) {
       expect(
         screen.getByRole("columnheader", { name: columna }),

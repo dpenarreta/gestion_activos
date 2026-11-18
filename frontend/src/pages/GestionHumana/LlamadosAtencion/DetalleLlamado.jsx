@@ -17,7 +17,6 @@ import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDe
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { useAuth } from "../../../hooks/useAuth";
-import { formatearMoneda } from "../../../utils/formato";
 import {
   erroresPorCampo,
   hayErroresGenerales,
@@ -35,17 +34,27 @@ import {
   avisoDeEmision,
   idDe,
   jefeDe,
-  montoANumero,
+  camposDeSancion,
+  erroresDeSancion,
   nivelDe,
   nivelPropuesto,
   nivelesDe,
   nombreDe,
   personaDe,
   propuestoDe,
+  razonTexto,
+  sugeridoDe,
   tipoDe,
 } from "./llamadosComunes";
 import { PildoraEstado } from "./Piezas";
 import { RevisionDeEmision } from "./RevisionDeEmision";
+import {
+  CamposDeRazon,
+  RazonDelLlamado,
+  SancionDelLlamado,
+  erroresDeRazon,
+  useSancion,
+} from "./SancionYRazon";
 
 const ACCION = {
   solicitado: "Solicitó",
@@ -170,22 +179,40 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
   // La propuesta pedida aparte manda sobre la del detalle (que puede no traer
   // el historial).
   const fuente = calculada ?? vigente;
+  const tope = fuente?.tope_porcentaje ?? null;
   const historial = fuente?.historial ?? null;
   const [paso, setPaso] = useState("formulario");
   const [nivelId, setNivelId] = useState(
     propuestoId === null ? "" : String(propuestoId),
   );
   const [justificacion, setJustificacion] = useState("");
-  const [monto, setMonto] = useState(() => {
-    if (llamado.monto !== null && llamado.monto !== undefined) {
-      return String(llamado.monto);
+  const { sancion, cambiar, sugerir } = useSancion(() => {
+    const base = {
+      forma: "monto",
+      monto: llamado.monto != null ? String(llamado.monto) : "",
+      porcentaje: llamado.porcentaje != null ? String(llamado.porcentaje) : "",
+    };
+    if (llamado.forma_sancion === "porcentaje" && base.porcentaje) {
+      return { ...base, forma: "porcentaje" };
     }
     // El nivel vigente puede ser una sanción que al solicitarse no lo era.
-    const sugerido = niveles.find(
-      (n) => String(n.id) === String(propuestoId),
-    )?.monto_sugerido;
-    return sugerido === null || sugerido === undefined ? "" : String(sugerido);
+    const sugerido = sugeridoDe(
+      niveles.find((n) => String(n.id) === String(propuestoId)),
+    );
+    if (!base.monto && !base.porcentaje && sugerido) {
+      return sugerido.forma === "porcentaje"
+        ? { ...base, forma: "porcentaje", porcentaje: sugerido.valor }
+        : { ...base, monto: sugerido.valor };
+    }
+    return base;
   });
+  const [razon, setRazon] = useState({
+    documento:
+      llamado.documento?.id != null ? String(llamado.documento.id) : "",
+    titulo: llamado.documento?.titulo ?? "",
+    articulo: llamado.articulo ?? "",
+  });
+  const sancionInicial = useRef(sancion).current;
   const [descripcion, setDescripcion] = useState(llamado.descripcion ?? "");
   const [error, setError] = useState(null);
   const [errores, setErrores] = useState({});
@@ -235,9 +262,7 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
   function elegirNivel(id) {
     setNivelId(id);
     const nivel = niveles.find((n) => String(n.id) === String(id));
-    if (nivel?.tipo === SANCION && nivel.monto_sugerido != null) {
-      setMonto(String(nivel.monto_sugerido));
-    }
+    if (nivel?.tipo === SANCION) sugerir(nivel);
   }
 
   function revisar(evento) {
@@ -248,9 +273,10 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
     if (cambia && !justificacion.trim()) {
       faltan.justificacion_cambio = "Justifique el cambio de nivel.";
     }
-    if (nivelElegido?.tipo === SANCION && montoANumero(monto) === null) {
-      faltan.monto = "Indique un monto válido, por ejemplo 10,50.";
+    if (nivelElegido?.tipo === SANCION) {
+      Object.assign(faltan, erroresDeSancion(sancion, tope));
     }
+    Object.assign(faltan, erroresDeRazon(razon));
     if (!descripcion.trim()) faltan.descripcion = "Describa el hecho.";
     setErrores(faltan);
     if (Object.keys(faltan).length) {
@@ -275,9 +301,7 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
         const nivel = niveles.find((n) => String(n.id) === String(nuevo));
         if (!cambia) {
           setNivelId(String(nuevo));
-          if (nivel?.tipo === SANCION && nivel.monto_sugerido != null) {
-            setMonto(String(nivel.monto_sugerido));
-          }
+          if (nivel?.tipo === SANCION) sugerir(nivel);
         }
         setAvisoCambio(
           `El nivel vigente cambió mientras revisaba: ahora es «${nombreDe(nivel ?? datos.nivel_propuesto)}». Revise de nuevo antes de emitir.`,
@@ -320,9 +344,11 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
         ...(cambia
           ? { nivel: nivelId, justificacion_cambio: justificacion.trim() }
           : {}),
-        ...(nivelElegido?.tipo === SANCION
-          ? { monto: montoANumero(monto) }
-          : {}),
+        ...(nivelElegido?.tipo === SANCION ? camposDeSancion(sancion) : {}),
+        // Siempre viaja: vacía, borra la razón del jefe; con valor, la
+        // reemplaza.
+        documento: razon.documento || null,
+        articulo: razon.documento ? razon.articulo.trim() : "",
       });
     } catch (err) {
       if (
@@ -350,6 +376,11 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
   // revisión.
   const sucio =
     descripcion !== (llamado.descripcion ?? "") ||
+    sancion.forma !== sancionInicial.forma ||
+    sancion.monto !== sancionInicial.monto ||
+    sancion.porcentaje !== sancionInicial.porcentaje ||
+    razon.articulo !== (llamado.articulo ?? "") ||
+    String(razon.documento) !== String(llamado.documento?.id ?? "") ||
     Boolean(justificacion.trim()) ||
     cambia;
 
@@ -364,7 +395,10 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
         }
         causa={nombreDe(causaDe(llamado))}
         nivel={nivelElegido}
-        monto={monto}
+        sancion={sancion}
+        razon={razonTexto(razon.titulo, razon.articulo)}
+        documentoTitulo={razon.titulo}
+        articulo={razon.articulo.trim()}
         fechaHecho={llamado.fecha_hecho}
         descripcion={descripcion}
         jefe={jefeDe(fuente)}
@@ -432,8 +466,9 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
           onNivel={elegirNivel}
           justificacion={justificacion}
           onJustificacion={setJustificacion}
-          monto={monto}
-          onMonto={setMonto}
+          sancion={sancion}
+          onSancion={cambiar}
+          tope={tope}
           errores={errores}
           deshabilitado={guardando}
         />
@@ -451,6 +486,14 @@ function DialogoConfirmar({ llamado, causa, onCerrar, onEnviar }) {
             onChange={(e) => setDescripcion(e.target.value)}
           />
         </Campo>
+        <CamposDeRazon
+          prefijo="confirmar"
+          razon={razon}
+          onRazon={(parche) => setRazon((x) => ({ ...x, ...parche }))}
+          actual={llamado.documento}
+          errores={errores}
+          deshabilitado={guardando}
+        />
       </div>
     </ModalDialog>
   );
@@ -748,7 +791,14 @@ export function DetalleLlamado({ id, causas, onCerrar, onCambio }) {
                 </span>
               </Dato>
               {tipo === SANCION && (
-                <Dato etiqueta="Monto">{formatearMoneda(llamado.monto)}</Dato>
+                <Dato etiqueta="Sanción">
+                  <SancionDelLlamado llamado={llamado} nota="larga" />
+                </Dato>
+              )}
+              {(llamado.documento || llamado.articulo) && (
+                <Dato etiqueta="Razón del reglamento">
+                  <RazonDelLlamado llamado={llamado} />
+                </Dato>
               )}
               {rechazado && (
                 <Dato etiqueta="Motivo del rechazo">

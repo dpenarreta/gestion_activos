@@ -1,9 +1,10 @@
 import { Campo } from "../../../components/common/Campo/Campo";
 import { SANCION, TIPOS } from "./llamadosComunes";
+import { CamposDeSancion } from "./SancionYRazon";
 
 /**
  * El nivel aplicado, con su justificación (obligatoria solo si se cambia el
- * propuesto) y el monto (solo en la sanción económica). Lo usan emitir y
+ * propuesto) y la sanción (monto o porcentaje; solo en la sanción económica). Lo usan emitir y
  * confirmar, para que las dos pantallas pidan lo mismo.
  */
 export function CamposDeNivel({
@@ -14,8 +15,9 @@ export function CamposDeNivel({
   onNivel,
   justificacion,
   onJustificacion,
-  monto,
-  onMonto,
+  sancion,
+  onSancion,
+  tope = null,
   errores = {},
   deshabilitado = false,
 }) {
@@ -76,21 +78,14 @@ export function CamposDeNivel({
         </p>
       )}
       {elegido?.tipo === SANCION && (
-        <Campo
-          id={`${prefijo}-monto`}
-          etiqueta="Monto de la sanción (USD)"
-          obligatorio
-          error={errores.monto}
-          ayuda="Parte del monto sugerido del nivel. Gestión Humana valida los montos con el Código del Trabajo."
-        >
-          <input
-            className="form-control"
-            inputMode="decimal"
-            value={monto}
-            disabled={deshabilitado}
-            onChange={(e) => onMonto(e.target.value)}
-          />
-        </Campo>
+        <CamposDeSancion
+          prefijo={prefijo}
+          sancion={sancion}
+          onSancion={onSancion}
+          tope={tope}
+          errores={errores}
+          deshabilitado={deshabilitado}
+        />
       )}
     </>
   );

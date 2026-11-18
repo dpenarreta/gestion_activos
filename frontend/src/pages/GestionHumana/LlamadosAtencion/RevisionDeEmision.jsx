@@ -7,11 +7,13 @@
 import { ModalDialog } from "../../../components/common/ModalDialog/ModalDialog";
 import { formatearMoneda } from "../../../utils/formato";
 import { ErrorEnLinea, fecha } from "../comunes";
+import { NOTA_POR_CALCULAR } from "./SancionYRazon";
 import {
   SANCION,
   TIPOS,
-  montoANumero,
   nombreYApellidos,
+  porcentajeANumero,
+  montoANumero,
   renderPlantilla,
 } from "./llamadosComunes";
 
@@ -20,7 +22,10 @@ export function RevisionDeEmision({
   persona,
   causa,
   nivel,
-  monto,
+  sancion: datosSancion,
+  razon,
+  documentoTitulo = "",
+  articulo = "",
   fechaHecho,
   descripcion,
   jefe,
@@ -33,8 +38,18 @@ export function RevisionDeEmision({
   onEmitir,
 }) {
   const sancion = nivel?.tipo === SANCION;
-  // «12,5» se muestra como 12,50.
+  // «12,5» se muestra como 12,50. Con porcentaje, el monto queda por calcular.
+  const porcentaje = sancion && datosSancion?.forma === "porcentaje";
+  const monto = datosSancion?.monto ?? "";
   const montoFinal = montoANumero(monto) ?? monto;
+  const porcentajeFinal = porcentajeANumero(datosSancion?.porcentaje) ?? "";
+  const textoSancion = !sancion
+    ? ""
+    : porcentaje
+      ? `${porcentajeFinal.replace(".", ",")} % del sueldo`
+      : monto !== ""
+        ? `${Number(montoFinal).toFixed(2).replace(".", ",")} USD`
+        : "";
   // Sin correo registrado el llamado se emite igual, pero sin correo.
   const sinCorreo = personaTieneCorreo === false;
   const envia = Boolean(nivel?.envia_correo) && !sinCorreo;
@@ -46,7 +61,18 @@ export function RevisionDeEmision({
     nivel: nivel?.nombre,
     fecha_hecho: fecha(fechaHecho),
     descripcion,
-    monto: sancion && monto !== "" ? formatearMoneda(montoFinal) : "",
+    monto: !sancion
+      ? ""
+      : porcentaje
+        ? textoSancion
+        : monto !== ""
+          ? formatearMoneda(montoFinal)
+          : "",
+    sancion: textoSancion,
+    porcentaje: porcentaje ? porcentajeFinal.replace(".", ",") : "",
+    documento: documentoTitulo,
+    articulo,
+    razon,
     emitido_por: emitidoPor,
   };
   const asunto = renderPlantilla(nivel?.asunto, valores);
@@ -112,10 +138,19 @@ export function RevisionDeEmision({
           </div>
           {sancion && (
             <div>
-              <dt className="mz-small mz-faint">Monto de la sanción</dt>
+              <dt className="mz-small mz-faint">Sanción</dt>
               <dd className="mb-0">
-                <strong>{formatearMoneda(montoFinal)}</strong>
+                <strong>{textoSancion}</strong>
+                {porcentaje && (
+                  <div className="mz-small mz-faint">{NOTA_POR_CALCULAR}</div>
+                )}
               </dd>
+            </div>
+          )}
+          {razon && (
+            <div>
+              <dt className="mz-small mz-faint">Razón del reglamento</dt>
+              <dd className="mb-0">{razon}</dd>
             </div>
           )}
         </dl>

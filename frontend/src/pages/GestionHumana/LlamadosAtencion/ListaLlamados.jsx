@@ -12,23 +12,21 @@ import { llamadosService } from "../../../api/llamadosService";
 import { FilaDeEstado } from "../../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../../components/common/Icon/Icon";
 import { mensajeDeError } from "../../../utils/errores";
-import { formatearMoneda } from "../../../utils/formato";
 import { Aviso, fecha } from "../comunes";
 import { SelectorDePersonas, coincide } from "../SelectorDePersonas";
 import { DetalleLlamado } from "./DetalleLlamado";
 import { FormularioLlamado } from "./FormularioLlamado";
 import {
   ESTADOS,
-  SANCION,
   avisoDeEmision,
   causaDe,
   comoPersona,
   nivelDe,
   nombreDe,
   personaDe,
-  tipoDe,
 } from "./llamadosComunes";
 import { PildoraEstado } from "./Piezas";
+import { SancionDelLlamado } from "./SancionYRazon";
 
 const SIN_FILTROS = {
   persona: "",
@@ -324,7 +322,7 @@ export function ListaLlamados({
               <th scope="col">Nivel</th>
               <th scope="col">Estado</th>
               {puedeEmitir && <th scope="col">Solicitado por</th>}
-              <th scope="col">Monto</th>
+              <th scope="col">Sanción</th>
               <th scope="col">
                 <span className="visually-hidden">Acciones</span>
               </th>
@@ -348,10 +346,8 @@ export function ListaLlamados({
                       : "—"}
                   </td>
                 )}
-                <td className="num">
-                  {tipoDe(l) === SANCION || l.monto
-                    ? formatearMoneda(l.monto)
-                    : "—"}
+                <td className={l.forma_sancion === "porcentaje" ? "" : "num"}>
+                  <SancionDelLlamado llamado={l} />
                 </td>
                 <td className="num">
                   <button

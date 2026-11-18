@@ -36,8 +36,17 @@ solicita; a la persona al emitir (y al anular, solo si antes se le avisó); al
 jefe que solicitó, cuando se confirma o se rechaza.
 
 Sanción económica: el monto es un dato (sugerido por el nivel, editable). No
-se calculan topes legales ni se descuenta de la nómina: Gestión Humana valida
-los montos (decisión del usuario, 12/11/2026).
+se descuenta de la nómina: Gestión Humana valida los montos (decisión del
+usuario, 12/11/2026).
+
+Desde US-033 (18/11/2026) la sanción se expresa como **monto fijo** (USD) o
+como **porcentaje del sueldo**. Con porcentaje el monto queda nulo («por
+calcular»): el sueldo todavía no está en el sistema y no se pide a mano. Si
+Talento Humano configura un tope en porcentaje (`ConfiguracionLlamados`), un
+porcentaje que lo supera no se emite; la cifra legal no se asume. El llamado
+registra además la **razón del reglamento**: un documento institucional activo
+de la empresa y el artículo o numeral incumplido; el título del documento se
+conserva aunque el documento cambie después.
 """
 
 import html
@@ -63,7 +72,15 @@ from apps.notificaciones import services as campana
 from apps.permissions.authorization import user_has_permission
 from apps.tasks import jerarquia
 
-from .models import AccionLlamado, CausaLlamado, LlamadoAtencion, NivelLlamado, TipoNivel
+from .models import (
+    AccionLlamado,
+    CausaLlamado,
+    ConfiguracionLlamados,
+    FormaSancion,
+    LlamadoAtencion,
+    NivelLlamado,
+    TipoNivel,
+)
 
 logger = logging.getLogger("apps.llamados")
 
@@ -84,6 +101,8 @@ DESCRIPCION_MAX = 4000
 MOTIVO_MAX = 2000
 CUERPO_MAX = 10000
 MONTO_MAX = Decimal("99999999.99")
+PORCENTAJE_MAX = Decimal("100")
+ARTICULO_MAX = 120
 
 
 class Modo:
@@ -251,6 +270,7 @@ def visibles(usuario):
         "emitido_por",
         "rechazado_por",
         "anulado_por",
+        "documento",
     ).exclude(persona=usuario)
     if ve_todos(usuario):
         return consulta
@@ -289,7 +309,31 @@ VARIABLES = (
         "Descripción del hecho",
         "No firmó ni aceptó el rol de pagos de octubre dentro del plazo.",
     ),
-    Variable("monto", "Monto de la sanción económica, en USD (vacío si no aplica)", "25,00"),
+    Variable(
+        "monto",
+        "Monto fijo de la sanción económica, en USD (vacío si no aplica o si es un porcentaje)",
+        "25,00",
+    ),
+    Variable(
+        "porcentaje",
+        "Porcentaje del sueldo de la sanción económica (vacío si no aplica o si es un monto fijo)",
+        "5",
+    ),
+    Variable(
+        "sancion",
+        "La sanción económica tal como se aplica: «5 % del sueldo» o «25,00 USD» (vacío si no "
+        "aplica)",
+        "5 % del sueldo",
+    ),
+    Variable(
+        "documento", "Documento institucional del reglamento incumplido", "Reglamento interno"
+    ),
+    Variable("articulo", "Artículo o numeral incumplido", "Art. 45, lit. c"),
+    Variable(
+        "razon",
+        "La razón dentro del reglamento: documento y artículo",
+        "Reglamento interno, Art. 45, lit. c",
+    ),
     Variable("numero", "Número del llamado", "LLA-2026-0007"),
     Variable("empresa", "Empresa", "LaarCourier"),
     Variable("emitido_por", "Quién emite el llamado", "Carolina Albán"),
@@ -329,6 +373,30 @@ def formatear_monto(monto) -> str:
         return ""
     texto = f"{Decimal(monto):,.2f}"
     return texto.replace(",", "§").replace(".", ",").replace("§", ".")
+
+
+def formatear_porcentaje(porcentaje) -> str:
+    """5 → «5»; 12.5 → «12,5»; 7.25 → «7,25» (sin ceros de más)."""
+    if porcentaje is None:
+        return ""
+    texto = f"{Decimal(porcentaje):.2f}".rstrip("0").rstrip(".")
+    return texto.replace(".", ",")
+
+
+def texto_sancion(forma: str, monto, porcentaje) -> str:
+    """La sanción como se lee (US-033, CA-8): «5 % del sueldo» o «25,00 USD».
+    Vacía si el llamado no es una sanción económica (o aún no la tiene)."""
+    if forma == FormaSancion.PORCENTAJE and porcentaje is not None:
+        return f"{formatear_porcentaje(porcentaje)} % del sueldo"
+    if monto is not None:
+        return f"{formatear_monto(monto)} USD"
+    return ""
+
+
+def texto_razon(documento_titulo: str, articulo: str) -> str:
+    """«Reglamento interno, Art. 45, lit. c» (US-033, CA-8)."""
+    partes = ((documento_titulo or "").strip(), (articulo or "").strip())
+    return ", ".join(p for p in partes if p)
 
 
 def _cuerpo_html(cuerpo: str, variables: dict) -> str:
@@ -375,6 +443,11 @@ def variables_de(llamado: LlamadoAtencion, jefes=None) -> dict:
         "fecha_hecho": llamado.fecha_hecho.strftime("%d/%m/%Y"),
         "descripcion": llamado.descripcion,
         "monto": formatear_monto(llamado.monto),
+        "porcentaje": formatear_porcentaje(llamado.porcentaje),
+        "sancion": texto_sancion(llamado.forma_sancion, llamado.monto, llamado.porcentaje),
+        "documento": llamado.documento_titulo,
+        "articulo": llamado.articulo,
+        "razon": texto_razon(llamado.documento_titulo, llamado.articulo),
         "numero": llamado.numero,
         "empresa": empresa.nombre if empresa else "",
         "emitido_por": nombre(llamado.emitido_por),
@@ -402,6 +475,25 @@ def validar_nivel(datos: dict) -> dict:
         errores["nombre"] = "Escriba el nombre del nivel."
     if datos.get("tipo") != TipoNivel.SANCION_ECONOMICA:
         datos["monto_sugerido"] = None
+        datos["porcentaje_sugerido"] = None
+    else:
+        # Se sugiere un porcentaje o un monto, no ambos (US-033, CA-7): lo que
+        # se sugiere decide con qué forma parte el formulario. El que no llega
+        # se limpia, para que pasar de uno a otro no deje los dos.
+        monto = datos.get("monto_sugerido")
+        porcentaje = datos.get("porcentaje_sugerido")
+        if monto is not None and porcentaje is not None:
+            errores["porcentaje_sugerido"] = "Sugiera un porcentaje o un monto, no ambos."
+        elif porcentaje is not None:
+            datos["monto_sugerido"] = None
+            try:
+                datos["porcentaje_sugerido"] = validar_porcentaje(
+                    porcentaje, campo="porcentaje_sugerido"
+                )
+            except ValidationError as error:
+                errores.update(error.detail)
+        elif monto is not None:
+            datos["porcentaje_sugerido"] = None
     if datos.get("envia_correo"):
         if not datos["asunto"]:
             errores["asunto"] = "Escriba el asunto del correo."
@@ -544,6 +636,7 @@ def _guardar_niveles(causa, niveles: list[dict], *, nueva: bool):
             "asunto",
             "cuerpo",
             "monto_sugerido",
+            "porcentaje_sugerido",
             "copia_jefe",
             "activo",
         ):
@@ -664,6 +757,182 @@ def _monto(nivel, monto):
     if monto > MONTO_MAX:
         raise ValidationError({"monto": "El monto es demasiado alto."})
     return monto
+
+
+# --- Sanción en porcentaje, tope y razón del reglamento (US-033) ----------------------------
+
+
+def configuracion() -> ConfiguracionLlamados:
+    """La configuración del módulo en la empresa activa (se crea vacía la
+    primera vez). Dos peticiones a la vez chocan con la restricción única: la
+    segunda lee la que creó la primera."""
+    actual = ConfiguracionLlamados.objects.first()
+    if actual is not None:
+        return actual
+    try:
+        with transaction.atomic():
+            return ConfiguracionLlamados.objects.create()
+    except IntegrityError:
+        return ConfiguracionLlamados.objects.first()
+
+
+def configuracion_actual() -> ConfiguracionLlamados | None:
+    """La configuración de la empresa activa sin crearla (None si aún no hay)."""
+    return ConfiguracionLlamados.objects.select_related("actualizado_por").first()
+
+
+def tope_porcentaje() -> Decimal | None:
+    """El tope de la empresa activa, en % del sueldo; None = sin tope."""
+    actual = ConfiguracionLlamados.objects.first()
+    return actual.tope_porcentaje if actual else None
+
+
+def guardar_tope(actor, tope) -> ConfiguracionLlamados:
+    """Fija (o quita, con None) el tope en porcentaje del sueldo."""
+    if tope is not None:
+        tope = validar_porcentaje(tope, campo="tope_porcentaje", con_tope=False)
+    config = configuracion()
+    config.tope_porcentaje = tope
+    config.actualizado_por = actor
+    config.save(update_fields=["tope_porcentaje", "actualizado_por", "updated_at"])
+    return config
+
+
+def validar_porcentaje(porcentaje, *, campo="porcentaje", con_tope=True) -> Decimal:
+    """Mayor que 0, hasta 100 y con dos decimales como máximo; con `con_tope`,
+    además no más que el tope de la empresa (US-033, CA-2 y CA-4)."""
+    porcentaje = Decimal(porcentaje)
+    if not porcentaje.is_finite():
+        raise ValidationError({campo: "Escriba un porcentaje válido, por ejemplo 5 o 12,5."})
+    if porcentaje.as_tuple().exponent < -2:
+        raise ValidationError({campo: "Use como máximo dos decimales."})
+    if porcentaje <= 0:
+        raise ValidationError({campo: "El porcentaje debe ser mayor que cero."})
+    if porcentaje > PORCENTAJE_MAX:
+        raise ValidationError({campo: "El porcentaje no puede pasar de 100 %."})
+    if con_tope:
+        tope = tope_porcentaje()
+        if tope is not None and porcentaje > tope:
+            raise ValidationError(
+                {
+                    campo: (
+                        "El porcentaje supera el tope de la empresa: "
+                        f"{formatear_porcentaje(tope)} % del sueldo."
+                    )
+                }
+            )
+    return porcentaje.quantize(Decimal("0.01"))
+
+
+@dataclass(frozen=True)
+class Sancion:
+    forma: str
+    monto: Decimal | None
+    porcentaje: Decimal | None
+
+
+def _sancion(nivel, *, forma=None, monto=None, porcentaje=None) -> Sancion:
+    """La sanción del llamado (US-033). Fuera de una sanción económica no hay
+    forma, monto ni porcentaje.
+
+    Sin `forma`: la de lo que llegue (monto o porcentaje) y, si no llega
+    ninguno, la de lo que sugiere el nivel (el porcentaje si lo sugiere; si no,
+    el monto, como antes de US-033). Con monto fijo se comporta como antes
+    (`_monto`); con porcentaje, el monto queda nulo («por calcular»)."""
+    if nivel.tipo != TipoNivel.SANCION_ECONOMICA:
+        return Sancion("", None, None)
+    if forma in (None, ""):
+        if monto is not None and porcentaje is not None:
+            raise ValidationError(
+                {
+                    "forma_sancion": (
+                        "Elija si la sanción es un monto fijo o un porcentaje del sueldo."
+                    )
+                }
+            )
+        if porcentaje is not None:
+            forma = FormaSancion.PORCENTAJE
+        elif monto is not None:
+            forma = FormaSancion.MONTO
+        elif nivel.porcentaje_sugerido is not None:
+            forma = FormaSancion.PORCENTAJE
+        else:
+            forma = FormaSancion.MONTO
+    if forma == FormaSancion.PORCENTAJE:
+        if porcentaje is None:
+            porcentaje = nivel.porcentaje_sugerido
+        if porcentaje is None:
+            raise ValidationError({"porcentaje": "Indique el porcentaje del sueldo."})
+        return Sancion(FormaSancion.PORCENTAJE, None, validar_porcentaje(porcentaje))
+    if forma != FormaSancion.MONTO:
+        raise ValidationError({"forma_sancion": "Elija «monto» o «porcentaje»."})
+    return Sancion(FormaSancion.MONTO, _monto(nivel, monto), None)
+
+
+def documentos_elegibles():
+    """Los que se pueden citar como razón: los activos de la empresa activa
+    (el gestor ya acota a la empresa)."""
+    from apps.organizacion.models import DocumentoInstitucional
+
+    return DocumentoInstitucional.objects.filter(activo=True).order_by("categoria", "titulo")
+
+
+def documento_elegible(documento_id):
+    """Un documento institucional activo de la empresa activa; el de otra
+    empresa es como si no existiera."""
+    try:
+        documento_id = int(documento_id)
+    except (TypeError, ValueError):
+        raise ValidationError({"documento": "Elija un documento institucional."}) from None
+    documento = documentos_elegibles().filter(pk=documento_id).first()
+    if documento is None:
+        raise ValidationError(
+            {"documento": "Elija un documento institucional activo de la empresa."}
+        )
+    return documento
+
+
+@dataclass(frozen=True)
+class Razon:
+    documento: object
+    documento_titulo: str
+    articulo: str
+
+
+def _razon(documento_id, articulo, actual=None) -> Razon:
+    """La razón del reglamento (US-033, CA-5): el documento y el artículo van
+    juntos; los dos vacíos es no registrarla.
+
+    `actual`: el llamado que se confirma. Si se deja el mismo documento que
+    ya tenía (el que registró el jefe) se conserva aunque después se haya
+    retirado, con su título de entonces (QA funcional, US-033)."""
+    articulo = _limpio(articulo)
+    if len(articulo) > ARTICULO_MAX:
+        raise ValidationError({"articulo": f"Use como máximo {ARTICULO_MAX} caracteres."})
+    if documento_id in (None, ""):
+        if articulo:
+            raise ValidationError(
+                {"documento": "Elija el documento institucional al que pertenece el artículo."}
+            )
+        return Razon(None, "", "")
+    if not articulo:
+        raise ValidationError({"articulo": "Escriba el artículo o numeral incumplido."})
+    if actual is not None and actual.documento_id and str(actual.documento_id) == str(documento_id):
+        return Razon(actual.documento, actual.documento_titulo, articulo)
+    documento = documento_elegible(documento_id)
+    return Razon(documento, documento.titulo[:200], articulo)
+
+
+def _aplicar_sancion(llamado, sancion: Sancion) -> None:
+    llamado.forma_sancion = sancion.forma
+    llamado.monto = sancion.monto
+    llamado.porcentaje = sancion.porcentaje
+
+
+def _aplicar_razon(llamado, razon: Razon) -> None:
+    llamado.documento = razon.documento
+    llamado.documento_titulo = razon.documento_titulo
+    llamado.articulo = razon.articulo
 
 
 def _descripcion(texto) -> str:
@@ -938,22 +1207,34 @@ def _crear(
     nivel_id=None,
     justificacion: str = "",
     monto=None,
+    forma_sancion=None,
+    porcentaje=None,
+    documento=None,
+    articulo="",
     adjunto=None,
     adjunto_tipo: str = "",
     guardado: list,
 ) -> LlamadoAtencion:
-    """Quien solicita no elige el nivel ni el monto: queda el propuesto, y
-    Gestión Humana los ajusta al confirmar."""
+    """Quien solicita no elige el nivel ni la sanción (monto o porcentaje):
+    queda el propuesto, y Gestión Humana los ajusta al confirmar. La razón del
+    reglamento (documento y artículo) sí la puede registrar quien solicita: es
+    parte de la descripción de la falta, y Gestión Humana la revisa al
+    confirmar (US-033, 18/11/2026)."""
     fecha_hecho = _fecha_hecho(fecha_hecho)
     descripcion = _descripcion(descripcion)
+    razon = _razon(documento, articulo)
     _bloquear_causa(causa.pk)
     propuesta = proponer(persona, causa, fecha=fecha_hecho)
     if modo == Modo.EMITIR:
         nivel = _nivel_elegido(causa, nivel_id, propuesta)
         justificacion = _justificacion(nivel, propuesta, justificacion)
-        monto = _monto(nivel, monto)
+        sancion = _sancion(nivel, forma=forma_sancion, monto=monto, porcentaje=porcentaje)
     else:
-        nivel, justificacion, monto = propuesta.nivel, "", None
+        nivel, justificacion = propuesta.nivel, ""
+        # Sin monto ni porcentaje hasta que Gestión Humana confirme.
+        sancion = Sancion(
+            FormaSancion.MONTO if nivel.tipo == TipoNivel.SANCION_ECONOMICA else "", None, None
+        )
 
     reciente = timezone.now() - MARGEN_DUPLICADO
     duplicado = LlamadoAtencion.objects.filter(
@@ -979,9 +1260,10 @@ def _crear(
         nivel_tipo=nivel.tipo,
         fecha_hecho=fecha_hecho,
         descripcion=descripcion,
-        monto=monto,
         estado=LlamadoAtencion.Estado.SOLICITADO,
     )
+    _aplicar_sancion(llamado, sancion)
+    _aplicar_razon(llamado, razon)
     if modo == Modo.SOLICITAR:
         llamado.solicitado_por = actor
         llamado.solicitado_en = ahora
@@ -1103,6 +1385,9 @@ def confirmar(
     monto=None,
     descripcion=None,
     nivel_esperado=None,
+    forma_sancion=None,
+    porcentaje=None,
+    razon: dict | None = None,
 ) -> LlamadoAtencion:
     """Gestión Humana confirma lo que pidió un jefe: con el nivel propuesto
     **recalculado ahora** (`propuesta_vigente`) u otro con justificación, y el
@@ -1114,7 +1399,11 @@ def confirmar(
     `nivel_esperado`: el nivel propuesto que mostraba la pantalla. Si se
     confirma sin elegir `nivel` y la propuesta de ahora es otra, 409
     `propuesta_cambio` (`PropuestaCambio`, con el nivel nuevo) en vez de
-    aplicar uno que nadie revisó."""
+    aplicar uno que nadie revisó.
+
+    `forma_sancion` y `porcentaje` (US-033): como al emitir. `razon`: si
+    llega (`{"documento", "articulo"}`), reemplaza la que registró el jefe; si
+    no, se conserva."""
     _exigir_estado(
         llamado,
         LlamadoAtencion.Estado.SOLICITADO,
@@ -1132,7 +1421,13 @@ def confirmar(
     llamado.nivel_nombre = nivel.nombre
     llamado.nivel_tipo = nivel.tipo
     llamado.justificacion_nivel = justificacion
-    llamado.monto = _monto(nivel, monto)
+    _aplicar_sancion(
+        llamado, _sancion(nivel, forma=forma_sancion, monto=monto, porcentaje=porcentaje)
+    )
+    if razon is not None:
+        _aplicar_razon(
+            llamado, _razon(razon.get("documento"), razon.get("articulo"), actual=llamado)
+        )
     if descripcion is not None:
         llamado.descripcion = _descripcion(descripcion)
     llamado.save()

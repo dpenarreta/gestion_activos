@@ -30,6 +30,11 @@ export const EJEMPLOS = {
   fecha_hecho: "05/11/2026",
   descripcion: "No firmó el rol de pagos dentro del plazo.",
   monto: "$ 10,00",
+  sancion: "10,00 USD",
+  porcentaje: "5",
+  documento: "Reglamento interno",
+  articulo: "Art. 45, lit. c",
+  razon: "Reglamento interno, Art. 45, lit. c",
   empresa: "LAARCOURIER",
   emitido_por: "Gestión Humana",
 };
@@ -71,6 +76,101 @@ export function montoANumero(texto) {
     .replace(",", ".");
   if (!/^\d+(\.\d{1,2})?$/.test(limpio)) return null;
   return limpio;
+}
+
+/** El porcentaje de «12,5», «12.5» o «12,5 %» a un texto con punto, mayor
+ * que 0 y hasta 100, con hasta dos decimales; `null` si no lo es. */
+export function porcentajeANumero(texto) {
+  const limpio = String(texto ?? "")
+    .trim()
+    .replace(/\s*%$/, "")
+    .replace(",", ".");
+  if (!/^\d+(\.\d{1,2})?$/.test(limpio)) return null;
+  const numero = Number(limpio);
+  if (numero <= 0 || numero > 100) return null;
+  return limpio;
+}
+
+export const FORMAS = {
+  monto: "Monto fijo (USD)",
+  porcentaje: "Porcentaje del sueldo (%)",
+};
+
+/** Lo que sugiere un nivel (o una propuesta): `{ forma, valor }` o `null`.
+ * Se sugiere un porcentaje o un monto, no los dos. Con varias fuentes, vale
+ * la primera que sugiera algo. */
+export function sugeridoDe(...fuentes) {
+  for (const f of fuentes) {
+    if (!f) continue;
+    const forma =
+      f.forma_sugerida ??
+      (f.porcentaje_sugerido != null
+        ? "porcentaje"
+        : f.monto_sugerido != null
+          ? "monto"
+          : null);
+    if (forma === "porcentaje" && f.porcentaje_sugerido != null) {
+      return { forma, valor: String(f.porcentaje_sugerido) };
+    }
+    if (forma === "monto" && f.monto_sugerido != null) {
+      return { forma, valor: String(f.monto_sugerido) };
+    }
+  }
+  return null;
+}
+
+/** Los campos de la sanción que viajan al servidor: la forma y solo el valor
+ * de esa forma. */
+export function camposDeSancion({ forma, monto, porcentaje }) {
+  return forma === "porcentaje"
+    ? { forma_sancion: "porcentaje", porcentaje: porcentajeANumero(porcentaje) }
+    : { forma_sancion: "monto", monto: montoANumero(monto) };
+}
+
+/** Los errores de la sanción antes de enviar (los mismos que dice el
+ * servidor). `tope` es el máximo en % de la empresa, si lo hay. */
+export function erroresDeSancion({ forma, monto, porcentaje }, tope) {
+  if (forma === "porcentaje") {
+    const valor = porcentajeANumero(porcentaje);
+    if (valor === null) {
+      return {
+        porcentaje:
+          "Indique un porcentaje mayor que 0 y hasta 100, con hasta dos decimales, por ejemplo 5 o 12,5.",
+      };
+    }
+    if (porSobreElTope(valor, tope)) {
+      return { porcentaje: avisoDeTope(tope) };
+    }
+    return {};
+  }
+  if (montoANumero(monto) === null) {
+    return { monto: "Indique un monto válido, por ejemplo 10,50." };
+  }
+  return {};
+}
+
+export function porSobreElTope(valor, tope) {
+  if (tope === null || tope === undefined || tope === "") return false;
+  const numero = Number(String(valor).replace(",", "."));
+  return Number.isFinite(numero) && numero > Number(tope);
+}
+
+export function avisoDeTope(tope) {
+  const texto = String(Number(tope)).replace(".", ",");
+  return `El porcentaje supera el tope de la empresa: ${texto} % del sueldo.`;
+}
+
+/** La sanción de un llamado como texto: «5 % del sueldo · monto por calcular»
+ * o «25,00 USD». Vacío si no tiene sanción. */
+export function sancionTexto(llamado) {
+  const base = llamado?.sancion_texto ?? "";
+  if (!base) return "";
+  return llamado.monto_por_calcular ? `${base} · monto por calcular` : base;
+}
+
+/** El texto de la razón del reglamento a partir de lo que se eligió. */
+export function razonTexto(titulo, articulo) {
+  return [titulo, articulo?.trim()].filter(Boolean).join(", ");
 }
 
 /** Quien llega de `personas/` con la forma del selector de personas. */

@@ -12,6 +12,8 @@
   confirma —pasa a `emitido`— o lo rechaza). Un emitido por error se anula y
   deja de contar para la reincidencia.
 - **Historial** (`AccionLlamado`): cada movimiento, con quién y cuándo.
+- **Configuración** (`ConfiguracionLlamados`): una por empresa; hoy, el tope
+  de una sanción en porcentaje del sueldo (US-033, 18/11/2026).
 
 Lo que se usó no se borra: una causa o un nivel con llamados se desactiva. El
 llamado guarda además el nombre de la causa y del nivel con que se emitió, y
@@ -38,6 +40,15 @@ class TipoNivel(models.TextChoices):
     VERBAL = "verbal", "Verbal"
     ESCRITO = "escrito", "Escrito"
     SANCION_ECONOMICA = "sancion_economica", "Sanción económica"
+
+
+class FormaSancion(models.TextChoices):
+    """Cómo se expresa una sanción económica (US-033, 18/11/2026): un monto fijo
+    en USD o un porcentaje del sueldo. Con porcentaje el monto queda «por
+    calcular»: el sueldo todavía no está en el sistema (llegará con nómina)."""
+
+    MONTO = "monto", "Monto fijo (USD)"
+    PORCENTAJE = "porcentaje", "Porcentaje del sueldo (%)"
 
 
 class CausaLlamado(ModeloDeEmpresa):
@@ -76,6 +87,9 @@ class NivelLlamado(ModeloDeEmpresa):
     cuerpo = models.TextField(blank=True)
     #: Solo en las sanciones económicas: el monto con que parte el formulario.
     monto_sugerido = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    #: Solo en las sanciones económicas, en lugar del monto: el porcentaje del
+    #: sueldo con que parte el formulario (US-033, 18/11/2026).
+    porcentaje_sugerido = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     #: Si el correo va también, en copia, al jefe inmediato de la persona.
     copia_jefe = models.BooleanField(default=False)
     activo = models.BooleanField(default=True)
@@ -127,7 +141,27 @@ class LlamadoAtencion(ModeloDeEmpresa):
     nivel_tipo = models.CharField(max_length=20, choices=TipoNivel.choices)
     fecha_hecho = models.DateField()
     descripcion = models.TextField()
+    #: Solo en las sanciones económicas (vacía en los demás niveles). Los
+    #: llamados anteriores a US-033 quedaron como monto fijo.
+    forma_sancion = models.CharField(
+        max_length=12, choices=FormaSancion.choices, default=FormaSancion.MONTO, blank=True
+    )
+    #: Con monto fijo; con porcentaje queda nulo («por calcular»).
     monto = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    #: Con porcentaje del sueldo: entre 0 y 100, hasta dos decimales.
+    porcentaje = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    #: La razón dentro del reglamento interno (US-033): el documento
+    #: institucional y el artículo o numeral incumplido. El título se conserva
+    #: aunque el documento cambie o se borre después.
+    documento = models.ForeignKey(
+        "organizacion.DocumentoInstitucional",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="llamados_de_atencion",
+    )
+    documento_titulo = models.CharField(max_length=200, blank=True)
+    articulo = models.CharField(max_length=120, blank=True)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.SOLICITADO)
 
     adjunto = models.FileField(upload_to=ruta_adjunto, max_length=255, blank=True)
@@ -181,6 +215,32 @@ class LlamadoAtencion(ModeloDeEmpresa):
 
     def __str__(self) -> str:
         return self.numero or f"Llamado {self.pk}"
+
+
+class ConfiguracionLlamados(ModeloDeEmpresa):
+    """Los ajustes del módulo, uno por empresa (US-033, 18/11/2026). Los edita
+    quien tiene `llamados.configurar`.
+
+    `tope_porcentaje`: el máximo, en porcentaje del sueldo, de una sanción
+    económica en porcentaje. Vacío = sin tope. La cifra no se asume: la define
+    Talento Humano (pendiente validarla con el Código del Trabajo)."""
+
+    tope_porcentaje = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa"], name="una_configuracion_llamados_por_empresa"
+            )
+        ]
+        verbose_name = "configuración de llamados de atención"
+        verbose_name_plural = "configuraciones de llamados de atención"
+
+    def __str__(self) -> str:
+        return f"Configuración de llamados ({self.empresa_id})"
 
 
 class AccionLlamado(ModeloDeEmpresa):

@@ -13,6 +13,9 @@
 | `llamados/<id>/` y `llamados/<id>/adjunto/` | GET | los mismos que la lista; otro, 404 |
 | `llamados/<id>/confirmar/`, `rechazar/`, `anular/`, `reenviar-correo/` | POST | `emitir` (nunca sobre lo propio) |
 | `mios/` | GET | toda persona con sesión (los suyos, emitidos o anulados) |
+| `documentos/` | GET | `emitir` o `solicitar`: los documentos institucionales activos que se pueden citar como razón (US-033) |
+| `configuracion/` | GET | `configurar` o `emitir` |
+| `configuracion/` | PUT, PATCH | `configurar` (el tope en % del sueldo, US-033) |
 
 Errores con el contrato del proyecto (`{"error": {"code", "message",
 "details"}}`): 400 `invalid` con el detalle por campo, 403 `permission_denied`
@@ -23,6 +26,7 @@ o `fuera_de_su_equipo`, 404 `not_found`, 409 `estado_invalido`, `en_uso` o
 
 from urllib.parse import quote
 
+from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, Http404
 from rest_framework import status, viewsets
@@ -57,6 +61,16 @@ def _auditar(request, accion, objetivo, **valores):
         new_values=valores,
         context=get_request_context(request),
     )
+
+
+def _auditoria_sancion(llamado) -> dict:
+    """La forma de la sanción y la razón del reglamento (US-033)."""
+    return {
+        "forma_sancion": llamado.forma_sancion,
+        "porcentaje": s._decimal(llamado.porcentaje),
+        "documento": llamado.documento_titulo,
+        "articulo": llamado.articulo,
+    }
 
 
 def _primero_que_tenga(usuario, *codenames) -> str:
@@ -282,6 +296,9 @@ class PropuestaView(APIView):
             },
             "nivel_propuesto": s.nivel_resumen(nivel),
             "monto_sugerido": s._monto(nivel.monto_sugerido),
+            "porcentaje_sugerido": s._decimal(nivel.porcentaje_sugerido),
+            "forma_sugerida": s.forma_sugerida(nivel),
+            "tope_porcentaje": s._decimal(services.tope_porcentaje()),
             "es_ultimo_nivel": propuesta.es_ultimo,
             "cuenta_desde": propuesta.desde.isoformat(),
             "niveles": [s.nivel_resumen(n) for n in propuesta.niveles],
@@ -440,6 +457,10 @@ class LlamadoViewSet(viewsets.ViewSet):
             nivel_id=datos.get("nivel"),
             justificacion=datos.get("justificacion_cambio", ""),
             monto=datos.get("monto"),
+            forma_sancion=datos.get("forma_sancion") or None,
+            porcentaje=datos.get("porcentaje"),
+            documento=datos.get("documento"),
+            articulo=datos.get("articulo", ""),
             adjunto=datos.get("adjunto"),
             adjunto_tipo=getattr(entrada, "_tipo", ""),
         )
@@ -456,6 +477,7 @@ class LlamadoViewSet(viewsets.ViewSet):
             nivel=llamado.nivel_nombre,
             nivel_propuesto=llamado.nivel_propuesto.nombre if llamado.nivel_propuesto else "",
             monto=s._monto(llamado.monto),
+            **_auditoria_sancion(llamado),
             correo=llamado.correo_estado,
         )
         return self._detalle(request, llamado, status.HTTP_201_CREATED)
@@ -466,6 +488,12 @@ class LlamadoViewSet(viewsets.ViewSet):
         entrada = s.ConfirmarSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         datos = entrada.validated_data
+        # Lo que había antes de confirmar: Gestión Humana puede reemplazar o
+        # borrar la razón del jefe y cambiar la sanción (QA técnico, US-033).
+        antes = _auditoria_sancion(llamado)
+        razon = None
+        if "documento" in datos or "articulo" in datos:
+            razon = {"documento": datos.get("documento"), "articulo": datos.get("articulo", "")}
         try:
             services.confirmar(
                 llamado,
@@ -475,6 +503,9 @@ class LlamadoViewSet(viewsets.ViewSet):
                 monto=datos.get("monto"),
                 descripcion=datos.get("descripcion"),
                 nivel_esperado=datos.get("nivel_esperado"),
+                forma_sancion=datos.get("forma_sancion") or None,
+                porcentaje=datos.get("porcentaje"),
+                razon=razon,
             )
         except services.PropuestaCambio as cambio:
             # El contrato de error lleva el mensaje y, en `details`, el nivel
@@ -489,6 +520,8 @@ class LlamadoViewSet(viewsets.ViewSet):
                         **s.nivel_resumen(nivel),
                     },
                     "monto_sugerido": s._monto(nivel.monto_sugerido),
+                    "porcentaje_sugerido": s._decimal(nivel.porcentaje_sugerido),
+                    "forma_sugerida": s.forma_sugerida(nivel),
                 },
             )
         llamado.refresh_from_db()
@@ -501,6 +534,8 @@ class LlamadoViewSet(viewsets.ViewSet):
             nivel=llamado.nivel_nombre,
             nivel_propuesto=llamado.nivel_propuesto.nombre if llamado.nivel_propuesto else "",
             monto=s._monto(llamado.monto),
+            **_auditoria_sancion(llamado),
+            sancion_y_razon_antes=antes,
             correo=llamado.correo_estado,
         )
         return self._detalle(request, llamado)
@@ -579,8 +614,71 @@ class MiosView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        llamados = LlamadoAtencion.objects.filter(
-            persona=request.user,
-            estado__in=[LlamadoAtencion.Estado.EMITIDO, LlamadoAtencion.Estado.ANULADO],
-        ).order_by("-fecha_hecho", "-id")
+        llamados = (
+            LlamadoAtencion.objects.filter(
+                persona=request.user,
+                estado__in=[LlamadoAtencion.Estado.EMITIDO, LlamadoAtencion.Estado.ANULADO],
+            )
+            .select_related("documento")
+            .order_by("-fecha_hecho", "-id")
+        )
         return Response([s.mio(ll) for ll in llamados])
+
+
+# --- Razón del reglamento y configuración (US-033) ------------------------------------------
+
+
+class DocumentosView(APIView):
+    """Los documentos institucionales que se pueden citar como razón del
+    llamado: los activos de la empresa activa (los de «Códigos de conducta»),
+    `[{id, titulo, categoria, categoria_display, version, es_pdf}]`. Para
+    quien emite o solicita; abrir uno sigue siendo por Códigos de conducta
+    (`/organizacion/documentos/<id>/archivo/`)."""
+
+    permission_classes = [IsAuthenticated, Requiere(services.EMITIR, services.SOLICITAR)]
+
+    def get(self, request):
+        return Response([s.documento_elegible(d) for d in services.documentos_elegibles()])
+
+
+class ConfiguracionPermission(HasActionPermission):
+    """Leer: `configurar` o `emitir` (quien emite ve el tope en el formulario).
+    Cambiar: `configurar`."""
+
+    def get_required_permission(self, request, view):
+        if request.method in SAFE_METHODS:
+            return _primero_que_tenga(request.user, services.CONFIGURAR, services.EMITIR)
+        return services.CONFIGURAR
+
+
+class ConfiguracionView(APIView):
+    """La configuración del módulo en la empresa activa: hoy, el tope de una
+    sanción en porcentaje del sueldo (`tope_porcentaje`, null = sin tope).
+    `{tope_porcentaje, actualizado_por, actualizado_en}`."""
+
+    permission_classes = [IsAuthenticated, ConfiguracionPermission]
+
+    def get(self, request):
+        # Sin crearla: un GET no escribe (vacía = sin tope).
+        return Response(s.configuracion(services.configuracion_actual()))
+
+    def put(self, request):
+        entrada = s.ConfiguracionSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        # En una transacción: dos ediciones a la vez no dejan desfasado el
+        # valor anterior de la auditoría (QA técnico, US-033).
+        with transaction.atomic():
+            anterior = services.tope_porcentaje()
+            config = services.guardar_tope(request.user, entrada.validated_data["tope_porcentaje"])
+        record_audit_event(
+            actor=request.user,
+            action="llamados.configuracion.editada",
+            target=config,
+            module=MODULO,
+            previous_values={"tope_porcentaje": s._decimal(anterior)},
+            new_values={"tope_porcentaje": s._decimal(config.tope_porcentaje)},
+            context=get_request_context(request),
+        )
+        return Response(s.configuracion(config))
+
+    patch = put

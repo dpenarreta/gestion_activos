@@ -488,6 +488,33 @@ def _horas(ctx: Contexto) -> list[dict]:
     )
 
 
+def _interaccion(ctx: Contexto) -> list[dict]:
+    """La actividad diaria en la intranet (18/11/2026, dashboard
+    «Interacción de la plataforma»): solo contadores y horas."""
+    from apps.interaccion.models import ActividadDiaria
+
+    return _filas(
+        ActividadDiaria.objects.filter(usuario=ctx.titular).order_by("fecha"),
+        [
+            ("fecha", "fecha"),
+            ("primera_conexion", "primera_conexion"),
+            ("ultima_senal", "ultima_senal"),
+            ("minutos_conectado", "minutos_conectado"),
+            ("minutos_de_actividad", "minutos_activo"),
+            ("ingresos_del_dia", "ingresos"),
+        ],
+    )
+
+
+def _uso_de_funcionalidades(ctx: Contexto) -> list[dict]:
+    from apps.interaccion.models import UsoFuncionalidad
+
+    return _filas(
+        UsoFuncionalidad.objects.filter(usuario=ctx.titular).order_by("fecha", "funcionalidad"),
+        [("fecha", "fecha"), ("funcionalidad", "funcionalidad"), ("minutos", "minutos")],
+    )
+
+
 def _comentarios(ctx: Contexto) -> list[dict]:
     from apps.projects.models import ProjectComment
     from apps.tasks.models import ActivityComment, Comment
@@ -921,7 +948,13 @@ def _llamados_de_atencion(ctx: Contexto) -> list[dict]:
             ("nivel", "nivel_nombre"),
             ("tipo_de_nivel", "nivel_tipo"),
             ("descripcion", "descripcion"),
+            # US-033 (18/11/2026): la sanción en monto fijo o en porcentaje del
+            # sueldo, y la razón del reglamento (documento y artículo).
+            ("forma_de_la_sancion", "forma_sancion"),
             ("monto", "monto"),
+            ("porcentaje_del_sueldo", "porcentaje"),
+            ("documento_del_reglamento", "documento_titulo"),
+            ("articulo", "articulo"),
             ("estado", "estado"),
             ("emitido_el", "emitido_en"),
             ("anulado_el", "anulado_en"),
@@ -1277,6 +1310,19 @@ SECCIONES: tuple[Seccion, ...] = (
     Seccion("tareas", "Tareas", "Las tareas asignadas en Gestión Humana.", _tareas),
     Seccion("horas", "Horas registradas", "Cada registro de horas en sus tareas.", _horas),
     Seccion(
+        "interaccion",
+        "Actividad en la intranet",
+        "Por día: primera conexión, última señal, minutos conectado, minutos de "
+        "actividad e ingresos. Solo contadores y horas, nada de lo que se escribió o vio.",
+        _interaccion,
+    ),
+    Seccion(
+        "uso_de_funcionalidades",
+        "Funcionalidades usadas",
+        "Por día, las pantallas de la intranet donde trabajó y sus minutos de uso.",
+        _uso_de_funcionalidades,
+    ),
+    Seccion(
         "comentarios",
         "Comentarios",
         "Sus comentarios en tareas, registros de horas y " "proyectos.",
@@ -1507,6 +1553,7 @@ APPS_REVISADAS: dict[str, str] = {
     "empresas": "Secciones: empresas_y_roles.",
     "escritorio": "Secciones: escritorio (solo el titular).",
     "informes": "Informes ejecutivos de equipos: datos de terceros (ver EXCLUIDO).",
+    "interaccion": "Secciones: interaccion, uso_de_funcionalidades.",
     "licencias": "Secciones: solicitudes_de_permiso.",
     "llamados": (
         "Secciones: llamados_de_atencion (los emitidos y anulados de la persona, sin quién los "

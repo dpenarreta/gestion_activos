@@ -21,12 +21,16 @@ import {
   mensajeDeError,
 } from "../../../utils/errores";
 import { ErrorEnLinea } from "../comunes";
+import { AvisoDeTope, ESTILO_RADIO } from "./SancionYRazon";
 import {
   SANCION,
   TIPOS,
   claveDeVariable,
   conEjemplos,
+  FORMAS,
   montoANumero,
+  porSobreElTope,
+  porcentajeANumero,
   renderPlantilla,
 } from "./llamadosComunes";
 
@@ -44,7 +48,9 @@ function nivelVacio() {
     tipo: "escrito",
     envia_correo: false,
     copia_jefe: false,
+    forma_sugerida: "monto",
     monto_sugerido: "",
+    porcentaje_sugerido: "",
     asunto: "",
     cuerpo: "",
     activo: true,
@@ -60,10 +66,17 @@ function desdeServidor(n) {
     tipo: n.tipo ?? "escrito",
     envia_correo: Boolean(n.envia_correo),
     copia_jefe: Boolean(n.copia_jefe ?? n.copia_jefe_inmediato),
+    forma_sugerida:
+      n.forma_sugerida ??
+      (n.porcentaje_sugerido != null ? "porcentaje" : "monto"),
     monto_sugerido:
       n.monto_sugerido === null || n.monto_sugerido === undefined
         ? ""
         : String(n.monto_sugerido),
+    porcentaje_sugerido:
+      n.porcentaje_sugerido === null || n.porcentaje_sugerido === undefined
+        ? ""
+        : String(n.porcentaje_sugerido),
     asunto: n.asunto ?? "",
     cuerpo: n.cuerpo ?? "",
     activo: n.activo !== false,
@@ -160,6 +173,7 @@ function EditorDeNivel({
   nivel,
   variables,
   errores,
+  tope,
   deshabilitado,
   ordenBloqueado,
   onCambio,
@@ -167,6 +181,12 @@ function EditorDeNivel({
   onQuitar,
 }) {
   const p = `nivel-${nivel.clave}`;
+  const valorPorcentaje = porcentajeANumero(nivel.porcentaje_sugerido);
+  const sobreElTope =
+    nivel.tipo === SANCION &&
+    nivel.forma_sugerida === "porcentaje" &&
+    valorPorcentaje !== null &&
+    porSobreElTope(valorPorcentaje, tope);
   const asunto = useRef(null);
   const cuerpo = useRef(null);
   const [destino, setDestino] = useState("cuerpo");
@@ -269,19 +289,72 @@ function EditorDeNivel({
         </select>
       </Campo>
       {nivel.tipo === SANCION && (
-        <Campo
-          id={`${p}-monto`}
-          etiqueta="Monto sugerido (USD)"
-          error={errores.monto_sugerido}
-          ayuda="Al emitir, Gestión Humana parte de este monto y lo puede cambiar."
-        >
-          <input
-            className="form-control"
-            inputMode="decimal"
-            value={nivel.monto_sugerido}
-            onChange={(e) => onCambio({ monto_sugerido: e.target.value })}
-          />
-        </Campo>
+        <>
+          <fieldset className="mz-campo">
+            <legend className="form-label">Sugerencia de la sanción</legend>
+            <div className="d-flex flex-wrap gap-3">
+              {Object.entries(FORMAS).map(([clave, texto]) => (
+                <div className="form-check" key={clave} style={ESTILO_RADIO}>
+                  <input
+                    id={`${p}-forma-${clave}`}
+                    type="radio"
+                    name={`${p}-forma`}
+                    className="form-check-input"
+                    checked={nivel.forma_sugerida === clave}
+                    onChange={() => onCambio({ forma_sugerida: clave })}
+                  />
+                  <label
+                    className="form-check-label"
+                    htmlFor={`${p}-forma-${clave}`}
+                  >
+                    {texto}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </fieldset>
+          {nivel.forma_sugerida === "porcentaje" ? (
+            <>
+              <Campo
+                id={`${p}-porcentaje`}
+                etiqueta="Porcentaje sugerido (%)"
+                error={errores.porcentaje_sugerido}
+                ayuda="Al emitir, Gestión Humana parte de este porcentaje del sueldo y lo puede cambiar. Se sugiere un porcentaje o un monto, no los dos."
+              >
+                <input
+                  className="form-control"
+                  inputMode="decimal"
+                  aria-describedby={
+                    sobreElTope ? `${p}-porcentaje-tope` : undefined
+                  }
+                  value={nivel.porcentaje_sugerido}
+                  onChange={(e) =>
+                    onCambio({ porcentaje_sugerido: e.target.value })
+                  }
+                />
+              </Campo>
+              <AvisoDeTope
+                id={`${p}-porcentaje-tope`}
+                visible={sobreElTope}
+                tope={tope}
+              />
+            </>
+          ) : (
+            <Campo
+              id={`${p}-monto`}
+              etiqueta="Monto sugerido (USD)"
+              error={errores.monto_sugerido}
+              ayuda="Al emitir, Gestión Humana parte de este monto y lo puede cambiar."
+            >
+              <input
+                className="form-control"
+                inputMode="decimal"
+                value={nivel.monto_sugerido}
+                onChange={(e) => onCambio({ monto_sugerido: e.target.value })}
+              />
+            </Campo>
+          )}
+        </>
       )}
       <div className="form-check">
         <input
@@ -435,7 +508,13 @@ function EditorDeNivel({
   );
 }
 
-export function FormularioCausa({ causa, variables, onCerrar, onGuardado }) {
+export function FormularioCausa({
+  causa,
+  variables,
+  tope = null,
+  onCerrar,
+  onGuardado,
+}) {
   const editando = Boolean(causa);
   const [nombre, setNombre] = useState(causa?.nombre ?? "");
   const [descripcion, setDescripcion] = useState(causa?.descripcion ?? "");
@@ -513,10 +592,20 @@ export function FormularioCausa({ causa, variables, onCerrar, onGuardado }) {
       if (n.envia_correo && !n.cuerpo.trim()) e.cuerpo = "Escriba el cuerpo.";
       if (
         n.tipo === SANCION &&
+        n.forma_sugerida !== "porcentaje" &&
         n.monto_sugerido !== "" &&
         montoANumero(n.monto_sugerido) === null
       ) {
         e.monto_sugerido = "Indique un monto válido, por ejemplo 10,50.";
+      }
+      if (
+        n.tipo === SANCION &&
+        n.forma_sugerida === "porcentaje" &&
+        n.porcentaje_sugerido !== "" &&
+        porcentajeANumero(n.porcentaje_sugerido) === null
+      ) {
+        e.porcentaje_sugerido =
+          "Indique un porcentaje mayor que 0 y hasta 100, con hasta dos decimales, por ejemplo 5 o 12,5.";
       }
       if (Object.keys(e).length) porNivel[n.clave] = e;
     });
@@ -545,9 +634,18 @@ export function FormularioCausa({ causa, variables, onCerrar, onGuardado }) {
         tipo: n.tipo,
         envia_correo: n.envia_correo,
         copia_jefe: n.envia_correo && n.copia_jefe,
+        // Se sugiere un monto o un porcentaje, no los dos.
         monto_sugerido:
-          n.tipo === SANCION && n.monto_sugerido !== ""
+          n.tipo === SANCION &&
+          n.forma_sugerida !== "porcentaje" &&
+          n.monto_sugerido !== ""
             ? montoANumero(n.monto_sugerido)
+            : null,
+        porcentaje_sugerido:
+          n.tipo === SANCION &&
+          n.forma_sugerida === "porcentaje" &&
+          n.porcentaje_sugerido !== ""
+            ? porcentajeANumero(n.porcentaje_sugerido)
             : null,
         // El texto se conserva aunque el nivel deje de enviar correo.
         asunto: n.asunto,
@@ -667,8 +765,16 @@ export function FormularioCausa({ causa, variables, onCerrar, onGuardado }) {
               indice={i}
               total={niveles.length}
               nivel={n}
+              tope={tope}
               variables={variables}
-              errores={erroresNivel[n.clave] ?? {}}
+              errores={{
+                ...(erroresNivel[n.clave] ?? {}),
+                ...Object.fromEntries(
+                  ["monto_sugerido", "porcentaje_sugerido"]
+                    .filter((c) => errores[`niveles.${i}.${c}`])
+                    .map((c) => [c, errores[`niveles.${i}.${c}`]]),
+                ),
+              }}
               deshabilitado={guardando}
               ordenBloqueado={ordenBloqueado}
               onCambio={(cambios) => cambiarNivel(n.clave, cambios)}
