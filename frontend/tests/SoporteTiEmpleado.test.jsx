@@ -201,19 +201,24 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("avisa cuántos adjuntos se omitieron al pasar de tres", async () => {
+  it("avisa cuando pasan de tres adjuntos y agrega solo tres", async () => {
     servicio.miTicket.mockResolvedValue(SEGUIMIENTO);
     servicio.responderMiTicket.mockResolvedValue(SEGUIMIENTO);
     pintar(<MiTicket />, "/admin/ayuda/tickets/42", "/admin/ayuda/tickets/:id");
 
-    const entrada = await screen.findByLabelText(/^Adjuntar captura o archivo/);
+    const entrada = await screen.findByLabelText(
+      /^Adjuntar captura o archivo/,
+      {
+        selector: "input",
+      },
+    );
     fireEvent.change(entrada, { target: { files: archivos(5) } });
     expect(
-      screen.getByText("Máx. 3 archivos; se omitieron 2."),
+      await screen.findByText("Se agregaron 3 archivos."),
     ).toBeInTheDocument();
-    expect(entrada).toHaveAccessibleDescription(
-      "Máx. 3 archivos; se omitieron 2.",
-    );
+    expect(
+      screen.getByText(/No se agregó: solo se aceptan 3 archivos\./),
+    ).toBeInTheDocument();
 
     fireEvent.change(
       screen.getByLabelText(/^(Responder|¿Quiere agregar algo\?)$/),
@@ -230,9 +235,6 @@ describe("Soporte TI: la ficha de un ticket propio", () => {
       ),
     );
     expect(servicio.responderMiTicket.mock.calls[0][2]).toHaveLength(3);
-    await waitFor(() =>
-      expect(screen.queryByText(/se omitieron/)).not.toBeInTheDocument(),
-    );
   });
 
   it("la encuesta usa radios nativos con nombre de grupo y explica el botón", async () => {
@@ -303,17 +305,25 @@ describe("Aviso de adjuntos omitidos al crear el ticket", () => {
     });
     pintar(<NuevoTicket />, "/admin/ayuda", "/admin/ayuda");
 
-    const entrada = await screen.findByLabelText(/^Capturas o archivos/);
+    const entrada = await screen.findByLabelText(/^Capturas o archivos/, {
+      selector: "input",
+    });
     fireEvent.change(entrada, { target: { files: archivos(4) } });
     expect(
-      screen.getByText("Máx. 3 archivos; se omitieron 1."),
+      await screen.findByText("Se agregaron 3 archivos."),
     ).toBeInTheDocument();
-    expect(entrada).toHaveAccessibleDescription(
-      /Máx\. 3 archivos; se omitieron 1\./,
-    );
+    expect(
+      screen.getByText(/No se agregó: solo se aceptan 3 archivos\./),
+    ).toBeInTheDocument();
 
-    fireEvent.change(entrada, { target: { files: archivos(2) } });
-    expect(screen.queryByText(/se omitieron/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Quitar captura-1.png" }),
+    );
+    expect(
+      within(
+        screen.getByRole("list", { name: "Archivos por adjuntar" }),
+      ).getAllByRole("listitem"),
+    ).toHaveLength(2);
   });
 
   it("en el alta interna de la mesa", async () => {
@@ -342,13 +352,15 @@ describe("Aviso de adjuntos omitidos al crear el ticket", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: /Carla Ordóñez/ }),
     );
-    const entrada = screen.getByLabelText("Adjuntos (opcional, hasta 3)");
+    const entrada = screen.getByLabelText("Adjuntos (opcional, hasta 3)", {
+      selector: "input",
+    });
     fireEvent.change(entrada, { target: { files: archivos(6) } });
     expect(
-      screen.getByText("Máx. 3 archivos; se omitieron 3."),
+      await screen.findByText("Se agregaron 3 archivos."),
     ).toBeInTheDocument();
-    expect(entrada).toHaveAccessibleDescription(
-      "Máx. 3 archivos; se omitieron 3.",
-    );
+    expect(
+      screen.getByText(/No se agregó: solo se aceptan 3 archivos\./),
+    ).toBeInTheDocument();
   });
 });

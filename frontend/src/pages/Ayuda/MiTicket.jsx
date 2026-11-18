@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { soporteService } from "../../api/soporteService";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import { ZonaDeAdjuntos } from "../../components/common/ZonaDeAdjuntos/ZonaDeAdjuntos";
 import { formatearFecha } from "../../utils/formato";
 import { usePermission } from "../../hooks/usePermission";
 import { mensajeDeError } from "../../utils/errores";
@@ -80,10 +81,8 @@ export function MiTicket() {
   const [novedad, setNovedad] = useState(null);
   const [texto, setTexto] = useState("");
   const [archivos, setArchivos] = useState([]);
-  const [omitidos, setOmitidos] = useState(0);
   const [enviando, setEnviando] = useState(false);
   const [errorTexto, setErrorTexto] = useState(null);
-  const [llaveArchivos, setLlaveArchivos] = useState(0);
   const cargado = useRef(false);
   const anterior = useRef(null);
   const enviandoRef = useRef(false);
@@ -173,8 +172,6 @@ export function MiTicket() {
       setTicket(actualizado);
       setTexto("");
       setArchivos([]);
-      setOmitidos(0);
-      setLlaveArchivos((n) => n + 1);
       setAviso(HECHO[donde]);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo enviar."));
@@ -567,32 +564,27 @@ export function MiTicket() {
                       {errorTexto}
                     </div>
                   )}
-                  <label className="form-label mt-2 mb-1" htmlFor="sg-adjuntos">
-                    Adjuntar captura o archivo{" "}
-                    <span className="mz-faint fw-normal">
-                      (opcional: foto, PDF, Word o Excel; hasta 3, de 10 MB cada
-                      uno)
-                    </span>
-                  </label>
-                  <div className="d-flex flex-wrap gap-2 align-items-center">
-                    <input
-                      key={llaveArchivos}
+                  {/* Pegar la captura directamente (Ctrl+V), arrastrarla o
+                      elegir archivos (18/11/2026, pedido del usuario). */}
+                  <div className="mt-2">
+                    <ZonaDeAdjuntos
                       id="sg-adjuntos"
-                      type="file"
-                      className="form-control soporte-publico__archivos"
-                      multiple
-                      accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-                      aria-describedby={
-                        omitidos > 0 ? "sg-adjuntos-aviso" : undefined
+                      etiqueta={
+                        <>
+                          Adjuntar captura o archivo{" "}
+                          <span className="mz-faint fw-normal">
+                            (opcional, hasta {MAX_ADJUNTOS})
+                          </span>
+                        </>
                       }
-                      onChange={(e) => {
-                        const elegidos = Array.from(e.target.files ?? []);
-                        setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
-                        setOmitidos(
-                          Math.max(0, elegidos.length - MAX_ADJUNTOS),
-                        );
-                      }}
+                      ayuda="Pegue la captura con Ctrl+V. También fotos, PDF, Word o Excel; hasta 10 MB cada uno."
+                      archivos={archivos}
+                      onCambio={setArchivos}
+                      max={MAX_ADJUNTOS}
+                      deshabilitado={enviando}
                     />
+                  </div>
+                  <div className="mt-2">
                     <button
                       type="submit"
                       className="btn btn-primary"
@@ -603,31 +595,6 @@ export function MiTicket() {
                         : "Enviar"}
                     </button>
                   </div>
-                  {archivos.length > 0 && (
-                    <ul
-                      className="soporte-por-adjuntar"
-                      aria-label="Archivos por adjuntar"
-                    >
-                      {archivos.map((archivo, i) => (
-                        <li key={`${archivo.name}-${i}`}>
-                          <Icon name="paperclip" /> {archivo.name}
-                          <button
-                            type="button"
-                            className="btn btn-link btn-sm p-0 ms-1"
-                            aria-label={`Quitar ${archivo.name}`}
-                            onClick={() => {
-                              setArchivos((lista) =>
-                                lista.filter((_, j) => j !== i),
-                              );
-                              setLlaveArchivos((n) => n + 1);
-                            }}
-                          >
-                            <Icon name="x-lg" />
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
                   {/* El resultado del envío, junto al botón. */}
                   {error && origen === "responder" && (
                     <div
@@ -643,15 +610,6 @@ export function MiTicket() {
                   {origen === "responder" && (
                     <div className="mt-2">
                       <Aviso texto={aviso} />
-                    </div>
-                  )}
-                  {omitidos > 0 && (
-                    <div
-                      id="sg-adjuntos-aviso"
-                      className="mz-small mz-faint mt-1"
-                      role="status"
-                    >
-                      Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
                     </div>
                   )}
                 </form>

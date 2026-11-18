@@ -7,6 +7,7 @@ import {
   LeyendaObligatorios,
 } from "../../components/common/Campo/Campo";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
+import { ZonaDeAdjuntos } from "../../components/common/ZonaDeAdjuntos/ZonaDeAdjuntos";
 import { Icon } from "../../components/common/Icon/Icon";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import { FormularioMisDatos, queFalta } from "../MisDatos/MisDatosPage";
@@ -87,8 +88,6 @@ export function NuevoTicket({ irAlCreado = alDetalle, desdeLaMesa = false }) {
   const [valores, setValores] = useState(VACIO);
   const [adicionales, setAdicionales] = useState({});
   const [archivos, setArchivos] = useState([]);
-  const [omitidos, setOmitidos] = useState(0);
-  const [llaveArchivos, setLlaveArchivos] = useState(0);
   const [errores, setErrores] = useState({});
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(false);
@@ -179,8 +178,6 @@ export function NuevoTicket({ irAlCreado = alDetalle, desdeLaMesa = false }) {
     setValores(VACIO);
     setAdicionales({});
     setArchivos([]);
-    setOmitidos(0);
-    setLlaveArchivos((n) => n + 1);
     setErrores({});
   }
 
@@ -331,41 +328,24 @@ export function NuevoTicket({ irAlCreado = alDetalle, desdeLaMesa = false }) {
             }}
           />
           <div className="col-12">
-            <label className="form-label" htmlFor="sp-adjuntos">
-              Capturas o archivos{" "}
-              <span className="mz-faint fw-normal">(opcional, hasta 3)</span>
-            </label>
-            <input
-              key={llaveArchivos}
+            {/* Pegar la captura directamente (Ctrl+V), arrastrarla o elegir
+                archivos (18/11/2026, pedido del usuario). */}
+            <ZonaDeAdjuntos
               id="sp-adjuntos"
-              type="file"
-              className="form-control"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-              aria-describedby={
-                omitidos > 0
-                  ? "sp-adjuntos-ayuda sp-adjuntos-aviso"
-                  : "sp-adjuntos-ayuda"
+              etiqueta={
+                <>
+                  Capturas o archivos{" "}
+                  <span className="mz-faint fw-normal">
+                    (opcional, hasta {MAX_ADJUNTOS})
+                  </span>
+                </>
               }
-              onChange={(e) => {
-                const elegidos = Array.from(e.target.files ?? []);
-                setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
-                setOmitidos(Math.max(0, elegidos.length - MAX_ADJUNTOS));
-              }}
+              ayuda="Una captura de pantalla ayuda mucho: tómela (Impr Pant o Windows + Shift + S) y péguela aquí con Ctrl+V. También fotos, PDF, Word o Excel; hasta 10 MB cada uno."
+              archivos={archivos}
+              onCambio={setArchivos}
+              max={MAX_ADJUNTOS}
+              deshabilitado={enviando}
             />
-            <div id="sp-adjuntos-ayuda" className="form-text">
-              Una captura de pantalla ayuda mucho. Fotos, PDF, Word o Excel;
-              hasta 10 MB cada uno.
-            </div>
-            {omitidos > 0 && (
-              <div
-                id="sp-adjuntos-aviso"
-                className="mz-small mz-faint mt-1"
-                role="status"
-              >
-                Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
-              </div>
-            )}
           </div>
           <div className="col-12">
             <SusDatos datos={misDatos} />

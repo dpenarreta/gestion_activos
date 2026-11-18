@@ -9,6 +9,7 @@ import {
 } from "../../components/common/Campo/Campo";
 import { EstadoDeCarga } from "../../components/common/EstadoDeCarga/EstadoDeCarga";
 import { Icon } from "../../components/common/Icon/Icon";
+import { ZonaDeAdjuntos } from "../../components/common/ZonaDeAdjuntos/ZonaDeAdjuntos";
 import { erroresPorCampo, mensajeDeError } from "../../utils/errores";
 import {
   aplica,
@@ -51,7 +52,6 @@ export function RegistrarTicket() {
   });
   const [asignarme, setAsignarme] = useState(false);
   const [archivos, setArchivos] = useState([]);
-  const [omitidos, setOmitidos] = useState(0);
   const [error, setError] = useState(null);
   const [errorEnvio, setErrorEnvio] = useState(null);
   const [errores, setErrores] = useState({});
@@ -212,7 +212,6 @@ export function RegistrarTicket() {
                   );
                   setAdicionales({});
                   setArchivos([]);
-                  setOmitidos(0);
                 }}
               >
                 Registrar otro
@@ -435,35 +434,17 @@ export function RegistrarTicket() {
               prefijo="rt"
             />
             <div className="col-12">
-              <label className="form-label" htmlFor="rt-adjuntos">
-                Adjuntos (opcional, hasta 3)
-              </label>
-              <input
+              {/* Pegar la captura directamente (Ctrl+V), arrastrarla o
+                  elegir archivos (18/11/2026, pedido del usuario). */}
+              <ZonaDeAdjuntos
                 id="rt-adjuntos"
-                type="file"
-                className="form-control"
-                multiple
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.xlsx"
-                aria-describedby={
-                  omitidos > 0 ? "rt-adjuntos-aviso" : undefined
-                }
-                onChange={(e) => {
-                  const elegidos = Array.from(e.target.files ?? []);
-                  setArchivos(elegidos.slice(0, MAX_ADJUNTOS));
-                  setOmitidos(Math.max(0, elegidos.length - MAX_ADJUNTOS));
-                }}
+                etiqueta={`Adjuntos (opcional, hasta ${MAX_ADJUNTOS})`}
+                ayuda="Pegue la captura con Ctrl+V. También fotos, PDF, Word o Excel; hasta 10 MB cada uno."
+                archivos={archivos}
+                onCambio={setArchivos}
+                max={MAX_ADJUNTOS}
+                deshabilitado={enviando}
               />
-              {/* Antes se recortaba a tres en silencio (revisión final
-                  UX/UI, 28/10/2026). */}
-              {omitidos > 0 && (
-                <div
-                  id="rt-adjuntos-aviso"
-                  className="mz-small mz-faint mt-1"
-                  role="status"
-                >
-                  Máx. {MAX_ADJUNTOS} archivos; se omitieron {omitidos}.
-                </div>
-              )}
             </div>
             {datos.soy_tecnico && (
               <div className="col-12">
