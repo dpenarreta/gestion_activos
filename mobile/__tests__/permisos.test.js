@@ -847,6 +847,28 @@ describe("nueva solicitud: quién aprueba por usted mientras no está (US-001)",
   });
 });
 
+describe("comentarios u observaciones (18/11/2026)", () => {
+  it("el campo está siempre, es opcional y se envía", async () => {
+    licenciasService.solicitar.mockResolvedValue(detalle({ id: 34 }));
+    await nuevaConTipo(1);
+    expect(
+      screen.getByText("Comentarios u observaciones", { exact: false, includeHiddenElements: true }),
+    ).toBeTruthy();
+    await fireEvent.changeText(screen.getByTestId("observaciones"), "Dejo el turno cubierto");
+    await fireEvent.press(screen.getByTestId("enviar-solicitud"));
+    await waitFor(() => expect(licenciasService.solicitar).toHaveBeenCalled());
+    const [campos] = licenciasService.solicitar.mock.calls[0];
+    expect(campos).toMatchObject({ observaciones: "Dejo el turno cubierto" });
+  });
+
+  it("el detalle muestra las observaciones", async () => {
+    licenciasService.solicitud.mockResolvedValue(detalle({ observaciones: "Regreso el lunes temprano" }));
+    await render(conResumen(<DetalleSolicitud id="12" />));
+    expect(await screen.findByText("Comentarios u observaciones")).toBeTruthy();
+    expect(screen.getByText("Regreso el lunes temprano")).toBeTruthy();
+  });
+});
+
 describe("detalle de una solicitud (CA-8 a CA-11)", () => {
   it("muestra los datos, las reglas para decidir y el historial", async () => {
     licenciasService.solicitud.mockResolvedValue(detalle());

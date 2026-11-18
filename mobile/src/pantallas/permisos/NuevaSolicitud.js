@@ -72,6 +72,7 @@ const BLOQUES_EN_ORDEN = [
   ["tipo", ["flujo"]],
   ["fechas", ["desde", "hasta", "hora_desde", "hora_hasta"]],
   ["motivo", ["motivo"]],
+  ["observaciones", ["observaciones"]],
   ["adjunto", ["adjunto"]],
   ["reemplazo", ["reemplazo"]],
 ];
@@ -87,6 +88,7 @@ export const NOMBRES_DE_CAMPO = {
   hora_desde: "Desde las",
   hora_hasta: "Hasta las",
   motivo: "Motivo",
+  observaciones: "Comentarios u observaciones",
   adjunto: "Documento de respaldo",
   reemplazo: "Quién aprueba por usted",
 };
@@ -148,6 +150,8 @@ export function NuevaSolicitud({ deVacaciones = false }) {
     hora_desde: "",
     hora_hasta: "",
     motivo: "",
+    // Siempre, en todo tipo de permiso, y opcional (18/11/2026, como la web).
+    observaciones: "",
   });
   const [adjunto, setAdjunto] = useState(null);
   const [errores, setErrores] = useState({});
@@ -468,7 +472,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
     } catch (e) {
       if (!montado.current) return;
       const porCampo = erroresPorCampo(e);
-      const visibles = new Set(["flujo", "desde", "hasta", "motivo", "adjunto"]);
+      const visibles = new Set(["flujo", "desde", "hasta", "motivo", "observaciones", "adjunto"]);
       if (porHoras) ["hora_desde", "hora_hasta"].forEach((c) => visibles.add(c));
       // Un error de un campo que no está en la pantalla se dice arriba.
       const ocultos = Object.entries(porCampo)
@@ -739,6 +743,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
             refFoco={refFoco("motivo")}
             etiqueta="Motivo"
             obligatorio={medico}
+            opcional={!medico}
             ayuda={medico ? "Indique el motivo sin escribir diagnósticos. Adjunte el certificado médico." : undefined}
             valor={valores.motivo}
             onCambio={(t) => fijar("motivo", t)}
@@ -748,6 +753,25 @@ export function NuevaSolicitud({ deVacaciones = false }) {
           />
         </View>
       )}
+
+      {/* Siempre y opcional (18/11/2026): aparte del motivo, que depende del
+          tipo. En un permiso médico, sin diagnósticos (LOPDP). */}
+      <View style={estilos.grupo} {...bloque("observaciones")}>
+        <CampoTexto
+          testID="observaciones"
+          refFoco={refFoco("observaciones")}
+          etiqueta="Comentarios u observaciones"
+          opcional
+          ayuda={`${
+            pideMotivo ? "Algo más que quiera agregar, aparte del motivo." : "Algo que quiera agregar a su solicitud."
+          } Lo leen quienes aprueban.${medico ? " No escriba diagnósticos." : ""} Hasta 1000 caracteres.`}
+          valor={valores.observaciones}
+          onCambio={(t) => fijar("observaciones", t)}
+          error={errores.observaciones}
+          multilinea
+          maximo={1000}
+        />
+      </View>
 
       {pideAdjunto && (
         <View style={estilos.grupo} testID="adjunto" {...bloque("adjunto")}>

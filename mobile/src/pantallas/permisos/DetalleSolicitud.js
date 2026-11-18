@@ -391,6 +391,15 @@ export function DetalleSolicitud({ id, empresa = null, creada = false }) {
         </View>
       ) : null}
 
+      {s.observaciones ? (
+        <View style={estilos.seccion}>
+          <Text style={estilos.subtitulo} accessibilityRole="header">
+            Comentarios u observaciones
+          </Text>
+          <Text style={estilos.texto}>{s.observaciones}</Text>
+        </View>
+      ) : null}
+
       {s.tiene_adjunto ? (
         <View style={estilos.seccion}>
           <Text style={estilos.subtitulo} accessibilityRole="header">
