@@ -35,3 +35,4 @@ Registro de trazabilidad del proyecto. Cada requerimiento ejecutado por el equip
 | [US-029](US-029-app-movil-boton-flotante-nuevo-ticket.md) | App móvil: botón flotante para crear tickets de soporte (todas las pantallas menos Gestión de Activos) | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
 | [US-030](US-030-app-movil-calendario-al-pedir-permiso.md) | App móvil: calendario para elegir las fechas al pedir un permiso | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-17 |
 | [US-031](US-031-app-movil-tarjeta-de-contacto-en-el-chat.md) | App móvil: tarjeta de contacto desde la búsqueda, la conversación y la lista de chats | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-18 |
+| [US-032](US-032-app-movil-mi-perfil-en-acordeon.md) | App móvil: secciones de «Mi perfil» en acordeón | Historia de Usuario | COMPLETADA CON PENDIENTES | 2026-11-18 |

@@ -232,6 +232,21 @@ describe("«Mi estado» arriba (17/11/2026)", () => {
   });
 });
 
+describe("US-032: «Mis datos» en acordeón dentro de la cuenta", () => {
+  it("arranca cerrada, debajo de «Mi estado», y se abre al tocarla", async () => {
+    Notifications.getPermissionsAsync.mockResolvedValue({ status: "granted" });
+    await render(<CuentaConCabecera />);
+    await screen.findByRole("header", { name: "Chat" });
+    const seccion = await screen.findByRole("button", {
+      name: "Mis datos. Con ellos se cargan sus pedidos de soporte: manténgalos al día.",
+      expanded: false,
+    });
+    expect(screen.queryByTestId("editar-perfil")).toBeNull();
+    await fireEvent.press(seccion);
+    expect(screen.getByTestId("editar-perfil")).toBeTruthy();
+  });
+});
+
 describe("Cuenta con una sola empresa (16/11/2026)", () => {
   it("no muestra el bloque «Empresa»", async () => {
     const antes = mockSesion.empresas;

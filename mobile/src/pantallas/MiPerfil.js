@@ -9,6 +9,7 @@ import {
   ErrorConReintento,
 } from "../componentes/comunes";
 import { Icono } from "../componentes/Icono";
+import { SeccionPlegable } from "../componentes/SeccionPlegable";
 import { useSesion } from "../sesion/SesionContext";
 import { useColores, useEstilos } from "../tema/apariencia";
 import { crearEstilos } from "../tema/tipografia";
@@ -20,6 +21,10 @@ import { AbrirEnLaWeb } from "./permisos/piezas";
  * `GET /organizacion/mis-datos/` a la web (`MisDatosPage.jsx`, `MiCargo.jsx`,
  * `MiSupervision.jsx`). Para cambiar algo se abre la web: el formulario lleva
  * el consentimiento LOPDP del teléfono y sus reglas, que no se duplican aquí.
+ *
+ * US-032 (18/11/2026): las tres secciones son acordeones (`SeccionPlegable`)
+ * que arrancan cerrados y se abren por separado; su ícono, título y
+ * descripción se ven siempre. El encabezado de la pantalla queda fuera.
  */
 
 const NOMBRES_DE_LO_QUE_FALTA = {
@@ -118,23 +123,6 @@ function Lista({ items }) {
   );
 }
 
-function Tarjeta({ icono, titulo, descripcion, children, testID }) {
-  const colores = useColores();
-  const estilos = useEstilos(fabricaDeEstilos);
-  return (
-    <View style={estilos.tarjeta} testID={testID}>
-      <View style={estilos.tarjetaCabecera}>
-        <Icono nombre={icono} size={22} color={colores.primario} />
-        <Text style={estilos.tarjetaTitulo} accessibilityRole="header">
-          {titulo}
-        </Text>
-      </View>
-      {descripcion ? <Text style={estilos.tenue}>{descripcion}</Text> : null}
-      {children}
-    </View>
-  );
-}
-
 function MiCargo({ perfil }) {
   const estilos = useEstilos(fabricaDeEstilos);
   const [abierto, setAbierto] = useState(null);
@@ -150,7 +138,7 @@ function MiCargo({ perfil }) {
     { id: "kpis", titulo: "KPIs y métricas de medición", items: perfil.kpis },
   ];
   return (
-    <Tarjeta
+    <SeccionPlegable
       icono="briefcase-outline"
       titulo={`Mi cargo: ${perfil.cargo?.nombre ?? ""}`}
       descripcion="Lo que se espera de su cargo y cómo se mide."
@@ -182,7 +170,7 @@ function MiCargo({ perfil }) {
           ))}
         </>
       )}
-    </Tarjeta>
+    </SeccionPlegable>
   );
 }
 
@@ -239,7 +227,7 @@ function MiSupervision({ linea, cargo }) {
   const estilos = useEstilos(fabricaDeEstilos);
   if (!linea) return null;
   return (
-    <Tarjeta
+    <SeccionPlegable
       icono="sitemap-outline"
       titulo="Mi línea de supervisión"
       descripcion="Según el organigrama: a quién reporta y a quiénes supervisa directamente."
@@ -293,7 +281,7 @@ function MiSupervision({ linea, cargo }) {
           </Text>
         )}
       </View>
-    </Tarjeta>
+    </SeccionPlegable>
   );
 }
 
@@ -404,18 +392,21 @@ export function MiPerfil({ usuario } = {}) {
   return (
     <View style={estilos.contenedor} testID="mi-perfil">
       <Encabezado usuario={usuario} datos={d} />
-      <Tarjeta
+      <SeccionPlegable
         icono="card-account-details-outline"
         titulo="Mis datos"
         descripcion="Con ellos se cargan sus pedidos de soporte: manténgalos al día."
         testID="mis-datos"
+        // B-1 de QA (US-032): lo que falta se ve aunque esté cerrada.
+        aviso={
+          d.faltan?.length ? (
+            <Alerta
+              tipo="aviso"
+              texto={`Le falta completar: ${queFalta(d.faltan)}.`}
+            />
+          ) : null
+        }
       >
-        {d.faltan?.length ? (
-          <Alerta
-            tipo="aviso"
-            texto={`Le falta completar: ${queFalta(d.faltan)}.`}
-          />
-        ) : null}
         <Dato etiqueta="Nombres" valor={d.nombres} />
         <Dato etiqueta="Apellidos" valor={d.apellidos} />
         <Dato etiqueta="Correo" valor={d.correo} />
@@ -460,7 +451,7 @@ export function MiPerfil({ usuario } = {}) {
           familia="perfil"
           texto="En la app su perfil solo se consulta. Para cambiarlo, ábralo en el navegador."
         />
-      </Tarjeta>
+      </SeccionPlegable>
       <MiCargo perfil={d.cargo_perfil} />
       <MiSupervision linea={d.supervision} cargo={d.cargo} />
     </View>
@@ -490,21 +481,6 @@ const fabricaDeEstilos = (colores) => crearEstilos({
   },
   codigoTexto: { fontSize: 13, fontWeight: "600", color: colores.tintaSuave },
   cargoEncabezado: { fontSize: 16, color: colores.tintaSuave },
-  tarjeta: {
-    gap: 10,
-    padding: 14,
-    borderRadius: 10,
-    backgroundColor: colores.superficie,
-    borderWidth: 1,
-    borderColor: colores.borde,
-  },
-  tarjetaCabecera: { flexDirection: "row", alignItems: "center", gap: 8 },
-  tarjetaTitulo: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: "700",
-    color: colores.tinta,
-  },
   subtitulo: { fontSize: 15, fontWeight: "700", color: colores.tinta },
   texto: { fontSize: 15, color: colores.tinta, flexShrink: 1 },
   tenue: { fontSize: 14, color: colores.tintaTenue, flexShrink: 1 },
