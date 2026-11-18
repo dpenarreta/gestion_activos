@@ -21,7 +21,7 @@ vi.mock("../src/components/admin/Chat/ChatContext", () => ({
   useChat: () => chat,
 }));
 
-const { GestionGrupo } =
+const { BotonGrupo, GestionGrupo } =
   await import("../src/components/admin/Chat/GestionGrupo");
 
 const grupo = (extra = {}) => ({
@@ -129,5 +129,70 @@ describe("Gestión de un grupo del chat", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Edita el grupo quien lo administra.",
     );
+  });
+});
+
+describe("Integrantes del canal general (18/11/2026)", () => {
+  const nombres = [
+    "Zoila Ruiz",
+    "Ana Pérez",
+    "José Núñez",
+    "Beto Paz",
+    "Carla Vera",
+    "Diana Loor",
+    "Elena Mora",
+    "Fabio Ríos",
+    "Gina Tapia",
+    "Hugo Celi",
+    "Inés León",
+  ];
+  const general = {
+    id: 1,
+    tipo: "general",
+    nombre: "Canal general",
+    administra: false,
+    participantes: nombres.map((nombre, i) => ({
+      id: i + 1,
+      nombre,
+      administra: false,
+    })),
+  };
+
+  it("el canal general tiene su botón de integrantes", () => {
+    render(<BotonGrupo conversacion={general} />);
+    expect(
+      screen.getByRole("button", {
+        name: "Ver los integrantes de Canal general",
+      }),
+    ).toBeInTheDocument();
+    // Una conversación directa no lo tiene.
+    const { container } = render(
+      <BotonGrupo conversacion={{ id: 2, tipo: "directa", nombre: "Beto" }} />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("muestra todos en orden, se buscan sin tildes y nadie los edita", async () => {
+    servicio.conversacion.mockResolvedValue(general);
+    render(<GestionGrupo conversacionId={1} onCerrar={vi.fn()} />);
+
+    expect(
+      await screen.findByText("Todas las cuentas activas · 11 personas"),
+    ).toBeInTheDocument();
+    const lista = screen.getAllByRole("listitem").map((li) => li.textContent);
+    expect(lista[0]).toBe("Ana Pérez");
+    expect(lista.at(-1)).toBe("Zoila Ruiz");
+    expect(screen.queryByLabelText("Nombre del grupo")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Quitar/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Salir/ })).toBeNull();
+
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Buscar entre los integrantes" }),
+      { target: { value: "jose nunez" } },
+    );
+    expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual(
+      ["José Núñez"],
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("1 de 11");
   });
 });
