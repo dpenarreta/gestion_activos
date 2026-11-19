@@ -20,6 +20,19 @@ const ROLES = [
       nombre: "Jefe TI",
       unidad: "Tecnología",
       empresa: "LaarCourier",
+      area: { id: 16, nombre: "Tecnología" },
+    },
+  },
+  {
+    id: 4,
+    name: "Analista de Cartera",
+    permission_codenames: [],
+    cargo: {
+      id: 5,
+      nombre: "Analista de Cartera",
+      unidad: "Cobranzas",
+      empresa: "LaarCourier",
+      area: { id: 7, nombre: "Cartera" },
     },
   },
 ];
@@ -94,13 +107,28 @@ describe("RolesPanel", () => {
     expect(screen.queryByText("Editor")).toBeNull();
   });
 
+  it("filtra por área del cargo (19/11/2026)", async () => {
+    renderPanel();
+    await screen.findByText("Editor");
+    const areas = screen.getByRole("combobox", { name: "Área del cargo" });
+    // Las áreas salen de los roles, en orden alfabético.
+    expect(
+      [...areas.querySelectorAll("option")].map((o) => o.textContent),
+    ).toEqual(["Todas las áreas", "Cartera", "Tecnología"]);
+    fireEvent.change(areas, { target: { value: "16" } });
+    expect(screen.getByText("Jefe TI")).toBeInTheDocument();
+    expect(screen.queryByText("Analista de Cartera")).toBeNull();
+    // Un rol que se asigna a mano no tiene área.
+    expect(screen.queryByText("Editor")).toBeNull();
+  });
+
   it("sin coincidencias lo dice y limpiar devuelve el foco al buscador", async () => {
     renderPanel();
     await screen.findByText("Editor");
     const campo = screen.getByRole("searchbox", { name: "Buscar roles" });
     fireEvent.change(campo, { target: { value: "zzz" } });
     expect(screen.getByText("Sin resultados para «zzz».")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar filtros" }));
     expect(campo).toHaveValue("");
     expect(campo).toHaveFocus();
     expect(screen.getByText("Editor")).toBeInTheDocument();

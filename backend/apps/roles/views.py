@@ -20,6 +20,18 @@ class RoleViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, RolesPermission]
     queryset = Group.objects.all().order_by("name")
 
+    def get_serializer_context(self):
+        contexto = super().get_serializer_context()
+        if self.action == "list":
+            from apps.organizacion.areas import areas_de_cargos
+            from apps.organizacion.models import Cargo
+
+            # El área de todos los roles de cargo en pocas consultas, no una
+            # por rol (19/11/2026).
+            cargos = Cargo.objects.todas().filter(rol__isnull=False)
+            contexto["areas_de_cargos"] = areas_de_cargos(list(cargos))
+        return contexto
+
     def get_serializer_class(self):
         if self.action in {"create", "update", "partial_update"}:
             return RoleWriteSerializer

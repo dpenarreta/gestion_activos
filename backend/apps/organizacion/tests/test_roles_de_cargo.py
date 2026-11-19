@@ -160,3 +160,24 @@ def test_un_rol_de_cargo_no_se_asigna_como_global(db):
     rosa, _ = _cuenta("rosa")
     UserAdminService.assign_roles(actor=admin_usuario, user=rosa, role_ids=[rol.id])
     assert not rosa.groups.filter(pk=rol.id).exists()
+
+
+def test_la_lista_de_roles_trae_el_area_del_cargo(db):
+    """Para filtrar la lista de roles por área (19/11/2026): el rol de un
+    cargo trae el área de su unidad (o de la superior más cercana); un rol
+    suelto, ninguna."""
+    from apps.empresas.contexto import usando_empresa
+    from apps.organizacion.models import Departamento, UnidadOrganizacional
+
+    _, admin = _cuenta("ines", "ver", "editar", "asignar", "roles.ver")
+    e = _armar(admin)
+    with usando_empresa(empresa_actual()):
+        tecnologia = Departamento.objects.create(nombre="Tecnología", codigo="TEC")
+        UnidadOrganizacional.objects.filter(pk=e["ti"]["id"]).update(departamento=tecnologia)
+    Group.objects.create(name="Brigada de emergencia")
+
+    roles = {r["name"]: r for r in admin.get(ROLES).json()}
+    assert roles["Analista"]["cargo"]["area"] == {"id": tecnologia.id, "nombre": "Tecnología"}
+    # Cada unidad nace con su área: el gerente queda en «Gerencia General».
+    assert roles["Gerente"]["cargo"]["area"]["nombre"] == "Gerencia General"
+    assert roles["Brigada de emergencia"]["cargo"] is None

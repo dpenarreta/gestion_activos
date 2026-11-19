@@ -32,7 +32,20 @@ class RoleSerializer(serializers.ModelSerializer):
             "nombre": cargo.nombre,
             "unidad": cargo.unidad.nombre if cargo.unidad_id else "",
             "empresa": cargo.empresa.nombre if cargo.empresa_id else "",
+            # El Área del cargo (la de su unidad o la superior más cercana),
+            # para filtrar la lista de roles por área (19/11/2026).
+            "area": self._area(cargo),
         }
+
+    def _area(self, cargo):
+        from apps.organizacion.areas import areas_de_cargos, como_dato
+
+        # La vista de lista las calcula todas de una vez (`areas_de_cargos`);
+        # un rol suelto, solo la suya.
+        areas = self.context.get("areas_de_cargos")
+        if areas is None:
+            areas = areas_de_cargos([cargo])
+        return como_dato(areas.get(cargo.pk))
 
     def get_permission_codenames(self, obj: Group) -> list[str]:
         return sorted(

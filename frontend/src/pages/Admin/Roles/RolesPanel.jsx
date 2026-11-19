@@ -36,6 +36,9 @@ export function RolesPanel() {
   const [params, setParams] = useSearchParams();
   const texto = params.get("q") ?? "";
   const tipo = params.get("tipo") ?? "";
+  // Por área (19/11/2026): la del cargo de cada rol. Los roles que se
+  // asignan a mano no tienen área.
+  const area = params.get("area") ?? "";
 
   // `replace`: cada letra no debe quedar como un paso del «atrás».
   function cambiarFiltro(clave, valor) {
@@ -45,12 +48,31 @@ export function RolesPanel() {
     setParams(siguientes, { replace: true });
   }
 
+  const areas = [
+    ...new Map(
+      roles
+        .map((role) => role.cargo?.area)
+        .filter(Boolean)
+        .map((a) => [String(a.id), a.nombre]),
+    ),
+  ].sort((a, b) => a[1].localeCompare(b[1], "es", { sensitivity: "base" }));
+  // Un área de la dirección que ya no está en la lista (enlace viejo) no
+  // filtra: si no, el desplegable diría «Todas las áreas» con la lista vacía
+  // (auditoría UX/UI). Mientras carga, se respeta la de la dirección.
+  const areaValida = isLoading || areas.some(([id]) => id === area) ? area : "";
   const visibles = roles.filter(
     (role) =>
       (tipo === "" || (tipo === "cargo" ? Boolean(role.cargo) : !role.cargo)) &&
-      coincideBusqueda(texto, role.name, role.cargo?.empresa),
+      (areaValida === "" ||
+        String(role.cargo?.area?.id ?? "") === areaValida) &&
+      coincideBusqueda(
+        texto,
+        role.name,
+        role.cargo?.empresa,
+        role.cargo?.area?.nombre,
+      ),
   );
-  const filtrando = texto.trim() !== "" || tipo !== "";
+  const filtrando = texto.trim() !== "" || tipo !== "" || areaValida !== "";
   const campo = useRef(null);
 
   // Al limpiar, el foco vuelve al buscador: el botón desaparece con el vacío
@@ -126,10 +148,34 @@ export function RolesPanel() {
           onChange={(event) => cambiarFiltro("tipo", event.target.value)}
         >
           <option value="">Todos los roles</option>
-          <option value="manual">Se asignan a mano</option>
+          {/* Los de a mano no tienen área: con un área elegida no se
+              ofrecen (auditoría UX/UI). */}
+          <option value="manual" disabled={areaValida !== ""}>
+            Se asignan a mano
+          </option>
           <option value="cargo">De un cargo del organigrama</option>
         </select>
+        <select
+          className="form-select form-select-sm"
+          aria-label="Área del cargo"
+          aria-describedby={areaValida ? "roles-area-nota" : undefined}
+          value={areaValida}
+          disabled={tipo === "manual"}
+          onChange={(event) => cambiarFiltro("area", event.target.value)}
+        >
+          <option value="">Todas las áreas</option>
+          {areas.map(([id, nombre]) => (
+            <option key={id} value={id}>
+              {nombre}
+            </option>
+          ))}
+        </select>
       </div>
+      {areaValida && (
+        <p id="roles-area-nota" className="mz-small mz-faint mb-2">
+          Solo roles de cargo: los que se asignan a mano no tienen área.
+        </p>
+      )}
       <AnuncioDeResultados
         termino={texto}
         total={visibles.length}
@@ -165,7 +211,7 @@ export function RolesPanel() {
               hayFiltros={filtrando && roles.length > 0}
               termino={texto}
               onLimpiarFiltros={limpiarFiltros}
-              etiquetaLimpiar="Limpiar búsqueda"
+              etiquetaLimpiar="Limpiar filtros"
             />
             {!errorCarga &&
               visibles.map((role) => (
@@ -175,7 +221,9 @@ export function RolesPanel() {
                     {role.cargo && (
                       <span className="d-block mz-small mz-faint fw-normal">
                         <Icon name="diagram-3" /> Cargo del organigrama de{" "}
-                        {role.cargo.empresa}: lo tiene quien ocupa el cargo
+                        {role.cargo.empresa}
+                        {role.cargo.area ? ` · ${role.cargo.area.nombre}` : ""}:
+                        lo tiene quien ocupa el cargo
                       </span>
                     )}
                   </td>
