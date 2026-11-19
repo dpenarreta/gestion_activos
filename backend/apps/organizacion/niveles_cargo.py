@@ -1,8 +1,9 @@
 """El nivel jerárquico de cada cargo (27/10/2026).
 
-Gestión Humana ordena los cargos en seis niveles, de arriba hacia abajo:
+Gestión Humana ordena los cargos en seis niveles, de arriba hacia abajo
+(más el Directorio, encima de todos, desde el 19/11/2026):
 
-    Gerencia General › Gerencia de Área › Jefatura › Coordinación
+    Directorio › Gerencia General › Gerencia de Área › Jefatura › Coordinación
     › Operativo de área › Asistente de área
 
 El nivel es del **cargo** (el Jefe TI y el Asistente de Sistemas están en la

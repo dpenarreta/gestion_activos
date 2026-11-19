@@ -26,12 +26,16 @@ al Gerente de Procesos y Proyectos.
 En cada empresa, solo si existe el Gerente General. Las personas no van
 aquí: se asignan a su cargo desde el organigrama.
 
-Lo aplican las migraciones 0052, 0053 (el nivel propio) y 0054 (Presidente,
-Directores y Comité Ejecutivo), y deja el cambio en la bitácora del
+Todos los del Directorio (Presidente, Directores, Gerente de Procesos y
+Proyectos y Jefe Administrativo Financiero Corporativo) van en el nivel de
+cargo «Directorio»; el Gerente General sigue en el suyo.
+
+Lo aplican las migraciones 0052, 0053 (el nivel propio), 0054 (Presidente,
+Directores y Comité Ejecutivo) y 0055 (el nivel de cargo Directorio), y deja el cambio en la bitácora del
 organigrama. Repetirlo no cambia nada.
 """
 
-from . import departamentos_del_organigrama, niveles_cargo, reportes, roles_de_cargo, versiones
+from . import departamentos_del_organigrama, reportes, roles_de_cargo, versiones
 from .models import Cargo, NivelCargo, NivelJerarquico, UnidadOrganizacional
 from .permisos_por_cargo import normalizar as _normal
 
@@ -117,9 +121,11 @@ def _unidad_del_directorio(gerente_general):
     return unidad
 
 
-def _en_directorio(unidad, nombre, *, nivel, jefe=None, antes=()):
+def _en_directorio(unidad, nombre, *, jefe=None, antes=()):
     """El cargo del Directorio (por su nombre o el de antes); si no existe, se
-    crea. Queda activo, en el Directorio y con ese jefe directo."""
+    crea. Queda activo, en el Directorio, en el nivel Directorio y con ese
+    jefe directo."""
+    nivel = NivelCargo.DIRECTORIO
     buscados = {_normal(n) for n in (nombre, *antes)}
     cargo = next(
         (
@@ -132,11 +138,17 @@ def _en_directorio(unidad, nombre, *, nivel, jefe=None, antes=()):
     if cargo is None:
         return Cargo.objects.create(nombre=nombre, unidad=unidad, plazas=1, nivel=nivel, jefe=jefe)
     jefe_id = jefe.pk if jefe else None
-    if cargo.nombre != nombre or not cargo.activo or cargo.jefe_id != jefe_id:
+    if (
+        cargo.nombre != nombre
+        or not cargo.activo
+        or cargo.jefe_id != jefe_id
+        or cargo.nivel != nivel
+    ):
         cargo.nombre = nombre
         cargo.activo = True
         cargo.jefe = jefe
-        cargo.save(update_fields=["nombre", "activo", "jefe", "updated_at"])
+        cargo.nivel = nivel
+        cargo.save(update_fields=["nombre", "activo", "jefe", "nivel", "updated_at"])
     return cargo
 
 
@@ -160,22 +172,21 @@ def cambiar() -> None:
         return
     unidad = _unidad_del_directorio(gerente_general)
 
-    presidente = _en_directorio(unidad, PRESIDENTE, nivel=NivelCargo.GERENCIA_GENERAL)
-    directores = [
-        _en_directorio(unidad, nombre, nivel=NivelCargo.GERENCIA_GENERAL, jefe=presidente)
-        for nombre in DIRECTORES
-    ]
+    presidente = _en_directorio(unidad, PRESIDENTE)
+    directores = [_en_directorio(unidad, nombre, jefe=presidente) for nombre in DIRECTORES]
 
     # El Comité Ejecutivo: informa a los dos Directores, sin jefe directo en
     # el Directorio.
     procesos = _cargo(GERENTE_PROCESOS, cargos)
-    if procesos is not None and (procesos.unidad_id != unidad.id or procesos.jefe_id):
-        procesos.unidad = unidad
-        procesos.jefe = None
-        procesos.save(update_fields=["unidad", "jefe", "updated_at"])
-    finanzas = _en_directorio(
-        unidad, FINANZAS, nivel=niveles_cargo.sugerido(FINANZAS), antes=FINANZAS_ANTES
-    )
+    if procesos is not None:
+        # Primero se trae al Directorio (con su rol, su perfil y quien lo
+        # ocupa); luego queda como los demás del Directorio.
+        if procesos.unidad_id != unidad.id:
+            procesos.unidad = unidad
+            procesos.jefe = None
+            procesos.save(update_fields=["unidad", "jefe", "updated_at"])
+        procesos = _en_directorio(unidad, GERENTE_PROCESOS)
+    finanzas = _en_directorio(unidad, FINANZAS, antes=FINANZAS_ANTES)
     for miembro in (procesos, finanzas, gerente_general):
         if miembro is not None:
             _punteada(miembro, directores)

@@ -64,7 +64,9 @@ def test_un_cargo_nuevo_toma_el_nivel_de_su_nombre_y_se_puede_cambiar(db):
     )
     assert soporte.status_code == 201 and soporte.data["nivel"] == "coordinacion"
     arbol = cliente.get(f"{BASE}organigrama/").json()
-    assert [n["nombre"] for n in arbol["niveles_cargo"]][:3] == [
+    # El Directorio va encima de todos (19/11/2026).
+    assert [n["nombre"] for n in arbol["niveles_cargo"]][:4] == [
+        "Directorio",
         "Gerencia General",
         "Gerencia de Área",
         "Jefatura",

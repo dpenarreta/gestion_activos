@@ -219,7 +219,9 @@ function TambienReportaA({ cargo, cargos }) {
   return (
     <span className="org-secundario">
       <span className="org-secundario__linea" aria-hidden="true" />
-      También reporta a {nombres}
+      {/* Sin jefe directo no hay un «también»: solo informa (el Comité
+          Ejecutivo del Directorio, auditoría UX/UI 19/11/2026). */}
+      {cargo.jefe ? "También reporta a" : "Informa a"} {nombres}
     </span>
   );
 }
@@ -297,10 +299,24 @@ function PersonasDelCargo({ cargo }) {
   );
 }
 
+/** A quiénes informa un cargo, para el lector de pantalla. */
+function destinosDe(cargo, cargos) {
+  const nombres = (cargo.jefes_secundarios ?? [])
+    .map((id) => cargos.find((c) => c.id === id)?.nombre)
+    .filter(Boolean);
+  return nombres.length > 1
+    ? `${nombres.slice(0, -1).join(", ")} y ${nombres.at(-1)}`
+    : (nombres[0] ?? "sus superiores");
+}
+
 /** Un cargo del árbol con, debajo y uno al lado del otro, los que le
  * reportan. El color del borde dice su nivel dentro del área. */
 function RamaCargo({ rama, cargos, conPersonas }) {
-  const { cargo, profundidad, hijos } = rama;
+  const { cargo, profundidad, hijos, informan = [] } = rama;
+  const unidades = useContext(UnidadesVigentes);
+  const nivelQueInforma = cargo.externo
+    ? cargos.find((c) => c.id === cargo.jefes_secundarios?.[0])?.nivel
+    : null;
   const nivel = Math.min(profundidad, 3);
   const nivelDelCargo = useContext(NivelesDeCargo).find(
     (n) => n.valor === cargo.nivel,
@@ -309,9 +325,22 @@ function RamaCargo({ rama, cargos, conPersonas }) {
     <li className="org-ct__rama">
       {/* Un aria-label sobre un div genérico no se lee: va como texto oculto
           lo que no está a la vista (revisión final UX/UI, 28/10/2026). */}
-      <div className={`org-nodo org-nodo--nivel-${nivel}`}>
+      <div
+        className={`org-nodo org-nodo--nivel-${nivel}${
+          cargo.externo ? " org-nodo--externo" : ""
+        }`}
+      >
         <strong className="org-nodo__cargo">{cargo.nombre}</strong>
-        <NivelDeCargo valor={cargo.nivel} compacto />
+        <span className="org-nodo__niveles">
+          <NivelDeCargo valor={cargo.nivel} compacto />
+          {/* También en el nivel de aquellos a quienes informa (el Gerente
+              General: Gerencia General y Directorio, pedido del usuario). */}
+          {cargo.externo &&
+            nivelQueInforma &&
+            nivelQueInforma !== cargo.nivel && (
+              <NivelDeCargo valor={nivelQueInforma} compacto />
+            )}
+        </span>
         {!conPersonas && (
           <span className="visually-hidden">
             {nivelDelCargo ? ` (${nivelDelCargo})` : ""}:{" "}
@@ -321,6 +350,14 @@ function RamaCargo({ rama, cargos, conPersonas }) {
         {/* Siempre, también con una sola plaza: «0/1» vacante, «1/1»
             cubierto (18/11/2026, pedido del usuario). */}
         {cargo.plazas > 0 && <Plazas cargo={cargo} />}
+        {/* Encabeza otra unidad e informa a esta (el Gerente General en el
+            Directorio, 19/11/2026): se dice dónde está su área. */}
+        {cargo.externo && (
+          <span className="org-nodo__externo">
+            Encabeza{" "}
+            {unidades.find((u) => u.id === cargo.unidad)?.nombre ?? "su área"}
+          </span>
+        )}
         <TambienReportaA cargo={cargo} cargos={cargos} />
         {conPersonas && <PersonasDelCargo cargo={cargo} />}
       </div>
@@ -329,6 +366,23 @@ function RamaCargo({ rama, cargos, conPersonas }) {
           {hijos.map((h) => (
             <RamaCargo
               key={h.cargo.id}
+              rama={h}
+              cargos={cargos}
+              conPersonas={conPersonas}
+            />
+          ))}
+        </ul>
+      )}
+      {/* Los que informan sin supervisión directa: debajo, con línea
+          punteada (19/11/2026). */}
+      {informan.length > 0 && (
+        <ul
+          className="org-ct org-ct--informan"
+          aria-label={`Informan a ${destinosDe(informan[0].cargo, cargos)}, sin supervisión directa`}
+        >
+          {informan.map((h) => (
+            <RamaCargo
+              key={`informa-${h.cargo.id}`}
               rama={h}
               cargos={cargos}
               conPersonas={conPersonas}
@@ -358,7 +412,7 @@ function Unidad({ nodo, cargos, conPersonas, cerradas, alternar, vista }) {
         {nodo.cargos.length > 0 && vista === "arbol" ? (
           <div className="org-ct__marco">
             <ul className="org-ct org-ct--raiz">
-              {arbolDeCargos(nodo.cargos).map((rama) => (
+              {arbolDeCargos(nodo.cargos, cargos).map((rama) => (
                 <RamaCargo
                   key={rama.cargo.id}
                   rama={rama}

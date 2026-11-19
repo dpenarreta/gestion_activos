@@ -80,7 +80,7 @@ def test_el_directorio_queda_a_la_altura_de_la_gerencia_general(db):
 
     finanzas = Cargo.objects.get(nombre="Jefe Administrativo Financiero Corporativo")
     assert finanzas.unidad_id == directorio.id and finanzas.jefe_id is None
-    assert finanzas.nivel == NivelCargo.JEFATURA
+    assert finanzas.nivel == NivelCargo.DIRECTORIO
     assert finanzas.rol_id is not None
 
     # Presidente arriba; los dos Directores, al mismo nivel, le reportan.
@@ -91,7 +91,12 @@ def test_el_directorio_queda_a_la_altura_de_la_gerencia_general(db):
     )
     assert len(directores) == 2
     assert all(d.jefe_id == presidente.pk and d.unidad_id == directorio.id for d in directores)
-    assert directores[0].nivel == directores[1].nivel
+    # Todos los del Directorio, en el nivel de cargo Directorio; el Gerente
+    # General, en el suyo.
+    assert {presidente.nivel, *(d.nivel for d in directores)} == {NivelCargo.DIRECTORIO}
+    procesos.refresh_from_db()
+    assert procesos.nivel == NivelCargo.DIRECTORIO
+    assert gg.nivel == NivelCargo.GERENCIA_GENERAL
     ids_directores = {d.pk for d in directores}
 
     # El Comité Ejecutivo informa a los dos Directores, sin línea directa.

@@ -469,8 +469,11 @@ class UnidadOrganizacional(ModeloDeEmpresa):
 
 class NivelCargo(models.TextChoices):
     """Los niveles jerárquicos de los cargos, de arriba hacia abajo
-    (27/10/2026). Los mismos para toda la empresa."""
+    (27/10/2026). Los mismos para toda la empresa. «Directorio» (19/11/2026,
+    pedido del usuario) es el más alto: el Presidente, los Directores y el
+    Comité Ejecutivo."""
 
+    DIRECTORIO = "directorio", "Directorio"
     GERENCIA_GENERAL = "gerencia_general", "Gerencia General"
     GERENCIA_AREA = "gerencia_area", "Gerencia de Área"
     JEFATURA = "jefatura", "Jefatura"

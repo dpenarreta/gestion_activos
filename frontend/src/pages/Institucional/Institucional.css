@@ -332,6 +332,14 @@
   font-size: 10.5px;
 }
 
+/* El Directorio (19/11/2026): encima de la Gerencia General, en el
+   amarillo de la marca. */
+.org-nivel--directorio {
+  background: var(--marca-amarillo, #fce200);
+  color: var(--marca-negro, #000);
+  box-shadow: none;
+}
+
 .org-nivel--gerencia_general {
   background: var(--mz-ink);
   color: var(--mz-raised);
@@ -4600,4 +4608,47 @@
 .solicitud-texto {
   white-space: pre-line;
   overflow-wrap: anywhere;
+}
+
+/* Los que informan sin supervisión directa (19/11/2026, el Comité Ejecutivo
+   del Directorio): una fila debajo, unida con línea punteada. */
+.org-ct--informan {
+  margin-top: 6px;
+}
+
+/* Solo los lados que ya se dibujan: un `border-style` general pintaría
+   también los lados sin borde. */
+.org-ct.org-ct--informan:not(.org-ct--raiz)::before {
+  border-left-style: dashed;
+}
+
+.org-ct.org-ct--informan:not(.org-ct--raiz) > .org-ct__rama::before,
+.org-ct.org-ct--informan:not(.org-ct--raiz) > .org-ct__rama::after {
+  border-top-style: dashed;
+}
+
+.org-ct.org-ct--informan:not(.org-ct--raiz) > .org-ct__rama::after {
+  border-left-style: dashed;
+}
+
+.org-ct.org-ct--informan:not(.org-ct--raiz) > .org-ct__rama:last-child::before {
+  border-right-style: dashed;
+}
+
+/* Encabeza otra unidad (el Gerente General): tarjeta de referencia. */
+.org-nodo--externo {
+  border: 1.5px dashed var(--mz-border-strong);
+  background: var(--mz-sunken);
+}
+
+.org-nodo__niveles {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.org-nodo__externo {
+  font-size: 11px;
+  color: var(--mz-ink-faint);
 }
