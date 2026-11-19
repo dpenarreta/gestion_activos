@@ -78,10 +78,27 @@ def test_el_directorio_queda_a_la_altura_de_la_gerencia_general(db):
     assert procesos.rol_id == rol_procesos
     assert Cargo.objects.get(pk=cargos["jefe_procesos"].pk).jefe_id == procesos.pk
 
-    finanzas = Cargo.objects.get(nombre="Jefe de Finanzas y Administración")
+    finanzas = Cargo.objects.get(nombre="Jefe Administrativo Financiero Corporativo")
     assert finanzas.unidad_id == directorio.id and finanzas.jefe_id is None
     assert finanzas.nivel == NivelCargo.JEFATURA
     assert finanzas.rol_id is not None
+
+    # Presidente arriba; los dos Directores, al mismo nivel, le reportan.
+    presidente = Cargo.objects.get(nombre="Presidente del Directorio")
+    assert presidente.unidad_id == directorio.id and presidente.jefe_id is None
+    directores = list(
+        Cargo.objects.filter(nombre__in=["Director Ejecutivo", "Director Financiero"])
+    )
+    assert len(directores) == 2
+    assert all(d.jefe_id == presidente.pk and d.unidad_id == directorio.id for d in directores)
+    assert directores[0].nivel == directores[1].nivel
+    ids_directores = {d.pk for d in directores}
+
+    # El Comité Ejecutivo informa a los dos Directores, sin línea directa.
+    for miembro in (procesos, finanzas, gg):
+        miembro.refresh_from_db()
+        assert set(miembro.jefes_secundarios.values_list("pk", flat=True)) == ids_directores
+        assert miembro.jefe_id not in ids_directores
 
     financiero = Cargo.objects.get(pk=cargos["financiero"].pk)
     assert financiero.jefe_id == finanzas.pk
@@ -99,7 +116,8 @@ def test_repetirlo_no_cambia_nada(db):
     _como_la_migracion()
     assert _como_la_migracion() == []
     assert UnidadOrganizacional.objects.filter(nombre="Directorio").count() == 1
-    assert Cargo.objects.filter(nombre="Jefe de Finanzas y Administración").count() == 1
+    assert Cargo.objects.filter(nombre="Jefe Administrativo Financiero Corporativo").count() == 1
+    assert Cargo.objects.filter(nombre="Presidente del Directorio").count() == 1
 
 
 def test_si_la_gerencia_general_colgaba_del_directorio_quedan_las_dos_como_raiz(db):
@@ -113,6 +131,20 @@ def test_si_la_gerencia_general_colgaba_del_directorio_quedan_las_dos_como_raiz(
     general.refresh_from_db()
     directorio.refresh_from_db()
     assert general.padre_id is None and directorio.padre_id is None
+
+
+def test_renombra_el_cargo_que_creo_la_0052(db):
+    _organigrama_de_hoy()
+    directorio = UnidadOrganizacional.objects.create(
+        nombre="Directorio", nivel=NivelJerarquico.objects.get(nombre="Gerencia General")
+    )
+    viejo = Cargo.objects.create(
+        nombre="Jefe de Finanzas y Administración", unidad=directorio, nivel=NivelCargo.JEFATURA
+    )
+    _como_la_migracion()
+    viejo.refresh_from_db()
+    assert viejo.nombre == "Jefe Administrativo Financiero Corporativo"
+    assert not Cargo.objects.filter(nombre="Jefe de Finanzas y Administración").exists()
 
 
 def test_sin_gerente_general_no_hace_nada(db):

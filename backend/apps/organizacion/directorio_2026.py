@@ -1,45 +1,58 @@
 """El Directorio, horizontal a la Gerencia General (19/11/2026).
 
-Decisión del usuario: el Directorio es un área de apoyo al Gerente General a
-su misma altura. El Gerente General no es jefe del Directorio y el Directorio
-no es jefe del Gerente General: las dos son raíces del organigrama, dibujadas
-una al lado de la otra. Hay jefaturas que reportan a las dos.
+Decisión del usuario: el Directorio es un área aparte, a la altura de la
+Gerencia General. El Gerente General no es jefe del Directorio ni el
+Directorio es jefe del Gerente General: las dos son raíces del organigrama,
+dibujadas una al lado de la otra, relacionadas pero sin línea de
+supervisión entre ellas.
 
-En cada empresa, solo si existen los cargos:
+Quiénes son el Directorio (una sola área):
 
-- se crea la unidad «Directorio» sin padre, en su nivel propio
-  «Directorio» a la altura del de la Gerencia General (con su Área, como
-  toda unidad): son áreas aparte, relacionadas pero sin supervisión entre
-  ellas;
-- el «Gerente de Procesos y Proyectos» pasa al Directorio y deja de tener
-  jefe; el Jefe de Procesos y Mejora Continua le sigue reportando;
-- se crea en el Directorio el cargo «Jefe de Finanzas y Administración», sin
-  jefe;
-- el «Jefe Financiero Administrativo» (con todo su equipo) pasa a reportar
-  directo al Jefe de Finanzas y Administración y, además, al Gerente General
-  en línea punteada (`Cargo.jefes_secundarios`, ver `reportes.py`).
+- el **Presidente del Directorio**, arriba;
+- el **Director Ejecutivo** y el **Director Financiero**, al mismo nivel,
+  reportando al Presidente;
+- el **Comité Ejecutivo**, que informa a los dos Directores sin ser línea de
+  supervisión directa (línea punteada, `Cargo.jefes_secundarios`, ver
+  `reportes.py`): el Gerente de Procesos y Proyectos y el Jefe
+  Administrativo Financiero Corporativo, dentro del Directorio y sin jefe
+  directo, y el Gerente General, que sigue encabezando su área con todos sus
+  equipos.
 
-Las personas no van aquí: se asignan a su cargo desde el organigrama.
+Además, el Jefe Financiero Administrativo (con todo su equipo) reporta
+directo al Jefe Administrativo Financiero Corporativo y, en línea punteada,
+al Gerente General; el Jefe de Procesos y Mejora Continua sigue reportando
+al Gerente de Procesos y Proyectos.
 
-Lo aplican las migraciones 0052 y 0053 (el nivel propio) y deja el cambio en la bitácora del organigrama.
-Repetirlo no cambia nada.
+En cada empresa, solo si existe el Gerente General. Las personas no van
+aquí: se asignan a su cargo desde el organigrama.
+
+Lo aplican las migraciones 0052, 0053 (el nivel propio) y 0054 (Presidente,
+Directores y Comité Ejecutivo), y deja el cambio en la bitácora del
+organigrama. Repetirlo no cambia nada.
 """
 
 from . import departamentos_del_organigrama, niveles_cargo, reportes, roles_de_cargo, versiones
-from .models import Cargo, NivelJerarquico, UnidadOrganizacional
+from .models import Cargo, NivelCargo, NivelJerarquico, UnidadOrganizacional
 from .permisos_por_cargo import normalizar as _normal
 
 UNIDAD = "Directorio"
 GERENTE_GENERAL = "Gerente General"
 GERENTE_PROCESOS = "Gerente de Procesos y Proyectos"
-FINANZAS = "Jefe de Finanzas y Administración"
+FINANZAS = "Jefe Administrativo Financiero Corporativo"
+#: Cómo se llamó al crearlo la 0052.
+FINANZAS_ANTES = ("Jefe de Finanzas y Administración",)
+PRESIDENTE = "Presidente del Directorio"
+DIRECTORES = ("Director Ejecutivo", "Director Financiero")
 JEFE_FINANCIERO = "Jefe Financiero Administrativo"
 
 MOTIVO = (
-    "Decisión del usuario: el Directorio, horizontal a la Gerencia General (ninguno "
-    "es jefe del otro). Pasan a él el Gerente de Procesos y Proyectos y el nuevo "
-    "Jefe de Finanzas y Administración; el Jefe Financiero Administrativo le "
-    "reporta y también, en línea punteada, al Gerente General."
+    "Decisión del usuario: el Directorio, área aparte a la altura de la Gerencia "
+    "General (ninguno es jefe del otro). Presidente; Director Ejecutivo y Director "
+    "Financiero, al mismo nivel; y el Comité Ejecutivo (Gerente de Procesos y "
+    "Proyectos, Jefe Administrativo Financiero Corporativo y Gerente General), que "
+    "informa a los dos Directores en línea punteada. El Jefe Financiero "
+    "Administrativo reporta al Jefe Administrativo Financiero Corporativo y, en "
+    "línea punteada, al Gerente General."
 )
 
 
@@ -104,6 +117,40 @@ def _unidad_del_directorio(gerente_general):
     return unidad
 
 
+def _en_directorio(unidad, nombre, *, nivel, jefe=None, antes=()):
+    """El cargo del Directorio (por su nombre o el de antes); si no existe, se
+    crea. Queda activo, en el Directorio y con ese jefe directo."""
+    buscados = {_normal(n) for n in (nombre, *antes)}
+    cargo = next(
+        (
+            c
+            for c in Cargo.objects.filter(unidad=unidad).order_by("id")
+            if _normal(c.nombre) in buscados
+        ),
+        None,
+    )
+    if cargo is None:
+        return Cargo.objects.create(nombre=nombre, unidad=unidad, plazas=1, nivel=nivel, jefe=jefe)
+    jefe_id = jefe.pk if jefe else None
+    if cargo.nombre != nombre or not cargo.activo or cargo.jefe_id != jefe_id:
+        cargo.nombre = nombre
+        cargo.activo = True
+        cargo.jefe = jefe
+        cargo.save(update_fields=["nombre", "activo", "jefe", "updated_at"])
+    return cargo
+
+
+def _punteada(cargo, jefes) -> None:
+    """`cargo` también reporta a cada uno de `jefes`, sin ser su jefe directo
+    y sin cerrar círculos (`reportes.validar`)."""
+    debajo = reportes.debajo(cargo.pk, cargo.empresa_id)
+    actuales = set(cargo.jefes_secundarios.values_list("pk", flat=True))
+    for jefe in jefes:
+        if jefe.pk in actuales or jefe.pk in (cargo.pk, cargo.jefe_id) or jefe.pk in debajo:
+            continue
+        cargo.jefes_secundarios.add(jefe)
+
+
 def cambiar() -> None:
     """Los cambios, sin anotarlos: los anota quien llama (`aplicar` o la
     migración)."""
@@ -113,27 +160,25 @@ def cambiar() -> None:
         return
     unidad = _unidad_del_directorio(gerente_general)
 
+    presidente = _en_directorio(unidad, PRESIDENTE, nivel=NivelCargo.GERENCIA_GENERAL)
+    directores = [
+        _en_directorio(unidad, nombre, nivel=NivelCargo.GERENCIA_GENERAL, jefe=presidente)
+        for nombre in DIRECTORES
+    ]
+
+    # El Comité Ejecutivo: informa a los dos Directores, sin jefe directo en
+    # el Directorio.
     procesos = _cargo(GERENTE_PROCESOS, cargos)
     if procesos is not None and (procesos.unidad_id != unidad.id or procesos.jefe_id):
         procesos.unidad = unidad
         procesos.jefe = None
         procesos.save(update_fields=["unidad", "jefe", "updated_at"])
-
-    finanzas = next(
-        (c for c in Cargo.objects.filter(unidad=unidad) if _normal(c.nombre) == _normal(FINANZAS)),
-        None,
+    finanzas = _en_directorio(
+        unidad, FINANZAS, nivel=niveles_cargo.sugerido(FINANZAS), antes=FINANZAS_ANTES
     )
-    if finanzas is None:
-        finanzas = Cargo.objects.create(
-            nombre=FINANZAS,
-            unidad=unidad,
-            plazas=1,
-            nivel=niveles_cargo.sugerido(FINANZAS),
-        )
-    elif not finanzas.activo or finanzas.jefe_id:
-        finanzas.activo = True
-        finanzas.jefe = None
-        finanzas.save(update_fields=["activo", "jefe", "updated_at"])
+    for miembro in (procesos, finanzas, gerente_general):
+        if miembro is not None:
+            _punteada(miembro, directores)
 
     financiero = _cargo(JEFE_FINANCIERO, cargos)
     if financiero is not None and financiero.pk != finanzas.pk:
@@ -142,10 +187,7 @@ def cambiar() -> None:
             financiero.save(update_fields=["jefe", "updated_at"])
         # Su jefe inmediato no es además su jefe secundario (`reportes.validar`).
         financiero.jefes_secundarios.remove(finanzas)
-        if not financiero.jefes_secundarios.filter(pk=gerente_general.pk).exists() and (
-            gerente_general.pk not in reportes.debajo(financiero.pk, financiero.empresa_id)
-        ):
-            financiero.jefes_secundarios.add(gerente_general)
+        _punteada(financiero, [gerente_general])
 
     for cargo in Cargo.objects.filter(unidad=unidad).select_related("rol", "unidad", "empresa"):
         roles_de_cargo.asegurar_rol(cargo)
