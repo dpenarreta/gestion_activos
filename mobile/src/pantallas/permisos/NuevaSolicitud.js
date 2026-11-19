@@ -54,12 +54,14 @@ import { useRellenoDeLaBurbuja } from "../../navegacion/BurbujaDeSoporte";
  */
 export const ESPERA_EVALUAR_MS = 400;
 
+// Solo bloquean las validaciones de datos («falla»); las reglas del tipo son
+// sugerencias y no impiden enviar (18/11/2026, igual que la web).
 export const TEXTO_BLOQUEA =
-  "No se puede enviar: hay restricciones que no se cumplen (marcadas «No cumple»). Cambie las fechas o el tipo de permiso.";
+  "No se puede enviar: hay datos por corregir (marcados «No cumple»). Cambie las fechas o el tipo de permiso.";
 export const TEXTO_FECHAS_AL_REVES = "Revise las fechas: «Hasta» no puede ser antes de «Desde».";
 export const TEXTO_AVISO_MEDICO = "No escriba diagnósticos.";
 export const TEXTO_ELIJA_TIPO = "Elija el tipo de permiso.";
-export const TEXTO_REVISANDO = "Espere: se están revisando las restricciones.";
+export const TEXTO_REVISANDO = "Espere: se están revisando las fechas y las sugerencias.";
 /** Tras un fallo de red o un tiempo agotado no se sabe si el servidor la
  * recibió (revisión de QA, O-1). */
 export const TEXTO_PUEDE_HABERSE_ENVIADO = "Revise «Mis solicitudes»: puede que ya se haya enviado.";
@@ -104,10 +106,10 @@ export function textoCamposConError(campos) {
 /** Lo que dice el lector de pantalla al terminar una evaluación. */
 function textoDeEvaluacion(datos) {
   const fallan = (datos?.reglas ?? []).filter((r) => r.estado === "falla").length;
-  if (fallan === 0) return "Restricciones revisadas: se puede enviar.";
+  if (fallan === 0) return "Fechas revisadas: se puede enviar.";
   return fallan === 1
-    ? "Restricciones revisadas: una no se cumple."
-    : `Restricciones revisadas: ${fallan} no se cumplen.`;
+    ? "Fechas revisadas: hay un dato por corregir."
+    : `Fechas revisadas: hay ${fallan} datos por corregir.`;
 }
 
 /** Una hora después de «HH:MM» (sin pasar de las 23:55). */
@@ -710,9 +712,9 @@ export function NuevaSolicitud({ deVacaciones = false }) {
           />
           <Text style={estilos.resumen} accessibilityLiveRegion="polite">
             {/* Los días que cuentan (laborables, feriados, fines de semana)
-                los dice el servidor en las restricciones de abajo. */}
+                los dice el servidor en las sugerencias de abajo. */}
             {totalDias
-              ? `${textoDias(totalDias)} de calendario. Cuántos cuentan lo dicen las restricciones de abajo.`
+              ? `${textoDias(totalDias)} de calendario. Cuántos cuentan lo dicen las sugerencias de abajo.`
               : TEXTO_FECHAS_AL_REVES}
           </Text>
         </View>
@@ -720,7 +722,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
 
       {revisando ? (
         <Text style={estilos.tenue} accessibilityLiveRegion="polite" testID="revisando">
-          Revisando las restricciones…
+          Revisando las fechas y las sugerencias…
         </Text>
       ) : null}
       {evaluacion.estado === "error" ? (
@@ -729,7 +731,7 @@ export function NuevaSolicitud({ deVacaciones = false }) {
         ) : (
           <Alerta
             tipo="aviso"
-            texto="No se pudieron revisar las restricciones ahora. Puede enviar igual: el servidor las comprueba al recibir la solicitud."
+            texto="No se pudieron revisar las fechas y las sugerencias ahora. Puede enviar igual: el servidor revisa los datos al recibir la solicitud."
           />
         )
       ) : null}

@@ -44,6 +44,11 @@ import {
   TEXTO_REVISANDO,
 } from "../src/pantallas/permisos/NuevaSolicitud";
 import { Permisos } from "../src/pantallas/permisos/Permisos";
+import {
+  TEXTO_SUGERENCIAS_EN_DETALLE,
+  TEXTO_SUGERENCIAS_NO_IMPIDEN,
+  TITULO_DEBE_CORREGIR,
+} from "../src/pantallas/permisos/piezas";
 import { coloresClarosEn, olvidarApariencia, renderEnOscuro } from "./utilidades/modoOscuro";
 
 const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: jest.fn(() => true) };
@@ -242,13 +247,38 @@ describe("nueva solicitud (CA-4 a CA-7)", () => {
     await fireEvent.press(await screen.findByTestId("tipo-1"));
 
     expect(await screen.findByText("Mínimo 5 días seguidos por solicitud.")).toBeTruthy();
-    expect(anuncio).toHaveBeenCalledWith("Restricciones revisadas: una no se cumple.");
+    expect(anuncio).toHaveBeenCalledWith("Fechas revisadas: hay un dato por corregir.");
     expect(licenciasService.evaluar).toHaveBeenCalledWith("1", expect.any(String), expect.any(String));
     expect(screen.getByLabelText("No cumple: Mínimo 5 días seguidos por solicitud. Ha elegido 1 día.")).toBeTruthy();
-    expect(screen.getByLabelText(/^Atención: De cada período anual/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Sugerencia no cumplida \(no impide enviar\): De cada período anual/)).toBeTruthy();
+    // Lo que bloquea va aparte, como error, y no bajo «Sugerencias» (18/11/2026).
+    const corregir = screen.getByTestId("reglas-por-corregir");
+    expect(corregir.props.accessibilityRole).toBe("alert");
+    expect(within(corregir).getByText(TITULO_DEBE_CORREGIR)).toBeTruthy();
+    expect(within(corregir).getByText("Mínimo 5 días seguidos por solicitud.")).toBeTruthy();
+    expect(within(corregir).queryByText(/De cada período anual/)).toBeNull();
+    const sugerencias = screen.getByTestId("reglas-sugerencias");
+    expect(within(sugerencias).getByText("Sugerencias de este permiso")).toBeTruthy();
+    expect(within(sugerencias).getByText(TEXTO_SUGERENCIAS_NO_IMPIDEN)).toBeTruthy();
+    expect(within(sugerencias).queryByText("Mínimo 5 días seguidos por solicitud.")).toBeNull();
     expect(screen.getByLabelText(/^Para tener en cuenta: Pídalas/)).toBeTruthy();
     expect(screen.getByText(TEXTO_BLOQUEA)).toBeTruthy();
     expect(screen.getByTestId("enviar-solicitud").props.accessibilityState.disabled).toBe(true);
+  });
+
+  it("una sugerencia no cumplida no impide enviar y lo dice (18/11/2026)", async () => {
+    licenciasService.evaluar.mockResolvedValue({
+      reglas: [{ clave: "fines-1", estado: "aviso", texto: "De cada período anual deben salir al menos 2 sábados.", detalle: "" }],
+      bloquea: false,
+    });
+    const anuncio = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
+    await nuevaConTipo(1);
+
+    expect(screen.getByText("Sugerencias de este permiso")).toBeTruthy();
+    expect(screen.getByText(TEXTO_SUGERENCIAS_NO_IMPIDEN)).toBeTruthy();
+    expect(screen.queryByTestId("reglas-por-corregir")).toBeNull();
+    expect(screen.queryByText(TEXTO_BLOQUEA)).toBeNull();
+    expect(anuncio).toHaveBeenCalledWith("Fechas revisadas: se puede enviar.");
   });
 
   it("un tipo médico avisa que no se escriban diagnósticos y pide motivo y documento", async () => {
@@ -384,7 +414,7 @@ describe("nueva solicitud (CA-4 a CA-7)", () => {
     expect(await screen.findByText(new RegExp(TEXTO_PUEDE_HABERSE_ENVIADO))).toBeTruthy();
   });
 
-  it("mientras se reevalúan las restricciones no deja enviar y atenúa las anteriores", async () => {
+  it("mientras se reevalúan las sugerencias no deja enviar y atenúa las anteriores", async () => {
     licenciasService.evaluar.mockResolvedValueOnce({
       reglas: [{ clave: "saldo", estado: "ok", texto: "Se descuenta de sus vacaciones pendientes.", detalle: "" }],
       bloquea: false,
@@ -400,7 +430,7 @@ describe("nueva solicitud (CA-4 a CA-7)", () => {
     const boton = screen.getByTestId("enviar-solicitud");
     expect(boton.props.accessibilityState.disabled).toBe(true);
     expect(boton.props.accessibilityHint).toBe(TEXTO_REVISANDO);
-    expect(screen.getByText("Restricciones de este permiso (revisando…)")).toBeTruthy();
+    expect(screen.getByText("Sugerencias de este permiso (revisando…)")).toBeTruthy();
     // Sin opacidad: un borde a la izquierda las marca (M-3).
     const { StyleSheet } = require("react-native");
     const estilo = StyleSheet.flatten(screen.getByTestId("reglas-del-permiso").props.style);
@@ -879,9 +909,29 @@ describe("detalle de una solicitud (CA-8 a CA-11)", () => {
     expect(screen.getByLabelText("Fechas: 16/11/2026 al 20/11/2026")).toBeTruthy();
     expect(screen.getByText("Pendiente")).toBeTruthy();
     expect(screen.getByText("Luis Mora hizo la solicitud")).toBeTruthy();
-    expect(screen.getByText("Para decidir: saldo y restricciones")).toBeTruthy();
+    expect(screen.getByText("Para decidir: saldo y sugerencias")).toBeTruthy();
+    // Todas se cumplen: sin la nota de sugerencias no cumplidas.
+    expect(screen.queryByText(TEXTO_SUGERENCIAS_EN_DETALLE)).toBeNull();
     // Escalar se queda en la web.
     expect(screen.getByTestId("solicitud-en-la-web")).toBeTruthy();
+  });
+
+  it("con una sugerencia no cumplida, dice a quien aprueba que decide Talento Humano (18/11/2026)", async () => {
+    licenciasService.solicitud.mockResolvedValue(
+      detalle({
+        evaluacion: {
+          reglas: [{ clave: "fines-1", estado: "aviso", texto: "De cada período anual deben salir al menos 2 sábados.", detalle: "" }],
+          bloquea: false,
+        },
+      }),
+    );
+    await render(conResumen(<DetalleSolicitud id="12" />));
+
+    expect(await screen.findByText("Para decidir: saldo y sugerencias")).toBeTruthy();
+    expect(screen.getByText(TEXTO_SUGERENCIAS_EN_DETALLE)).toBeTruthy();
+    expect(screen.queryByText(TEXTO_SUGERENCIAS_NO_IMPIDEN)).toBeNull();
+    expect(screen.getByLabelText(/^Sugerencia no cumplida \(no impide enviar\): De cada período/)).toBeTruthy();
+    expect(screen.queryByTestId("reglas-por-corregir")).toBeNull();
   });
 
   it("la decisión va antes del historial, con [Rechazar | Aprobar] (H-04) y «Días» con unidad (H-18)", async () => {

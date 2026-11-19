@@ -36,41 +36,83 @@ export function EstadoSolicitud({ solicitud }) {
   );
 }
 
-/** Las reglas de la evaluación (CA-4): cada una con su ícono, su estado
- * dicho («No cumple: …») y su detalle, como en la web. */
-export function ReglasDelPermiso({ evaluacion, titulo = "Restricciones de este permiso", atenuadas = false }) {
+/** Una regla de la evaluación, con su ícono, su estado dicho («No cumple:
+ * …») y su detalle, como en la web. */
+function ReglaDelPermiso({ regla, atenuadas, estilos }) {
+  const estado = estadoDeRegla(regla);
+  const etiqueta = [atenuadas ? "Anterior." : null, `${estado.nombre}: ${regla.texto}`, regla.detalle]
+    .filter(Boolean)
+    .join(" ");
+  return (
+    <View
+      testID={`regla-${regla.clave}`}
+      style={[estilos.regla, { backgroundColor: estado.fondo }]}
+      accessible
+      accessibilityLabel={etiqueta}
+    >
+      <Icono nombre={estado.icono} size={20} color={estado.color} />
+      <View style={estilos.reglaTextos}>
+        <Text style={[estilos.reglaEstado, { color: estado.color }]}>{estado.nombre}</Text>
+        <Text style={estilos.reglaTexto}>{regla.texto}</Text>
+        {regla.detalle ? <Text style={estilos.reglaDetalle}>{regla.detalle}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+export const TEXTO_SUGERENCIAS_NO_IMPIDEN =
+  "Son sugerencias, no restricciones: no impiden enviar la solicitud, y la decisión es de Talento Humano.";
+export const TEXTO_SUGERENCIAS_EN_DETALLE =
+  "Son sugerencias del tipo de permiso: no se cumplieron todas, pero la decisión es de Talento Humano.";
+export const TITULO_DEBE_CORREGIR = "Debe corregir para poder enviar";
+
+/** Las reglas de la evaluación (CA-4). Las del tipo de permiso son
+ * sugerencias, no restricciones: no bloquean, se puede enviar igual y decide
+ * Talento Humano (pedido del usuario, 18/11/2026, igual que la web). Solo las
+ * validaciones de datos («falla»: fechas cruzadas, días ya pedidos o
+ * gozados…) impiden enviar, y van aparte, como error, no bajo «Sugerencias». */
+export function ReglasDelPermiso({
+  evaluacion,
+  titulo = "Sugerencias de este permiso",
+  atenuadas = false,
+  enDetalle = false,
+}) {
   const estilos = useEstilos(fabricaDeEstilos);
   const reglas = Array.isArray(evaluacion?.reglas) ? evaluacion.reglas : [];
   if (reglas.length === 0) return null;
+  const fallas = reglas.filter((r) => r.estado === "falla");
+  const sugerencias = reglas.filter((r) => r.estado !== "falla");
+  const sinCumplir = sugerencias.some((r) => r.estado === "aviso");
+  const conRevision = (texto) => (atenuadas ? `${texto} (revisando…)` : texto);
   // `atenuadas`: mientras se reevalúan, las de antes se ven atenuadas y se
   // dicen como anteriores, para no tomarlas por las de las fechas nuevas.
   return (
     <View style={[estilos.reglas, atenuadas && estilos.atenuadas]} testID="reglas-del-permiso">
-      <Text style={estilos.subtitulo} accessibilityRole="header">
-        {atenuadas ? `${titulo} (revisando…)` : titulo}
-      </Text>
-      {reglas.map((regla) => {
-        const estado = estadoDeRegla(regla);
-        const etiqueta = [atenuadas ? "Anterior." : null, `${estado.nombre}: ${regla.texto}`, regla.detalle]
-          .filter(Boolean)
-          .join(" ");
-        return (
-          <View
-            key={regla.clave}
-            testID={`regla-${regla.clave}`}
-            style={[estilos.regla, { backgroundColor: estado.fondo }]}
-            accessible
-            accessibilityLabel={etiqueta}
-          >
-            <Icono nombre={estado.icono} size={20} color={estado.color} />
-            <View style={estilos.reglaTextos}>
-              <Text style={[estilos.reglaEstado, { color: estado.color }]}>{estado.nombre}</Text>
-              <Text style={estilos.reglaTexto}>{regla.texto}</Text>
-              {regla.detalle ? <Text style={estilos.reglaDetalle}>{regla.detalle}</Text> : null}
-            </View>
-          </View>
-        );
-      })}
+      {fallas.length > 0 ? (
+        <View style={estilos.reglasCorregir} accessibilityRole="alert" testID="reglas-por-corregir">
+          <Text style={estilos.reglasCorregirTitulo} accessibilityRole="header">
+            {conRevision(TITULO_DEBE_CORREGIR)}
+          </Text>
+          {fallas.map((regla) => (
+            <ReglaDelPermiso key={regla.clave} regla={regla} atenuadas={atenuadas} estilos={estilos} />
+          ))}
+        </View>
+      ) : null}
+      {sugerencias.length > 0 ? (
+        <View style={estilos.reglas} testID="reglas-sugerencias">
+          <Text style={estilos.subtitulo} accessibilityRole="header">
+            {conRevision(titulo)}
+          </Text>
+          {sinCumplir ? (
+            <Text style={estilos.reglasNota}>
+              {enDetalle ? TEXTO_SUGERENCIAS_EN_DETALLE : TEXTO_SUGERENCIAS_NO_IMPIDEN}
+            </Text>
+          ) : null}
+          {sugerencias.map((regla) => (
+            <ReglaDelPermiso key={regla.clave} regla={regla} atenuadas={atenuadas} estilos={estilos} />
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -251,6 +293,10 @@ export const fabricaDeEstilos = (colores, CONTROLES) => crearEstilos({
   atenuadas: { borderLeftWidth: 4, borderLeftColor: colores.bordeControl, paddingLeft: 8 },
   regla: { flexDirection: "row", gap: 8, padding: 10, borderRadius: 8, alignItems: "flex-start" },
   reglaTextos: { flex: 1, gap: 2 },
+  // Lo que impide enviar, como error y aparte de las sugerencias (18/11/2026).
+  reglasCorregir: { gap: 8, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: colores.malTexto, backgroundColor: colores.malFondo },
+  reglasCorregirTitulo: { fontSize: 17, fontWeight: "700", color: colores.malTexto },
+  reglasNota: { fontSize: 14, color: colores.tinta },
   reglaEstado: { fontSize: 13, fontWeight: "700" },
   reglaTexto: { fontSize: 15, color: colores.tinta },
   reglaDetalle: { fontSize: 14, color: colores.tintaSuave },

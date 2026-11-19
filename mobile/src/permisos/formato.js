@@ -72,7 +72,9 @@ export function estadoDe(solicitud) {
 }
 
 /** El estado de cada regla de la evaluación (CA-4), como en la web: ✔ cumple,
- * ✖ no cumple, ⚠ atención e ℹ informa. */
+ * ✖ no cumple, ⚠ sugerencia no cumplida e ℹ informa. Las reglas del tipo de
+ * permiso son sugerencias, no restricciones: «aviso» no impide enviar y
+ * decide Talento Humano (pedido del usuario, 18/11/2026). */
 export const ESTADOS_REGLA = {
   ok: {
     nombre: "Cumple",
@@ -95,7 +97,7 @@ export const ESTADOS_REGLA = {
     },
   },
   aviso: {
-    nombre: "Atención",
+    nombre: "Sugerencia no cumplida (no impide enviar)",
     icono: "alert",
     get color() {
       return paletaActiva().avisoTexto;

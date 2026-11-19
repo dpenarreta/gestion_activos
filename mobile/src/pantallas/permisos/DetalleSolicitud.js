@@ -376,7 +376,7 @@ export function DetalleSolicitud({ id, empresa = null, creada = false }) {
       </View>
 
       {s.evaluacion?.reglas?.length > 0 ? (
-        <ReglasDelPermiso evaluacion={s.evaluacion} titulo="Para decidir: saldo y restricciones" />
+        <ReglasDelPermiso evaluacion={s.evaluacion} titulo="Para decidir: saldo y sugerencias" enDetalle />
       ) : null}
       {s.feriados?.length > 0 ? (
         <Text style={estilos.texto}>Feriados en estas fechas: {s.feriados.map(fechaCorta).join(", ")}.</Text>
