@@ -271,6 +271,13 @@ const ACTAS_ENTREGA = "/activos/actas-entrega/";
  * descarga en Word (editable) y PDF (para imprimir y firmar).
  */
 export const actasEntregaService = {
+  /** Las actas donde consta el equipo, la más reciente primero, cada una con
+   * todos los equipos de esa entrega (19/11/2026). */
+  delEquipo(activoId) {
+    return apiClient
+      .get(ACTAS_ENTREGA, { params: { activo: activoId } })
+      .then((res) => res.data);
+  },
   preparar(movimientoId) {
     return apiClient
       .get(`${ACTAS_ENTREGA}preparar/`, {

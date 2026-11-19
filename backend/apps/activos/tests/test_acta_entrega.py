@@ -210,3 +210,45 @@ def test_pide_el_permiso_del_acta(admin, area, personas, tipos):
     usuario = User.objects.get(pk=usuario.pk)  # sin la caché de permisos
     cliente.force_authenticate(user=usuario)
     assert cliente.get(f"{URL}preparar/", {"movimiento": mouse.id}).status_code == 200
+
+
+def test_cualquier_equipo_del_acta_trae_el_acta_original(cliente, admin, area, personas, tipos):
+    """19/11/2026: consultar cualquiera de los equipos entregados trae el acta
+    completa, con todos los equipos de esa entrega."""
+    paul, ana = personas
+    entregas = [
+        _entregar(admin, tipos["mouse"], area, paul, "S-1"),
+        _entregar(admin, tipos["laptop"], area, paul, "LAP-1", "Dell", "Latitude"),
+        _entregar(admin, tipos["mouse"], area, paul, "S-2"),
+        _entregar(admin, tipos["mouse"], area, paul, "S-3"),
+    ]
+    otro = _entregar(admin, tipos["mouse"], area, ana, "S-9")
+    acta_id = cliente.post(URL, {"movimientos": [m.id for m in entregas]}, format="json").json()[
+        "id"
+    ]
+    cliente.post(URL, {"movimientos": [otro.id]}, format="json")
+
+    for movimiento in entregas:
+        respuesta = cliente.get(URL, {"activo": movimiento.activo_id})
+        assert respuesta.status_code == 200, respuesta.content
+        actas = respuesta.json()
+        assert [a["id"] for a in actas] == [acta_id]
+        # En el orden de la entrega, como en el acta impresa.
+        assert [m["activo"]["numero_serie"] for m in actas[0]["movimientos"]] == [
+            "S-1",
+            "LAP-1",
+            "S-2",
+            "S-3",
+        ]
+        assert sorted(m["activo"]["numero_serie"] for m in actas[0]["movimientos"]) == [
+            "LAP-1",
+            "S-1",
+            "S-2",
+            "S-3",
+        ]
+
+    sin_acta = _entregar(admin, tipos["mouse"], area, ana, "S-10")
+    assert cliente.get(URL, {"activo": sin_acta.activo_id}).json() == []
+    assert cliente.get(URL).status_code == 400
+    assert cliente.get(URL, {"activo": "x"}).status_code == 400
+    assert cliente.get(URL, {"activo": 999999}).status_code == 404

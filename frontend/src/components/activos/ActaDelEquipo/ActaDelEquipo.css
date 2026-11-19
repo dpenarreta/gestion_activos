@@ -1,0 +1,71 @@
+/* El acta de entrega en la ficha del equipo (19/11/2026). */
+
+.acta-equipo + .acta-equipo {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--mz-border);
+}
+
+.acta-equipo__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.acta-equipo__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* El equipo consultado se distingue en la tabla sin depender solo del color:
+   lleva además la etiqueta «Este equipo». */
+.acta-equipo__este td {
+  font-weight: 600;
+  background: var(--mz-info-bg);
+}
+
+.acta-equipo__marca {
+  margin-left: 0.5rem;
+}
+
+/* Botones cómodos al dedo en pantallas táctiles (auditoría UX/UI). */
+@media (pointer: coarse) {
+  .acta-equipo__acciones .btn {
+    min-height: 44px;
+  }
+}
+
+/* En pantallas angostas cada equipo es un bloque con sus datos rotulados:
+   la tabla de 640 px dejaba fuera de la vista el código y la serie, que son
+   lo que se coteja contra la etiqueta del equipo (auditoría UX/UI). */
+@media (max-width: 575.98px) {
+  .acta-equipo .mz-table {
+    min-width: 0;
+  }
+  .acta-equipo .mz-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .acta-equipo .mz-table tr {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--mz-border);
+  }
+  .acta-equipo .mz-table td {
+    display: block;
+    border: 0;
+    padding: 0.1rem 0;
+  }
+  .acta-equipo .mz-table td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--mz-ink-faint);
+    font-weight: 400;
+  }
+}

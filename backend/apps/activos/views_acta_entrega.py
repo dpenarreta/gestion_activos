@@ -5,6 +5,10 @@
   persona ese día (para elegir cuáles van) y, si ya hay acta, cuál es.
 - `POST /api/v1/activos/actas-entrega/`: crea el acta con los movimientos
   elegidos, la prueba de funcionalidad y las observaciones.
+- `GET  /api/v1/activos/actas-entrega/?activo=<id>` (19/11/2026): las actas
+  donde consta ese equipo, la más reciente primero, cada una completa —con
+  todos los equipos que se entregaron en ella—. Consultar cualquiera de los
+  equipos de un acta trae el acta original.
 - `GET/PATCH /api/v1/activos/actas-entrega/<id>/`: verla o corregirla.
 - `GET  /api/v1/activos/actas-entrega/<id>/documento/?formato=docx|pdf`.
 
@@ -12,6 +16,7 @@ Todo pide `activos.acta_entrega`.
 """
 
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -148,7 +153,12 @@ class GuardarActaSerializer(serializers.Serializer):
         return {clave: v for clave, v in valor.items() if v != ActaEntrega.Prueba.NO_APLICA}
 
 
+#: Tope de actas por equipo en la consulta: un equipo pasa por pocas manos.
+MAXIMO_ACTAS_POR_EQUIPO = 50
+
+
 class ActaEntregaViewSet(
+    mixins.ListModelMixin,
     mixins.CreateModelMixin,
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
@@ -159,9 +169,37 @@ class ActaEntregaViewSet(
     http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_queryset(self):
+        # Los equipos en el orden del acta impresa (`datos_del_acta`): en la
+        # pantalla y en el papel se leen igual (auditoría UX/UI, 19/11/2026).
+        movimientos = Prefetch(
+            "movimientos",
+            queryset=MovimientoActivo.objects.select_related("activo__tipo")
+            .prefetch_related("actas_entrega")
+            .order_by("created_at", "id"),
+        )
         return ActaEntrega.objects.select_related(
             "custodio__departamento", "tecnico"
-        ).prefetch_related("movimientos__activo__tipo", "movimientos__actas_entrega")
+        ).prefetch_related(movimientos)
+
+    # --- Las actas de un equipo --------------------------------------------
+
+    def list(self, request, *args, **kwargs):
+        try:
+            activo_id = int(request.query_params.get("activo", ""))
+        except ValueError:
+            return Response(
+                {"activo": "Indique el equipo del que se consultan las actas."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        # `Activo` filtra por la empresa activa: un equipo de otra empresa no existe.
+        activo = get_object_or_404(Activo.objects.all(), pk=activo_id)
+        actas = (
+            self.get_queryset()
+            .filter(movimientos__activo=activo)
+            .distinct()
+            .order_by("-fecha", "-id")[:MAXIMO_ACTAS_POR_EQUIPO]
+        )
+        return Response(self.get_serializer(actas, many=True).data)
 
     # --- Preparar -----------------------------------------------------------
 

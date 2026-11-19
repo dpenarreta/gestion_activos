@@ -12,6 +12,7 @@ import { EtiquetaDialog } from "../../../components/activos/EtiquetaDialog/Etiqu
 import { AlertaRenovacion } from "../../../components/activos/AlertaRenovacion/AlertaRenovacion";
 import { AdjuntosPanel } from "../../../components/activos/AdjuntosPanel/AdjuntosPanel";
 import { ActaEntregaDialog } from "../../../components/activos/ActaEntregaDialog/ActaEntregaDialog";
+import { ActaDelEquipo } from "../../../components/activos/ActaDelEquipo/ActaDelEquipo";
 import { adjuntosService } from "../../../api/adjuntosService";
 import { descargarBlob } from "../../../utils/descargas";
 import { usePermission } from "../../../hooks/usePermission";
@@ -33,6 +34,7 @@ export function ActivoDetalle() {
   const puedeRegistrarMantenimiento = usePermission("mantenimientos.registrar");
   const puedeVerAdjuntos = usePermission("adjuntos.ver");
   const puedeSubirAdjuntos = usePermission("adjuntos.subir");
+  const puedeActaEntrega = usePermission("activos.acta_entrega");
 
   const [ficha, setFicha] = useState(null);
   const [error, setError] = useState(null);
@@ -433,6 +435,10 @@ export function ActivoDetalle() {
           />
         </div>
       )}
+
+      {/* El acta original de la entrega, con este equipo y los demás que se
+          entregaron con él (19/11/2026). */}
+      {puedeActaEntrega && <ActaDelEquipo activoId={activo.id} />}
 
       {/* Tabla y no línea de tiempo: cada movimiento se lee por columnas
           —quién, qué área, qué ciudad, antes y después— y lleva su acta al
