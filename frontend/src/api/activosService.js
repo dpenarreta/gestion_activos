@@ -288,6 +288,16 @@ export const actasEntregaService = {
   crear(payload) {
     return apiClient.post(ACTAS_ENTREGA, payload).then((res) => res.data);
   },
+  /** Asigna a la persona del acta el equipo de ese código (escaneado o
+   * escrito) y devuelve `{movimiento, ya_estaba}` (19/11/2026). */
+  agregarEquipo(movimientoId, codigo) {
+    return apiClient
+      .post(`${ACTAS_ENTREGA}agregar-equipo/`, {
+        movimiento: movimientoId,
+        codigo,
+      })
+      .then((res) => res.data);
+  },
   editar(id, payload) {
     return apiClient
       .patch(`${ACTAS_ENTREGA}${id}/`, payload)

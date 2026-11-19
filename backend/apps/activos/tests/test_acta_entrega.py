@@ -252,3 +252,94 @@ def test_cualquier_equipo_del_acta_trae_el_acta_original(cliente, admin, area, p
     assert cliente.get(URL).status_code == 400
     assert cliente.get(URL, {"activo": "x"}).status_code == 400
     assert cliente.get(URL, {"activo": 999999}).status_code == 404
+
+
+def _en_bodega(admin, tipo, area, serie, marca="Logitech", modelo="K120"):
+    return ActivoService.crear_activo(
+        actor=admin,
+        tipo=tipo,
+        nombre=f"{tipo.nombre} {serie}",
+        marca=marca,
+        modelo=modelo,
+        numero_serie=serie,
+        departamento=area,
+        fecha_adquisicion=datetime.date(2026, 1, 10),
+    )
+
+
+def test_asignar_a_una_persona_dice_desde_que_movimiento_se_abre_el_acta(
+    cliente, admin, area, personas, tipos
+):
+    """19/11/2026: la asignación es el desencadenante del acta."""
+    activo = _en_bodega(admin, tipos["laptop"], area, "LAP-9")
+    respuesta = cliente.post(
+        f"/api/v1/activos/{activo.id}/asignar/",
+        {"responsables": [personas[0].id]},
+        format="json",
+    )
+    assert respuesta.status_code == 200, respuesta.content
+    movimiento = MovimientoActivo.objects.filter(activo=activo).latest("id")
+    assert movimiento.tipo == MovimientoActivo.Tipo.ASIGNACION
+    assert respuesta.json()["acta_entrega_movimiento"] == movimiento.id
+
+    devolucion = cliente.post(
+        f"/api/v1/activos/{activo.id}/asignar/", {"responsables": []}, format="json"
+    )
+    assert devolucion.json()["acta_entrega_movimiento"] is None
+
+
+def test_con_el_acta_abierta_se_agregan_equipos_por_codigo(cliente, admin, area, personas, tipos):
+    paul, ana = personas
+    base = _entregar(admin, tipos["laptop"], area, paul, "LAP-1", "Dell", "Latitude")
+    teclado = _en_bodega(admin, tipos["mouse"], area, "TEC-77")
+    url = f"{URL}agregar-equipo/"
+
+    # Por el código de la etiqueta (lo que trae el QR), sin distinguir mayúsculas.
+    respuesta = cliente.post(
+        url, {"movimiento": base.id, "codigo": teclado.codigo_barras.lower()}, format="json"
+    )
+    assert respuesta.status_code == 201, respuesta.content
+    nuevo = respuesta.json()["movimiento"]
+    assert nuevo["activo"]["numero_serie"] == "TEC-77"
+    teclado.refresh_from_db()
+    assert list(teclado.responsables.all()) == [paul]
+    assert teclado.departamento_id == base.departamento_nuevo_id
+
+    # Ya aparece entre lo entregado ese día para el acta.
+    preparado = cliente.get(f"{URL}preparar/", {"movimiento": base.id}).json()
+    assert nuevo["id"] in [c["id"] for c in preparado["candidatos"]]
+
+    # Escanearlo otra vez no duplica nada.
+    otra_vez = cliente.post(url, {"movimiento": base.id, "codigo": "TEC-77"}, format="json")
+    assert otra_vez.status_code == 200
+    assert otra_vez.json()["ya_estaba"] is True
+    assert otra_vez.json()["movimiento"]["id"] == nuevo["id"]
+
+    # Un equipo de otra persona no se le quita escaneando.
+    de_ana = _entregar(admin, tipos["mouse"], area, ana, "ANA-1")
+    ajeno = cliente.post(url, {"movimiento": base.id, "codigo": "ANA-1"}, format="json")
+    assert ajeno.status_code == 400
+    assert "Ana Ríos" in str(ajeno.json())
+    assert list(de_ana.activo.responsables.all()) == [ana]
+
+    inexistente = cliente.post(url, {"movimiento": base.id, "codigo": "NO-EXISTE"}, format="json")
+    assert inexistente.status_code == 404
+
+
+def test_agregar_equipos_pide_poder_asignar(admin, area, personas, tipos):
+    base = _entregar(admin, tipos["laptop"], area, personas[0], "LAP-1")
+    _en_bodega(admin, tipos["mouse"], area, "TEC-1")
+    usuario = User.objects.create_user(
+        username="solo_acta", email="solo_acta@example.com", password="Sup3r-Secr3t!"
+    )
+    usuario.user_permissions.add(
+        Permission.objects.get(
+            content_type__app_label="permissions", codename="activos.acta_entrega"
+        )
+    )
+    cliente = APIClient()
+    cliente.force_authenticate(user=User.objects.get(pk=usuario.pk))
+    respuesta = cliente.post(
+        f"{URL}agregar-equipo/", {"movimiento": base.id, "codigo": "TEC-1"}, format="json"
+    )
+    assert respuesta.status_code == 403

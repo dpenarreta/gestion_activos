@@ -71,3 +71,36 @@
   font-size: 13px;
   cursor: pointer;
 }
+
+/* Agregar equipos con el acta abierta (19/11/2026). */
+.acta-entrega__agregar {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--mz-border);
+}
+
+.acta-entrega__agregado {
+  color: var(--mz-ok-fg);
+}
+
+.acta-entrega__no-agregado {
+  color: var(--mz-bad-fg);
+}
+
+/* En pantallas angostas el campo va en su propia línea y los botones debajo:
+   al lado de dos botones quedaba de unos 70 px (auditoría UX/UI). */
+@media (max-width: 480px) {
+  .acta-entrega__agregar .input-group {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .acta-entrega__agregar .input-group > .form-control {
+    flex: 1 0 100%;
+    border-radius: var(--bs-border-radius) !important;
+  }
+  .acta-entrega__agregar .input-group > .btn {
+    flex: 1 1 0;
+    min-height: 44px;
+    border-radius: var(--bs-border-radius) !important;
+  }
+}

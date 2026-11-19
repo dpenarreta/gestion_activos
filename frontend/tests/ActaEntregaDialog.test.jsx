@@ -11,10 +11,15 @@ const servicio = {
   crear: vi.fn(),
   editar: vi.fn(),
   documento: vi.fn(),
+  agregarEquipo: vi.fn(),
 };
 const descargarBlob = vi.fn();
 vi.mock("../src/api/activosService", () => ({ actasEntregaService: servicio }));
 vi.mock("../src/utils/descargas", () => ({ descargarBlob }));
+const permisos = new Set();
+vi.mock("../src/hooks/usePermission", () => ({
+  usePermission: (codename) => permisos.has(codename),
+}));
 
 const { ActaEntregaDialog } =
   await import("../src/components/activos/ActaEntregaDialog/ActaEntregaDialog");
@@ -53,6 +58,7 @@ const PREPARACION = {
 beforeEach(() => {
   Object.values(servicio).forEach((f) => f.mockReset());
   descargarBlob.mockReset();
+  permisos.clear();
 });
 
 describe("Acta de recepción de equipo", () => {
@@ -131,5 +137,68 @@ describe("Acta de recepción de equipo", () => {
       "Elija al menos un equipo",
     );
     expect(servicio.crear).not.toHaveBeenCalled();
+  });
+
+  it("agrega equipos escaneando o escribiendo el código, sin guardar el acta con el Enter (19/11/2026)", async () => {
+    permisos.add("activos.asignar");
+    servicio.preparar.mockResolvedValue({
+      ...PREPARACION,
+      candidatos: [equipo(1, "Laptop", "LAP-1")],
+    });
+    servicio.agregarEquipo.mockResolvedValue({
+      movimiento: equipo(5, "Teclado", "TEC-77"),
+      ya_estaba: false,
+    });
+    render(<ActaEntregaDialog movimientoId={1} onCerrar={() => {}} />);
+
+    const campo = await screen.findByLabelText(
+      "Agregar otro equipo que se entrega",
+    );
+    fireEvent.change(campo, { target: { value: "ACT-IT-05" } });
+    // La pistola cierra con Enter: agrega el equipo, no guarda el acta.
+    fireEvent.keyDown(campo, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(servicio.agregarEquipo).toHaveBeenCalledWith(1, "ACT-IT-05"),
+    );
+    expect(
+      await screen.findByText(/asignado a Paul Ortega y agregado al acta/),
+    ).toBeInTheDocument();
+    expect(servicio.crear).not.toHaveBeenCalled();
+    expect(campo).toHaveValue("");
+    const casillas = screen.getAllByRole("checkbox");
+    expect(casillas).toHaveLength(2);
+    expect(casillas.every((c) => c.checked)).toBe(true);
+  });
+
+  it("dice por qué no se pudo agregar un equipo", async () => {
+    permisos.add("activos.asignar");
+    servicio.preparar.mockResolvedValue(PREPARACION);
+    servicio.agregarEquipo.mockRejectedValue({
+      response: {
+        status: 400,
+        data: { codigo: "ACT-9 está a cargo de Ana Ríos." },
+      },
+    });
+    render(<ActaEntregaDialog movimientoId={1} onCerrar={() => {}} />);
+
+    fireEvent.change(
+      await screen.findByLabelText("Agregar otro equipo que se entrega"),
+      { target: { value: "ACT-9" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+
+    expect(
+      await screen.findByText(/está a cargo de Ana Ríos/),
+    ).toBeInTheDocument();
+  });
+
+  it("sin permiso para asignar no ofrece agregar equipos", async () => {
+    servicio.preparar.mockResolvedValue(PREPARACION);
+    render(<ActaEntregaDialog movimientoId={1} onCerrar={() => {}} />);
+    await screen.findByText(/Paul Ortega/);
+    expect(
+      screen.queryByLabelText("Agregar otro equipo que se entrega"),
+    ).toBeNull();
   });
 });

@@ -249,8 +249,9 @@ export function AsignarCustodioDialog({ activo, onCerrar, onGuardado }) {
               motivo,
             };
 
-      await activosService.asignar(activo.id, datos);
-      onGuardado();
+      // La respuesta dice si la entrega abre el acta de recepción (19/11/2026).
+      const resultado = await activosService.asignar(activo.id, datos);
+      onGuardado(resultado);
     } catch (err) {
       setError(mensajeDeError(err, "No se pudo registrar el movimiento."));
       setIsSaving(false);

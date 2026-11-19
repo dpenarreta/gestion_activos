@@ -592,13 +592,27 @@ class ActivoViewSet(viewsets.ModelViewSet):
         """Asigna, traslada o devuelve un activo (RF-01)."""
         serializer = AsignacionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        activo = self.get_object()
+        ultimo = activo.movimientos.order_by("-id").values_list("id", flat=True).first() or 0
         activo = ActivoService.asignar_responsables(
             actor=request.user,
-            activo=self.get_object(),
+            activo=activo,
             context=get_request_context(request),
             **serializer.validated_data,
         )
-        return Response(ActivoDetailSerializer(activo).data)
+        datos = ActivoDetailSerializer(activo).data
+        # La entrega a una persona abre el acta de recepción (19/11/2026): se
+        # dice desde qué movimiento. Con varias personas a la vez (equipo
+        # compartido) cada quien firma la suya desde el historial.
+        entregas = list(
+            activo.movimientos.filter(
+                id__gt=ultimo,
+                tipo=MovimientoActivo.Tipo.ASIGNACION,
+                custodio_nuevo__isnull=False,
+            ).values_list("id", flat=True)
+        )
+        datos["acta_entrega_movimiento"] = entregas[0] if len(entregas) == 1 else None
+        return Response(datos)
 
     @action(detail=True, methods=["post"], url_path="cambiar-estado")
     def cambiar_estado(self, request, pk=None):

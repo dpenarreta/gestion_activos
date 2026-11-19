@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { actasEntregaService } from "../../../api/activosService";
+import { usePermission } from "../../../hooks/usePermission";
 import { descargarBlob } from "../../../utils/descargas";
 import { mensajeDeError } from "../../../utils/errores";
 import { formatearFecha } from "../../../utils/formato";
 import { Icon } from "../../common/Icon/Icon";
 import { ModalDialog } from "../../common/ModalDialog/ModalDialog";
+import { EscanerCamara } from "../EscanerCamara/EscanerCamara";
 import "./ActaEntregaDialog.css";
 
 const CALIFICACIONES = [
@@ -22,6 +24,12 @@ const CALIFICACIONES = [
  * entregado a esa persona ese día, y se puede quitar alguno)—; el técnico
  * marca la prueba de funcionalidad y escribe las observaciones. Al guardar,
  * se descarga en Word (editable) y en PDF (para imprimir y firmar).
+ *
+ * Se abre solo al asignar un equipo a una persona (19/11/2026, pedido del
+ * usuario: la asignación es el desencadenante). Con el acta abierta se van
+ * agregando los demás equipos que se entregan: se escanea su QR o código de
+ * barras (cámara o pistola) o se escribe el código, y cada uno queda asignado
+ * a la misma persona y sumado al acta. Al final, la prueba de funcionalidad.
  */
 export function ActaEntregaDialog({ movimientoId, onCerrar }) {
   const [preparacion, setPreparacion] = useState(null);
@@ -36,6 +44,13 @@ export function ActaEntregaDialog({ movimientoId, onCerrar }) {
   const [descargando, setDescargando] = useState(null);
   const [aviso, setAviso] = useState(null);
   const [sucio, setSucio] = useState(false);
+  // Agregar equipos con el acta abierta (19/11/2026).
+  const puedeAsignar = usePermission("activos.asignar");
+  const [codigo, setCodigo] = useState("");
+  const [agregando, setAgregando] = useState(false);
+  const [camara, setCamara] = useState(false);
+  const [resultadoAgregar, setResultadoAgregar] = useState(null);
+  const campoCodigo = useRef(null);
 
   useEffect(() => {
     let vigente = true;
@@ -92,6 +107,54 @@ export function ActaEntregaDialog({ movimientoId, onCerrar }) {
   const calificar = cambiar((clave, valor) =>
     setPruebas((actuales) => ({ ...actuales, [clave]: valor })),
   );
+
+  async function agregar(leido) {
+    const limpio = String(leido ?? "").trim();
+    if (agregando) return;
+    if (!limpio) {
+      setResultadoAgregar({
+        ok: false,
+        texto: "Escriba o escanee el código del equipo.",
+      });
+      campoCodigo.current?.focus();
+      return;
+    }
+    setAgregando(true);
+    setResultadoAgregar(null);
+    try {
+      const { movimiento, ya_estaba: yaEstaba } =
+        await actasEntregaService.agregarEquipo(movimientoId, limpio);
+      setPreparacion((actual) =>
+        actual.candidatos.some((c) => c.id === movimiento.id)
+          ? actual
+          : { ...actual, candidatos: [...actual.candidatos, movimiento] },
+      );
+      setElegidos((lista) =>
+        lista.includes(movimiento.id) ? lista : [...lista, movimiento.id],
+      );
+      // El campo se vacía solo si salió bien: con un error se corrige lo
+      // escrito sin volver a teclearlo (auditoría UX/UI).
+      setCodigo("");
+      // El equipo ya quedó asignado: cerrar sin guardar pregunta antes
+      // (auditoría UX/UI).
+      setSucio(true);
+      const nombre = `${movimiento.activo.tipo} ${movimiento.activo.codigo_barras}`;
+      setResultadoAgregar({
+        ok: true,
+        texto: yaEstaba
+          ? `${nombre} ya estaba en la entrega.`
+          : `${nombre} asignado a ${preparacion.custodio.nombre} y agregado al acta. Guarde el acta para dejar constancia.`,
+      });
+    } catch (err) {
+      setResultadoAgregar({
+        ok: false,
+        texto: mensajeDeError(err, "No se pudo agregar el equipo."),
+      });
+    } finally {
+      setAgregando(false);
+      campoCodigo.current?.focus();
+    }
+  }
 
   async function guardar(event) {
     event?.preventDefault();
@@ -218,7 +281,7 @@ export function ActaEntregaDialog({ movimientoId, onCerrar }) {
             <legend>Parte 1: equipos que se entregan</legend>
             <p className="mz-small mz-faint">
               Lo entregado a esta persona ese día. Quite lo que no va en esta
-              acta.
+              acta{puedeAsignar ? " o agregue otro equipo abajo" : ""}.
             </p>
             <ul className="acta-entrega__equipos">
               {candidatos.map((c) => {
@@ -249,6 +312,94 @@ export function ActaEntregaDialog({ movimientoId, onCerrar }) {
                 );
               })}
             </ul>
+            {puedeAsignar && (
+              // `data-sin-descarte`: escribir un código no es un cambio del
+              // acta; lo es agregar el equipo (auditoría UX/UI).
+              <div className="acta-entrega__agregar" data-sin-descarte>
+                <label
+                  className="form-label mz-strong"
+                  htmlFor="acta-agregar-codigo"
+                >
+                  Agregar otro equipo que se entrega
+                </label>
+                <p id="acta-agregar-ayuda" className="mz-small mb-1">
+                  <Icon name="info-circle" /> Cada equipo que agregue queda
+                  asignado a {preparacion.custodio.nombre}, en la misma área y
+                  ciudad.
+                </p>
+                {/* Campo propio y no `EscanerInput`: ese trae su <form>, y
+                    dentro del formulario del acta el Enter de la pistola
+                    guardaría el acta en vez de agregar el equipo. */}
+                <div className="input-group">
+                  <input
+                    ref={campoCodigo}
+                    id="acta-agregar-codigo"
+                    className="form-control"
+                    value={codigo}
+                    autoComplete="off"
+                    placeholder="Escanee o escriba el código o la serie"
+                    aria-describedby={`acta-agregar-ayuda${
+                      resultadoAgregar ? " acta-agregar-resultado" : ""
+                    }`}
+                    aria-invalid={resultadoAgregar?.ok === false || undefined}
+                    onChange={(e) => setCodigo(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        agregar(codigo);
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => agregar(codigo)}
+                    disabled={agregando}
+                  >
+                    {agregando ? "Agregando…" : "Agregar"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary"
+                    onClick={() => setCamara((abierta) => !abierta)}
+                    aria-pressed={camara}
+                  >
+                    <Icon name="camera" />{" "}
+                    {camara ? "Cerrar la cámara" : "Escanear QR"}
+                  </button>
+                </div>
+                {camara && (
+                  <EscanerCamara
+                    onCerrar={() => setCamara(false)}
+                    onLeer={(leido) => {
+                      setCamara(false);
+                      agregar(leido);
+                    }}
+                  />
+                )}
+                <div role="status" aria-live="polite">
+                  {resultadoAgregar && (
+                    <p
+                      id="acta-agregar-resultado"
+                      className={`mz-small mt-1 mb-0 ${
+                        resultadoAgregar.ok
+                          ? "acta-entrega__agregado"
+                          : "acta-entrega__no-agregado"
+                      }`}
+                    >
+                      <Icon
+                        name={
+                          resultadoAgregar.ok
+                            ? "check2-circle"
+                            : "exclamation-triangle"
+                        }
+                      />{" "}
+                      {resultadoAgregar.texto}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </fieldset>
 
           <fieldset className="acta-entrega__grupo">

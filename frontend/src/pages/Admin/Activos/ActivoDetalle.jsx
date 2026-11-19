@@ -56,6 +56,10 @@ export function ActivoDetalle() {
     setSearchParams(limpios, { replace: true });
   }, [searchParams, setSearchParams]);
   const [adjuntosRecargados, setAdjuntosRecargados] = useState(0);
+  // El acta de recepción que se abre sola al entregar el equipo a una
+  // persona (19/11/2026): la asignación es el desencadenante.
+  const [actaTrasAsignar, setActaTrasAsignar] = useState(null);
+  const [actasRecargadas, setActasRecargadas] = useState(0);
 
   const cargar = useCallback(() => {
     setError(null);
@@ -438,7 +442,12 @@ export function ActivoDetalle() {
 
       {/* El acta original de la entrega, con este equipo y los demás que se
           entregaron con él (19/11/2026). */}
-      {puedeActaEntrega && <ActaDelEquipo activoId={activo.id} />}
+      {puedeActaEntrega && (
+        <ActaDelEquipo
+          key={`${activo.id}-${actasRecargadas}`}
+          activoId={activo.id}
+        />
+      )}
 
       {/* Tabla y no línea de tiempo: cada movimiento se lee por columnas
           —quién, qué área, qué ciudad, antes y después— y lleva su acta al
@@ -459,9 +468,22 @@ export function ActivoDetalle() {
         <AsignarCustodioDialog
           activo={activo}
           onCerrar={() => setDialogoAbierto(null)}
-          onGuardado={() => {
+          onGuardado={(resultado) => {
             setDialogoAbierto(null);
             cargar();
+            if (puedeActaEntrega && resultado?.acta_entrega_movimiento) {
+              setActaTrasAsignar(resultado.acta_entrega_movimiento);
+            }
+          }}
+        />
+      )}
+      {actaTrasAsignar && (
+        <ActaEntregaDialog
+          movimientoId={actaTrasAsignar}
+          onCerrar={() => {
+            setActaTrasAsignar(null);
+            cargar();
+            setActasRecargadas((n) => n + 1);
           }}
         />
       )}

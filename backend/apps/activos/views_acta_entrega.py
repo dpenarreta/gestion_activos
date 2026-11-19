@@ -3,6 +3,11 @@
 - `GET  /api/v1/activos/actas-entrega/preparar/?movimiento=<id>`: lo que el
   formulario necesita para una asignación: los equipos entregados a esa
   persona ese día (para elegir cuáles van) y, si ya hay acta, cuál es.
+- `POST /api/v1/activos/actas-entrega/agregar-equipo/` (19/11/2026):
+  `{movimiento, codigo}`. Con el acta abierta, el técnico escanea (QR o
+  código de barras) o escribe el código de otro equipo: se asigna a la misma
+  persona, a la misma área y ciudad, y vuelve el movimiento para sumarlo al
+  acta. Pide además `activos.asignar`.
 - `POST /api/v1/activos/actas-entrega/`: crea el acta con los movimientos
   elegidos, la prueba de funcionalidad y las observaciones.
 - `GET  /api/v1/activos/actas-entrega/?activo=<id>` (19/11/2026): las actas
@@ -16,7 +21,7 @@ Todo pide `activos.acta_entrega`.
 """
 
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -27,9 +32,11 @@ from rest_framework.response import Response
 
 from apps.core.audit import record_audit_event
 from apps.core.request_meta import get_request_context
+from apps.permissions.authorization import user_has_permission
 from apps.permissions.permissions import HasActionPermission
 
 from . import actas_entrega
+from .barcode import variantes_de_escaneo
 from .models import ActaEntrega, Activo, MovimientoActivo
 
 MODULO = "activos"
@@ -228,6 +235,97 @@ class ActaEntregaViewSet(
                 "acta": ActaEntregaSerializer(acta).data if acta else None,
                 "pruebas": [{"clave": c, "etiqueta": e} for c, e in ActaEntrega.PRUEBAS],
             }
+        )
+
+    # --- Agregar equipos con el acta abierta --------------------------------
+
+    @action(detail=False, methods=["post"], url_path="agregar-equipo")
+    def agregar_equipo(self, request):
+        from .services import SIN_CAMBIO, ActivoService
+
+        if not user_has_permission(request.user, "activos.asignar"):
+            return Response(
+                {"detail": "Para agregar equipos al acta necesita poder asignar equipos."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        base = get_object_or_404(
+            _movimientos_visibles().select_related(
+                "custodio_nuevo", "departamento_nuevo", "sede_nueva"
+            ),
+            pk=request.data.get("movimiento") or 0,
+        )
+        persona = base.custodio_nuevo
+        if base.tipo != MovimientoActivo.Tipo.ASIGNACION or persona is None:
+            return Response(
+                {"movimiento": "Solo una asignación a una persona tiene acta de entrega."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        termino = str(request.data.get("codigo") or "").strip()[:120]
+        activo = next(
+            (
+                encontrado
+                for encontrado in (
+                    Activo.objects.filter(empresa_id=base.activo.empresa_id)
+                    .filter(Q(codigo_barras__iexact=v) | Q(numero_serie__iexact=v))
+                    .prefetch_related("responsables")
+                    .first()
+                    for v in variantes_de_escaneo(termino)
+                    if v
+                )
+                if encontrado is not None
+            ),
+            None,
+        )
+        if activo is None:
+            return Response(
+                {"codigo": f"Ningún equipo corresponde a «{termino}»."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        responsables = list(activo.responsables.all())
+        if responsables == [persona]:
+            # Ya es suyo: si se lo entregaron hoy, es el mismo movimiento.
+            hoy = [m for m in _movimientos_del_dia(base) if m.activo_id == activo.id]
+            if hoy:
+                return Response(
+                    {"movimiento": MovimientoEnActaSerializer(hoy[-1]).data, "ya_estaba": True}
+                )
+            return Response(
+                {"codigo": f"{activo.codigo_barras} ya está a cargo de {persona.nombre_completo}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if responsables:
+            # Quitarle un equipo a otra persona no se hace escaneando: se
+            # reasigna desde su ficha, donde se ve a quién se le quita.
+            nombres = ", ".join(r.nombre_completo for r in responsables)
+            return Response(
+                {
+                    "codigo": (
+                        f"{activo.codigo_barras} está a cargo de {nombres}. Reasígnelo desde "
+                        "la ficha del equipo."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            ActivoService.asignar_responsables(
+                actor=request.user,
+                activo=activo,
+                responsables=[persona],
+                departamento=base.departamento_nuevo,
+                sede=base.sede_nueva if base.sede_nueva_id else SIN_CAMBIO,
+                motivo=base.motivo or "Entrega con el acta de recepción de equipo",
+                context=get_request_context(request),
+            )
+        movimiento = (
+            MovimientoActivo.objects.filter(
+                activo=activo, tipo=MovimientoActivo.Tipo.ASIGNACION, custodio_nuevo=persona
+            )
+            .select_related("activo__tipo")
+            .latest("id")
+        )
+        return Response(
+            {"movimiento": MovimientoEnActaSerializer(movimiento).data, "ya_estaba": False},
+            status=status.HTTP_201_CREATED,
         )
 
     # --- Crear y corregir ---------------------------------------------------

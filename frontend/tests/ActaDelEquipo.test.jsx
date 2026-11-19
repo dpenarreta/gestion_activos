@@ -21,6 +21,7 @@ const servicio = {
 const descargarBlob = vi.fn();
 vi.mock("../src/api/activosService", () => ({ actasEntregaService: servicio }));
 vi.mock("../src/utils/descargas", () => ({ descargarBlob }));
+vi.mock("../src/hooks/usePermission", () => ({ usePermission: () => false }));
 
 const { ActaDelEquipo: Tarjeta } =
   await import("../src/components/activos/ActaDelEquipo/ActaDelEquipo");
