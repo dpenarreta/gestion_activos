@@ -65,7 +65,8 @@ def test_el_directorio_queda_a_la_altura_de_la_gerencia_general(db):
     # Su nivel propio, a la altura del de la Gerencia General: no se lee como
     # una unidad «Gerencia General» (corrección del usuario).
     assert directorio.nivel.nombre == "Directorio"
-    assert directorio.nivel.orden == general.nivel.orden
+    # Su nivel va primero: se dibuja arriba de todo el organigrama.
+    assert directorio.nivel.orden < general.nivel.orden
     assert directorio.nivel_id != general.nivel_id
     assert directorio.departamento is not None  # su Área, como toda unidad
 

@@ -21,7 +21,28 @@ export function armarArbol({ niveles = [], unidades = [], cargos = [] }) {
     if (padre) padre.hijas.push(nodo);
     else raices.push(nodo);
   }
-  return raices;
+  // Primero el nivel más alto (el Directorio, 19/11/2026), luego su orden.
+  const rango = (n) => n.nivel?.orden ?? Infinity;
+  return raices.sort(
+    (a, b) => rango(a) - rango(b) || (a.orden ?? 0) - (b.orden ?? 0),
+  );
+}
+
+/**
+ * Las raíces del organigrama por pisos (19/11/2026): las de un mismo nivel,
+ * una al lado de la otra; las de un nivel más alto, en un piso encima. Así
+ * el Directorio queda arriba de todo, centrado sobre la Gerencia General,
+ * sin línea de supervisión entre ellos.
+ */
+export function pisosDeRaices(raices) {
+  const pisos = [];
+  for (const nodo of raices) {
+    const rango = nodo.nivel?.orden ?? null;
+    const ultimo = pisos.at(-1);
+    if (ultimo && ultimo.rango === rango) ultimo.raices.push(nodo);
+    else pisos.push({ rango, raices: [nodo] });
+  }
+  return pisos.map((p) => p.raices);
 }
 
 /**

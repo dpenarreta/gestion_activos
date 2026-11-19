@@ -1,10 +1,11 @@
 """El Directorio, horizontal a la Gerencia General (19/11/2026).
 
-Decisión del usuario: el Directorio es un área aparte, a la altura de la
-Gerencia General. El Gerente General no es jefe del Directorio ni el
-Directorio es jefe del Gerente General: las dos son raíces del organigrama,
-dibujadas una al lado de la otra, relacionadas pero sin línea de
-supervisión entre ellas.
+Decisión del usuario: el Directorio es un área aparte de la Gerencia
+General. El Gerente General no es jefe del Directorio ni el Directorio es
+jefe del Gerente General: las dos son raíces del organigrama, relacionadas
+pero sin línea de supervisión entre ellas. El Directorio se dibuja arriba
+de todo el organigrama, centrado sobre la Gerencia General (su nivel de
+unidad va primero).
 
 Quiénes son el Directorio (una sola área):
 
@@ -31,7 +32,7 @@ Proyectos y Jefe Administrativo Financiero Corporativo) van en el nivel de
 cargo «Directorio»; el Gerente General sigue en el suyo.
 
 Lo aplican las migraciones 0052, 0053 (el nivel propio), 0054 (Presidente,
-Directores y Comité Ejecutivo) y 0055 (el nivel de cargo Directorio), y deja el cambio en la bitácora del
+Directores y Comité Ejecutivo) 0055 (el nivel de cargo Directorio) y 0056 (arriba de todo), y deja el cambio en la bitácora del
 organigrama. Repetirlo no cambia nada.
 """
 
@@ -76,7 +77,9 @@ def _cargo(nombre, cargos):
 
 
 def _nivel_del_directorio(raiz):
-    """El nivel propio «Directorio», a la altura del de la Gerencia General.
+    """El nivel propio «Directorio», el primero de todos: el organigrama lo
+    dibuja arriba de todo, sobre la Gerencia General (pedido del usuario,
+    19/11/2026), sin línea de supervisión entre ellos.
 
     Propio y no el de la Gerencia General (corrección del usuario, 19/11/2026):
     cada unidad muestra su nivel encima de su nombre, y «Gerencia General ·
@@ -86,10 +89,18 @@ def _nivel_del_directorio(raiz):
         (n for n in NivelJerarquico.objects.all() if _normal(n.nombre) == _normal(UNIDAD)),
         None,
     )
+    if raiz.nivel.orden == 0 and (nivel is None or nivel.pk != raiz.nivel_id):
+        # Sin lugar encima: se corren los demás niveles uno hacia abajo.
+        otros = NivelJerarquico.objects.exclude(pk=nivel.pk if nivel else None)
+        for otro in otros.order_by("-orden"):
+            otro.orden += 1
+            otro.save(update_fields=["orden", "updated_at"])
+        raiz.nivel.refresh_from_db()
+    arriba = raiz.nivel.orden - 1
     if nivel is None:
-        return NivelJerarquico.objects.create(nombre=UNIDAD, orden=raiz.nivel.orden)
-    if nivel.orden != raiz.nivel.orden:
-        nivel.orden = raiz.nivel.orden
+        return NivelJerarquico.objects.create(nombre=UNIDAD, orden=arriba)
+    if nivel.orden != arriba:
+        nivel.orden = arriba
         nivel.save(update_fields=["orden", "updated_at"])
     return nivel
 

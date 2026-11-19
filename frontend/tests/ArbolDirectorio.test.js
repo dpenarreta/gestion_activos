@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { arbolDeCargos } from "../src/pages/Institucional/organigrama";
+import {
+  arbolDeCargos,
+  armarArbol,
+  pisosDeRaices,
+} from "../src/pages/Institucional/organigrama";
 
 /*
  * El Directorio (19/11/2026): el Presidente arriba, los dos Directores
@@ -78,5 +82,40 @@ describe("arbolDeCargos con quienes informan sin supervisión", () => {
     ]);
     expect(simples[0].hijos[0].cargo.nombre).toBe("Jefe");
     expect(simples[0].informan).toEqual([]);
+  });
+});
+
+describe("las raíces por pisos (19/11/2026)", () => {
+  it("pone el Directorio arriba de todo y la Gerencia General debajo", () => {
+    const raices = armarArbol({
+      niveles: [
+        { id: 1, nombre: "Gerencia General", orden: 1 },
+        { id: 2, nombre: "Área", orden: 2 },
+        { id: 3, nombre: "Directorio", orden: 0 },
+      ],
+      unidades: [
+        { id: 10, nombre: "Gerencia General", nivel: 1, padre: null, orden: 0 },
+        { id: 11, nombre: "TI", nivel: 2, padre: 10, orden: 0 },
+        { id: 12, nombre: "Directorio", nivel: 3, padre: null, orden: 1 },
+      ],
+      cargos: [],
+    });
+    expect(raices.map((r) => r.nombre)).toEqual([
+      "Directorio",
+      "Gerencia General",
+    ]);
+    expect(pisosDeRaices(raices).map((p) => p.map((r) => r.nombre))).toEqual([
+      ["Directorio"],
+      ["Gerencia General"],
+    ]);
+  });
+
+  it("las raíces de un mismo nivel quedan en el mismo piso", () => {
+    const pisos = pisosDeRaices([
+      { id: 1, nombre: "A", nivel: { orden: 1 } },
+      { id: 2, nombre: "B", nivel: { orden: 1 } },
+    ]);
+    expect(pisos).toHaveLength(1);
+    expect(pisos[0]).toHaveLength(2);
   });
 });

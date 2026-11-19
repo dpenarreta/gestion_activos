@@ -102,6 +102,23 @@
   margin: 0 auto;
 }
 
+/* Las raíces por pisos (19/11/2026): el Directorio arriba de todo, centrado
+   sobre la Gerencia General, sin línea entre ellos (no hay supervisión). */
+.org-pisos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+  min-width: max-content;
+}
+
+/* En la Lista, alineada a la izquierda y con su ritmo (auditoría UX/UI). */
+.org-lista .org-pisos {
+  align-items: stretch;
+  min-width: 0;
+  gap: 16px;
+}
+
 .org-hijas {
   position: relative;
   padding-top: 22px;

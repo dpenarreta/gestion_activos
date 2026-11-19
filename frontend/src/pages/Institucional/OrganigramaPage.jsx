@@ -16,6 +16,7 @@ import { mensajeDeError } from "../../utils/errores";
 import {
   arbolDeCargos,
   armarArbol,
+  pisosDeRaices,
   nombreDeCargo,
   totalesDe,
 } from "./organigrama";
@@ -71,17 +72,46 @@ function Lienzo({ children }) {
     return () => nodo.removeEventListener("wheel", rueda);
   }, []);
 
+  // Centrado y arriba (19/11/2026): el árbol es muy ancho y el Directorio
+  // y la Gerencia General van al centro; con el desplazamiento en 0 no se
+  // veían ni al entrar ni tras «Ajustar» (auditoría UX/UI).
+  const centrarPendiente = useRef(true);
+  function centrar() {
+    const nodo = marco.current;
+    if (!nodo) return;
+    nodo.scrollLeft = (nodo.scrollWidth - nodo.clientWidth) / 2;
+    nodo.scrollTop = 0;
+  }
+  useEffect(() => {
+    if (!centrarPendiente.current) return undefined;
+    const cuadro = requestAnimationFrame(() => {
+      centrar();
+      centrarPendiente.current = false;
+    });
+    return () => cancelAnimationFrame(cuadro);
+  }, [zoom]);
+
+  // Con el zoom nuevo se centra al pintar; si no cambia, enseguida.
+  function zoomCentrado(nuevo) {
+    if (nuevo === zoom) requestAnimationFrame(centrar);
+    else {
+      centrarPendiente.current = true;
+      setZoom(nuevo);
+    }
+  }
+
   function ajustar() {
     if (!marco.current || !contenido.current) return;
     const ancho = contenido.current.offsetWidth / zoom;
-    if (ancho > 0) setZoom(acotar((marco.current.clientWidth - 16) / ancho));
+    if (ancho > 0)
+      zoomCentrado(acotar((marco.current.clientWidth - 16) / ancho));
   }
 
   function teclado(evento) {
     if (evento.key === "+" || evento.key === "=")
       setZoom((z) => acotar(z + PASO));
     else if (evento.key === "-") setZoom((z) => acotar(z - PASO));
-    else if (evento.key === "0") setZoom(1);
+    else if (evento.key === "0") zoomCentrado(1);
   }
 
   function empezar(evento) {
@@ -148,7 +178,7 @@ function Lienzo({ children }) {
           type="button"
           className="btn btn-outline-secondary btn-sm"
           disabled={zoom === 1}
-          onClick={() => setZoom(1)}
+          onClick={() => zoomCentrado(1)}
         >
           100 %
         </button>
@@ -739,19 +769,23 @@ export function OrganigramaPage() {
           const unidades = (
             <NivelesDeCargo.Provider value={datos.niveles_cargo ?? []}>
               <UnidadesVigentes.Provider value={vigente.unidades}>
-                <ul className="org-arbol">
-                  {arbol.map((nodo) => (
-                    <Unidad
-                      key={nodo.id}
-                      nodo={nodo}
-                      cargos={vigente.cargos}
-                      conPersonas={conPersonas}
-                      cerradas={cerradas}
-                      alternar={alternar}
-                      vista={vista}
-                    />
+                <div className="org-pisos">
+                  {pisosDeRaices(arbol).map((piso) => (
+                    <ul key={piso[0].id} className="org-arbol">
+                      {piso.map((nodo) => (
+                        <Unidad
+                          key={nodo.id}
+                          nodo={nodo}
+                          cargos={vigente.cargos}
+                          conPersonas={conPersonas}
+                          cerradas={cerradas}
+                          alternar={alternar}
+                          vista={vista}
+                        />
+                      ))}
+                    </ul>
                   ))}
-                </ul>
+                </div>
               </UnidadesVigentes.Provider>
             </NivelesDeCargo.Provider>
           );
