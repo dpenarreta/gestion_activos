@@ -7,8 +7,10 @@ una al lado de la otra. Hay jefaturas que reportan a las dos.
 
 En cada empresa, solo si existen los cargos:
 
-- se crea la unidad «Directorio» sin padre, en el nivel de la Gerencia
-  General (con su Área, como toda unidad);
+- se crea la unidad «Directorio» sin padre, en su nivel propio
+  «Directorio» a la altura del de la Gerencia General (con su Área, como
+  toda unidad): son áreas aparte, relacionadas pero sin supervisión entre
+  ellas;
 - el «Gerente de Procesos y Proyectos» pasa al Directorio y deja de tener
   jefe; el Jefe de Procesos y Mejora Continua le sigue reportando;
 - se crea en el Directorio el cargo «Jefe de Finanzas y Administración», sin
@@ -19,12 +21,12 @@ En cada empresa, solo si existen los cargos:
 
 Las personas no van aquí: se asignan a su cargo desde el organigrama.
 
-Lo aplica la migración 0052 y deja el cambio en la bitácora del organigrama.
+Lo aplican las migraciones 0052 y 0053 (el nivel propio) y deja el cambio en la bitácora del organigrama.
 Repetirlo no cambia nada.
 """
 
 from . import departamentos_del_organigrama, niveles_cargo, reportes, roles_de_cargo, versiones
-from .models import Cargo, UnidadOrganizacional
+from .models import Cargo, NivelJerarquico, UnidadOrganizacional
 from .permisos_por_cargo import normalizar as _normal
 
 UNIDAD = "Directorio"
@@ -56,22 +58,42 @@ def _cargo(nombre, cargos):
     )
 
 
+def _nivel_del_directorio(raiz):
+    """El nivel propio «Directorio», a la altura del de la Gerencia General.
+
+    Propio y no el de la Gerencia General (corrección del usuario, 19/11/2026):
+    cada unidad muestra su nivel encima de su nombre, y «Gerencia General ·
+    Directorio» se leía como si el Directorio estuviera bajo el Gerente
+    General. Son áreas aparte: se relacionan, pero no hay supervisión."""
+    nivel = next(
+        (n for n in NivelJerarquico.objects.all() if _normal(n.nombre) == _normal(UNIDAD)),
+        None,
+    )
+    if nivel is None:
+        return NivelJerarquico.objects.create(nombre=UNIDAD, orden=raiz.nivel.orden)
+    if nivel.orden != raiz.nivel.orden:
+        nivel.orden = raiz.nivel.orden
+        nivel.save(update_fields=["orden", "updated_at"])
+    return nivel
+
+
 def _unidad_del_directorio(gerente_general):
-    """La unidad del Directorio; si no existe, se crea como raíz en el nivel
-    de la unidad del Gerente General."""
+    """La unidad del Directorio; si no existe, se crea como raíz en su nivel
+    propio, a la altura de la unidad del Gerente General."""
     unidad = next(
         (u for u in UnidadOrganizacional.objects.all() if _normal(u.nombre) == _normal(UNIDAD)),
         None,
     )
     raiz = gerente_general.unidad
+    nivel = _nivel_del_directorio(raiz)
     if unidad is None:
         unidad = UnidadOrganizacional.objects.create(
-            nombre=UNIDAD, nivel=raiz.nivel, padre=None, orden=raiz.orden + 1
+            nombre=UNIDAD, nivel=nivel, padre=None, orden=raiz.orden + 1
         )
         departamentos_del_organigrama.sincronizar(unidad)
-    elif unidad.padre_id is not None or unidad.nivel_id != raiz.nivel_id or not unidad.activa:
+    elif unidad.padre_id is not None or unidad.nivel_id != nivel.id or not unidad.activa:
         unidad.padre = None
-        unidad.nivel = raiz.nivel
+        unidad.nivel = nivel
         unidad.activa = True
         unidad.save(update_fields=["padre", "nivel", "activa", "updated_at"])
     # Si la Gerencia General colgaba del Directorio, también queda como raíz:
