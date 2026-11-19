@@ -198,6 +198,21 @@ export function ActaDelEquipo({ activoId }) {
                         </tr>
                       );
                     })}
+                    {/* Lo entregado sin estar en el inventario (19/11/2026). */}
+                    {(acta.items_sin_codigo ?? []).map((item, indice) => (
+                      <tr key={`sin-codigo-${indice}`}>
+                        <td data-label="Equipo">
+                          {item.equipo}
+                          {item.cantidad > 1 ? ` (${item.cantidad})` : ""}
+                        </td>
+                        <td data-label="Marca">{item.marca || "—"}</td>
+                        <td data-label="Código" className="mz-faint">
+                          Sin código
+                        </td>
+                        <td data-label="Modelo">{item.modelo || "—"}</td>
+                        <td data-label="Serie">{item.serial || "—"}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

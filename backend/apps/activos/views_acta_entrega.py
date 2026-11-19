@@ -53,6 +53,20 @@ class ActaEntregaPermission(HasActionPermission):
         return "activos.acta_entrega"
 
 
+def _limpios(items) -> list[dict]:
+    """Los ítems sin código como se guardan: sin espacios de más."""
+    return [
+        {
+            "equipo": item["equipo"].strip(),
+            "cantidad": item.get("cantidad") or 1,
+            "marca": (item.get("marca") or "").strip(),
+            "modelo": (item.get("modelo") or "").strip(),
+            "serial": (item.get("serial") or "").strip(),
+        }
+        for item in items
+    ]
+
+
 def _fecha_de(movimiento) -> "timezone.datetime.date":
     return timezone.localtime(movimiento.created_at).date()
 
@@ -121,6 +135,7 @@ class ActaEntregaSerializer(serializers.ModelSerializer):
             "pruebas",
             "nuevo_de_paquete",
             "observaciones",
+            "items_sin_codigo",
             "created_at",
             "updated_at",
         ]
@@ -138,6 +153,21 @@ class ActaEntregaSerializer(serializers.ModelSerializer):
         return {"id": obj.tecnico_id, "nombre": obj.tecnico.get_full_name() or obj.tecnico.username}
 
 
+class ItemSinCodigoSerializer(serializers.Serializer):
+    """Algo que se entrega sin estar en el inventario (19/11/2026)."""
+
+    equipo = serializers.CharField(max_length=120)
+    cantidad = serializers.IntegerField(min_value=1, max_value=999, default=1)
+    marca = serializers.CharField(max_length=80, required=False, allow_blank=True, default="")
+    modelo = serializers.CharField(max_length=80, required=False, allow_blank=True, default="")
+    serial = serializers.CharField(max_length=80, required=False, allow_blank=True, default="")
+
+    def validate_equipo(self, valor):
+        if not valor.strip():
+            raise serializers.ValidationError("Escriba qué se entrega.")
+        return valor.strip()
+
+
 class GuardarActaSerializer(serializers.Serializer):
     movimientos = serializers.ListField(
         child=serializers.IntegerField(min_value=1), allow_empty=False, max_length=50
@@ -146,6 +176,9 @@ class GuardarActaSerializer(serializers.Serializer):
     nuevo_de_paquete = serializers.BooleanField(required=False, allow_null=True, default=None)
     observaciones = serializers.CharField(
         required=False, allow_blank=True, max_length=1000, default=""
+    )
+    items_sin_codigo = ItemSinCodigoSerializer(
+        many=True, required=False, default=list, max_length=30
     )
 
     def validate_pruebas(self, valor):
@@ -377,6 +410,7 @@ class ActaEntregaViewSet(
                 pruebas=datos["pruebas"],
                 nuevo_de_paquete=datos["nuevo_de_paquete"],
                 observaciones=datos["observaciones"],
+                items_sin_codigo=_limpios(datos["items_sin_codigo"]),
             )
             acta.movimientos.set(movimientos)
         record_audit_event(
@@ -388,6 +422,7 @@ class ActaEntregaViewSet(
                 "custodio_id": custodio_id,
                 "fecha": fecha.isoformat(),
                 "activos": sorted(m.activo.codigo_barras for m in movimientos),
+                "items_sin_codigo": acta.items_sin_codigo,
             },
             context=get_request_context(request),
         )
@@ -404,6 +439,7 @@ class ActaEntregaViewSet(
             "pruebas": acta.pruebas,
             "nuevo_de_paquete": acta.nuevo_de_paquete,
             "observaciones": acta.observaciones,
+            "items_sin_codigo": acta.items_sin_codigo,
         }
         with transaction.atomic():
             if "movimientos" in request.data:
@@ -418,6 +454,8 @@ class ActaEntregaViewSet(
             for campo in ("pruebas", "nuevo_de_paquete", "observaciones"):
                 if campo in request.data:
                     setattr(acta, campo, datos[campo])
+            if "items_sin_codigo" in request.data:
+                acta.items_sin_codigo = _limpios(datos["items_sin_codigo"])
             acta.save()
         record_audit_event(
             actor=request.user,
@@ -429,6 +467,7 @@ class ActaEntregaViewSet(
                 "pruebas": acta.pruebas,
                 "nuevo_de_paquete": acta.nuevo_de_paquete,
                 "observaciones": acta.observaciones,
+                "items_sin_codigo": acta.items_sin_codigo,
             },
             context=get_request_context(request),
         )

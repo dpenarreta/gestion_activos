@@ -1101,7 +1101,9 @@ body {
   position: sticky;
   top: 0;
   background: var(--mz-raised);
-  z-index: 2;
+  /* Por encima de los botones de un input-group (z-index 2 en Bootstrap):
+     al desplazar, tapaban el título y la X (auditoría UX/UI, 19/11/2026). */
+  z-index: 5;
 }
 
 .mz-panel-head h3 {

@@ -107,9 +107,12 @@ def datos_del_acta(acta: ActaEntrega) -> DatosActa:
         else acta.custodio.departamento.nombre
     )
     tipos = []
-    for activo in activos:
-        if activo.tipo.nombre not in tipos:
-            tipos.append(activo.tipo.nombre)
+    nombres = [a.tipo.nombre for a in activos] + [
+        item.get("equipo", "") for item in acta.items_sin_codigo or []
+    ]
+    for nombre in nombres:
+        if nombre and nombre not in tipos:
+            tipos.append(nombre)
     origen = ""
     destino = area
     if primero is not None:
@@ -139,7 +142,23 @@ def datos_del_acta(acta: ActaEntrega) -> DatosActa:
                 serial=a.numero_serie,
             )
             for a in activos
-        ],
+        ]
+        + [_fila_sin_codigo(item) for item in acta.items_sin_codigo or []],
+    )
+
+
+def _fila_sin_codigo(item: dict) -> FilaEquipo:
+    """Una fila de lo entregado sin estar en el inventario (19/11/2026): va
+    en la misma tabla, con la cantidad si es más de uno y «Sin código» como
+    referencia."""
+    cantidad = item.get("cantidad") or 1
+    nombre = item.get("equipo", "")
+    return FilaEquipo(
+        equipo=f"{nombre} ({cantidad})" if cantidad > 1 else nombre,
+        marca=item.get("marca", ""),
+        referencia="Sin código",
+        modelo=item.get("modelo", ""),
+        serial=item.get("serial", ""),
     )
 
 

@@ -104,3 +104,71 @@
     border-radius: var(--bs-border-radius) !important;
   }
 }
+
+/* Ítems sin código (19/11/2026): lo de rotación simple que no está en el
+   inventario pero consta en el acta. */
+.acta-entrega__sin-codigo {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--mz-border);
+}
+
+/* Igual que su hermana «Agregar otro equipo que se entrega»: no más
+   grande que las leyendas de las partes (auditoría UX/UI). */
+.acta-entrega__subtitulo {
+  margin: 0 0 0.25rem;
+}
+
+.acta-entrega__items li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Cada parte se distingue de la siguiente. */
+.acta-entrega__grupo + .acta-entrega__grupo {
+  margin-top: 1.25rem;
+}
+
+.acta-entrega__items {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.acta-entrega__items li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--mz-border);
+}
+
+.acta-entrega__nuevo-item {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) 90px minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.5rem;
+}
+
+@media (max-width: 480px) {
+  .acta-entrega__nuevo-item {
+    grid-template-columns: 1fr 90px;
+  }
+  .acta-entrega__campo-item,
+  .acta-entrega__boton-item {
+    grid-column: 1 / -1;
+  }
+  .acta-entrega__campo-marca {
+    grid-column: 1;
+  }
+  .acta-entrega__campo-cantidad {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .acta-entrega__boton-item,
+  .acta-entrega__quitar {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

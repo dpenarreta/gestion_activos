@@ -696,6 +696,12 @@ class ActaEntrega(ModeloDeEmpresa):
     pruebas = models.JSONField(default=dict, blank=True)
     nuevo_de_paquete = models.BooleanField(null=True, blank=True)
     observaciones = models.TextField(blank=True)
+    #: Lo que se entrega sin estar en el inventario (19/11/2026, pedido del
+    #: usuario): cosas de rotación simple que no llevan código ni QR —un
+    #: cable, una diadema de repuesto— pero que deben constar en el papel.
+    #: Una lista de `{equipo, cantidad, marca, modelo, serial}`; no se asigna
+    #: nada en el inventario.
+    items_sin_codigo = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ["-fecha", "-id"]

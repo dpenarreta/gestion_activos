@@ -343,3 +343,60 @@ def test_agregar_equipos_pide_poder_asignar(admin, area, personas, tipos):
         f"{URL}agregar-equipo/", {"movimiento": base.id, "codigo": "TEC-1"}, format="json"
     )
     assert respuesta.status_code == 403
+
+
+def test_el_acta_lleva_items_sin_codigo_que_no_estan_en_el_inventario(
+    cliente, admin, area, personas, tipos
+):
+    """19/11/2026: lo de rotación simple, sin código ni QR, se escribe y
+    consta en el acta; no se asigna nada en el inventario."""
+    laptop = _entregar(admin, tipos["laptop"], area, personas[0], "LAP-1", "Dell", "Latitude")
+    respuesta = cliente.post(
+        URL,
+        {
+            "movimientos": [laptop.id],
+            "items_sin_codigo": [
+                {"equipo": "  Cable HDMI ", "cantidad": 2},
+                {"equipo": "Diadema de repuesto", "marca": "Genius"},
+            ],
+        },
+        format="json",
+    )
+    assert respuesta.status_code == 201, respuesta.content
+    acta = ActaEntrega.objects.get(pk=respuesta.json()["id"])
+    assert acta.items_sin_codigo == [
+        {"equipo": "Cable HDMI", "cantidad": 2, "marca": "", "modelo": "", "serial": ""},
+        {
+            "equipo": "Diadema de repuesto",
+            "cantidad": 1,
+            "marca": "Genius",
+            "modelo": "",
+            "serial": "",
+        },
+    ]
+    assert respuesta.json()["items_sin_codigo"] == acta.items_sin_codigo
+
+    from docx import Document
+
+    word = cliente.get(f"{URL}{acta.id}/documento/", {"formato": "docx"})
+    texto = "\n".join(
+        celda.text
+        for tabla in Document(BytesIO(word.content)).tables
+        for fila in tabla.rows
+        for celda in fila.cells
+    )
+    for esperado in ("Latitude", "Cable HDMI (2)", "Diadema de repuesto", "Sin código"):
+        assert esperado in texto, esperado
+    assert cliente.get(f"{URL}{acta.id}/documento/", {"formato": "pdf"}).status_code == 200
+
+    # Se corrigen después, y un ítem sin descripción no se acepta.
+    corregida = cliente.patch(
+        f"{URL}{acta.id}/", {"items_sin_codigo": [{"equipo": "Mouse pad"}]}, format="json"
+    )
+    assert corregida.status_code == 200, corregida.content
+    acta.refresh_from_db()
+    assert [i["equipo"] for i in acta.items_sin_codigo] == ["Mouse pad"]
+    vacio = cliente.patch(
+        f"{URL}{acta.id}/", {"items_sin_codigo": [{"equipo": "   "}]}, format="json"
+    )
+    assert vacio.status_code == 400

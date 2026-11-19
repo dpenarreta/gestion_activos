@@ -95,6 +95,7 @@ describe("Acta de recepción de equipo", () => {
         pruebas: { mouse: "ok" },
         nuevo_de_paquete: false,
         observaciones: "SE ENTREGA CARGADOR",
+        items_sin_codigo: [],
       }),
     );
     expect(await screen.findByText(/Acta N.º 7 guardada/)).toBeInTheDocument();
@@ -191,6 +192,82 @@ describe("Acta de recepción de equipo", () => {
     expect(
       await screen.findByText(/está a cargo de Ana Ríos/),
     ).toBeInTheDocument();
+  });
+
+  it("agrega ítems sin código que constan en el acta, sin asignar nada (19/11/2026)", async () => {
+    servicio.preparar.mockResolvedValue(PREPARACION);
+    servicio.crear.mockResolvedValue({
+      id: 8,
+      movimientos: [equipo(1, "Mouse", "36D98679707610")],
+      pruebas: {},
+      nuevo_de_paquete: null,
+      observaciones: "",
+      items_sin_codigo: [
+        {
+          equipo: "Cable HDMI",
+          cantidad: 2,
+          marca: "",
+          modelo: "",
+          serial: "",
+        },
+      ],
+    });
+    render(<ActaEntregaDialog movimientoId={1} onCerrar={() => {}} />);
+
+    const campo = await screen.findByLabelText("Qué se entrega");
+    // Sin descripción no se agrega.
+    fireEvent.click(screen.getByRole("button", { name: /Agregar ítem/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Escriba qué se entrega",
+    );
+    fireEvent.change(campo, { target: { value: "Cable HDMI" } });
+    fireEvent.change(screen.getByLabelText("Cantidad"), {
+      target: { value: "2" },
+    });
+    // Enter agrega el ítem, no guarda el acta.
+    fireEvent.keyDown(campo, { key: "Enter" });
+    expect(servicio.crear).not.toHaveBeenCalled();
+    expect(screen.getByText("Cable HDMI")).toBeInTheDocument();
+    expect(campo).toHaveValue("");
+
+    fireEvent.click(screen.getByRole("button", { name: "Guardar acta" }));
+    await waitFor(() =>
+      expect(servicio.crear).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items_sin_codigo: [
+            {
+              equipo: "Cable HDMI",
+              cantidad: 2,
+              marca: "",
+              modelo: "",
+              serial: "",
+            },
+          ],
+        }),
+      ),
+    );
+    expect(servicio.agregarEquipo).not.toHaveBeenCalled();
+  });
+
+  it("un código que no existe se puede escribir como ítem sin código", async () => {
+    permisos.add("activos.asignar");
+    servicio.preparar.mockResolvedValue(PREPARACION);
+    servicio.agregarEquipo.mockRejectedValue({
+      response: { status: 404, data: { codigo: "Ningún equipo corresponde." } },
+    });
+    render(<ActaEntregaDialog movimientoId={1} onCerrar={() => {}} />);
+
+    fireEvent.change(
+      await screen.findByLabelText("Agregar otro equipo que se entrega"),
+      { target: { value: "Diadema" } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Escribirlo como ítem sin código",
+      }),
+    );
+    expect(screen.getByLabelText("Qué se entrega")).toHaveValue("Diadema");
   });
 
   it("sin permiso para asignar no ofrece agregar equipos", async () => {
