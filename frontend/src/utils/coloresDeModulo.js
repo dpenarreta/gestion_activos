@@ -24,7 +24,6 @@ export const FAMILIA = {
   llamados: "gestionHumana",
   kpi: "gestionHumana",
   mejora_continua: "gestionHumana",
-  reuniones: "gestionHumana",
   escritorio: "gestionHumana",
   matriz: "matriz",
   ordenes: "ordenes",

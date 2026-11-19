@@ -117,7 +117,6 @@ pasa por `neutralizar`. La definición está en
 | Tareas / Horas registradas / Comentarios | Lo asignado, cada registro de horas y sus comentarios en tareas, horas y proyectos |
 | KPI | Desde cuándo se le mide (el KPI mensual se baja en «Mis KPI») |
 | Proyectos | Proyectos de Gestión Humana de los que es responsable o participante |
-| Reuniones | Las que organizó o a las que la invitaron, con su asistencia |
 | Escritorio | Notas enviadas y recibidas, respuestas y recordatorios (**solo el titular**) |
 | Mejora continua | Ideas y votos |
 | Onboarding y capacitación | Onboarding, materiales abiertos y evaluaciones |
@@ -137,7 +136,7 @@ pasa por `neutralizar`. La definición está en
 | Qué | Por qué |
 | --- | --- |
 | Rol de pagos (consultas, documentos, observaciones) | Tiene su propia descarga, protegida con un código que llega al correo de la cuenta, en Institucional → Rol de pagos |
-| Contraseña, códigos de inicio de sesión y de recuperación, código de seguimiento de tickets, enlace y clave de reuniones | Son llaves de acceso: abren la cuenta, un ticket o una sala; no describen a la persona |
+| Contraseña, códigos de inicio de sesión y de recuperación, código de seguimiento de tickets | Son llaves de acceso: abren la cuenta o un ticket; no describen a la persona |
 | Notas internas de la Mesa de ayuda | Son del equipo de soporte; si la persona las pide, se revisan en una solicitud de ACCESO |
 | Contenido de los archivos | Se listan por nombre; se ven en su módulo |
 | Valores anteriores y nuevos de la auditoría | Llevan datos de terceros; la actividad va resumida |

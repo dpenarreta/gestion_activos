@@ -42,7 +42,6 @@ MODULOS = {
             "/api/v1/informes/",
             "/api/v1/nova/",
             "/api/v1/mejora-continua/",
-            "/api/v1/reuniones/",
             "/api/v1/escritorio/",
             # Llamados de atención (US-013, 12/11/2026). «Mis llamados» de Mi
             # perfil también: con Gestión Humana apagado, la sección no se ve.

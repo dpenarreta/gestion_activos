@@ -34,6 +34,8 @@ NOMBRES = {
     "novedades": "Gestión Humana · Novedades",
     "proyectos_gh": "Gestión Humana · Proyectos",
     "mejora_continua": "Gestión Humana · Mejora continua",
+    # La app Reuniones se quitó del proyecto el 19/11/2026; el nombre queda
+    # para los eventos que ya están en la auditoría (los traídos de Nexo).
     "reuniones": "Gestión Humana · Reuniones",
     "nova": "Gestión Humana · Nova (IA)",
     "capacitacion": "Onboarding y capacitación",

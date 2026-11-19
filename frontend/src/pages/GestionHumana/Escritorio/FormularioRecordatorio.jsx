@@ -15,7 +15,7 @@ import {
   LeyendaObligatorios,
 } from "../../../components/common/Campo/Campo";
 import { Icon } from "../../../components/common/Icon/Icon";
-import { aCampoLocal, deCampoLocal } from "../Reuniones/reunionesComunes";
+import { aCampoLocal, deCampoLocal } from "../fechasLocales";
 import { Ventana } from "../Tareas/Ventanas";
 import { useEscritorio } from "./ContextoEscritorio";
 import { DESCRIPCION_MAX, TITULO_MAX } from "./escritorioComunes";

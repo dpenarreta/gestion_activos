@@ -1,5 +1,5 @@
 /*
- * Selector de personas (invitados de Reuniones, «Para» del Escritorio,
+ * Selector de personas («Para» del Escritorio,
  * reemplazo en las ausencias). Vivía en `GestionHumana.css`; desde el
  * 11/11/2026 (US-001) va con el componente porque también se usa fuera del
  * módulo: en el chat y en la solicitud de permisos.

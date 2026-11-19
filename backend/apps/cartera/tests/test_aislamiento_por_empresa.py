@@ -122,7 +122,9 @@ def test_el_mismo_nombre_en_dos_empresas_no_choca(courier, seguridad):
     segundo = _dashboard_de(seguridad, "Cartera")
     assert primero.dashboard_id == "cartera"
     assert segundo.dashboard_id == "cartera-2"
-    assert Dashboard.objects.todas().count() == 2
+    # Solo los de esta prueba: la migración de `interaccion` siembra además el
+    # dashboard «Interacción de la plataforma» (18/11/2026).
+    assert Dashboard.objects.todas().filter(name="Cartera").count() == 2
 
 
 def test_la_carga_de_otra_empresa_no_se_consulta(courier, seguridad):

@@ -28,7 +28,6 @@ MODULOS = {
     "llamados": ("Gestión Humana · Llamados de atención", "exclamation-octagon"),
     "kpi": ("Gestión Humana · KPI", "speedometer2"),
     "mejora_continua": ("Gestión Humana · Mejora continua", "lightbulb"),
-    "reuniones": ("Gestión Humana · Reuniones", "camera-video"),
     "escritorio": ("Gestión Humana · Escritorio", "sticky"),
     "privacidad": ("Protección de datos personales", "shield-lock"),
 }

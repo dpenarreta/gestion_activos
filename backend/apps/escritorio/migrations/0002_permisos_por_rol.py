@@ -81,7 +81,8 @@ class Migration(migrations.Migration):
         ("escritorio", "0001_initial"),
         ("permissions", "0052_permisos_de_reuniones_y_escritorio"),
         ("novedades", "0004_roles_de_gestion_humana"),
-        ("reuniones", "0003_sin_reuniones_para_administrador_de_ti"),
+        # Dependía de `reuniones/0003`; la app Reuniones se quitó del proyecto
+        # el 19/11/2026 y sin ella esa dependencia rompería el grafo.
         ("roles", "0039_permiso_descargas_a_admins"),
     ]
 

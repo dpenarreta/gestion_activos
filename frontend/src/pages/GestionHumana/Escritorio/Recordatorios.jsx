@@ -22,7 +22,7 @@ import { Icon } from "../../../components/common/Icon/Icon";
 import { fechaHora } from "../comunes";
 import { enfocarDespues, vecinoDe } from "../enfocar";
 import { Semaforo } from "../Desempeno/Componentes";
-import { aCampoLocal, deCampoLocal } from "../Reuniones/reunionesComunes";
+import { aCampoLocal, deCampoLocal } from "../fechasLocales";
 import { useEscritorio } from "./ContextoEscritorio";
 import { ConvertirEnTarea } from "./ConvertirEnTarea";
 import { FormularioRecordatorio } from "./FormularioRecordatorio";

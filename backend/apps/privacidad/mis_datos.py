@@ -583,31 +583,6 @@ def _proyectos(ctx: Contexto) -> list[dict]:
     return sorted(responsable.values(), key=lambda f: f["inicio"])
 
 
-def _reuniones(ctx: Contexto) -> list[dict]:
-    """Sin el enlace ni la clave de la reunión: dan acceso a la sala."""
-    from apps.reuniones.models import Meeting, MeetingInvitee
-
-    columnas = [
-        ("id", "id"),
-        ("titulo", "title"),
-        ("descripcion", "description"),
-        ("fecha", "meeting_date"),
-        ("minutos", "duration"),
-        ("estado", "status"),
-        ("resumen", "otter_summary"),
-    ]
-    filas = {
-        f["id"]: {**f, "participa_como": "Organizador", "asistio": None}
-        for f in _filas(Meeting.objects.filter(host=ctx.titular, deleted_at__isnull=True), columnas)
-    }
-    for inv in _filas(
-        MeetingInvitee.objects.filter(user=ctx.titular, meeting__deleted_at__isnull=True),
-        [(n, f"meeting__{r}") for n, r in columnas] + [("asistio", "attended")],
-    ):
-        filas.setdefault(inv["id"], {**inv, "participa_como": "Invitado"})
-    return sorted(filas.values(), key=lambda f: f["fecha"])
-
-
 def _escritorio(ctx: Contexto) -> list[dict]:
     from apps.escritorio.models import DeskNote, DeskNoteReply, PersonalReminder
 
@@ -1342,13 +1317,6 @@ SECCIONES: tuple[Seccion, ...] = (
         _proyectos,
     ),
     Seccion(
-        "reuniones",
-        "Reuniones",
-        "Reuniones que organizó o a las que la invitaron, con su "
-        "asistencia. Sin el enlace ni la clave de la sala.",
-        _reuniones,
-    ),
-    Seccion(
         "escritorio",
         "Escritorio",
         "Notas enviadas y recibidas, sus respuestas y sus " "recordatorios.",
@@ -1495,8 +1463,8 @@ EXCLUIDO: tuple[tuple[str, str], ...] = (
     ),
     (
         "Contraseña, códigos de inicio de sesión y de recuperación de la cuenta, código de "
-        "seguimiento de sus tickets, enlace y clave de las reuniones",
-        "Son llaves de acceso: abren su cuenta, un ticket o una sala de reunión. No dicen nada "
+        "seguimiento de sus tickets",
+        "Son llaves de acceso: abren su cuenta o un ticket. No dicen nada "
         "sobre usted y quien tenga el archivo podría usarlas.",
     ),
     (
@@ -1582,7 +1550,6 @@ APPS_REVISADAS: dict[str, str] = {
     "projects": "Secciones: proyectos, comentarios.",
     "proyectos": "Secciones: solicitudes_de_proyectos, solicitudes_de_procesos.",
     "reportes": "Reportes calculados al vuelo: no guarda datos propios.",
-    "reuniones": "Secciones: reuniones.",
     "roles": "Secciones: empresas_y_roles.",
     "solicitudes": "Secciones: solicitudes_de_equipos.",
     "soporte": "Secciones: mesa_de_ayuda. Sin notas internas ni token (ver EXCLUIDO).",

@@ -79,7 +79,9 @@ PISTAS = (
     ("task", "tareas"),
     ("project", "proyectos_gh"),
     ("idea", "mejora_continua"),
-    ("meeting", "reuniones"),
+    # Las reuniones de Nexo no tienen módulo en la intranet desde el
+    # 19/11/2026 (la app Reuniones se quitó): van a «Nexo (histórico)».
+    ("meeting", MODULO_HISTORICO),
     ("training", "capacitacion"),
     ("onboarding", "capacitacion"),
     ("role", "roles"),
@@ -118,9 +120,11 @@ def sensibles_en_claro(valor) -> int:
     """Cuántos campos sensibles quedan con un valor distinto del marcador."""
     if isinstance(valor, dict):
         return sum(
-            (1 if v != MASK_PLACEHOLDER else 0)
-            if _is_sensitive_field(str(k))
-            else sensibles_en_claro(v)
+            (
+                (1 if v != MASK_PLACEHOLDER else 0)
+                if _is_sensitive_field(str(k))
+                else sensibles_en_claro(v)
+            )
             for k, v in valor.items()
         )
     if isinstance(valor, list):
@@ -286,9 +290,9 @@ class ImportadorNexoAuditoria:
             id_en_nexo=fila["id"],
             empresa=self.empresa,
             actor_id=cuenta,
-            actor_en_nexo=""
-            if cuenta is not None or actor is None
-            else self._nombre_en_nexo(actor),
+            actor_en_nexo=(
+                "" if cuenta is not None or actor is None else self._nombre_en_nexo(actor)
+            ),
             action=(fila.get("action") or "")[:100],
             module=self.modulo(fila),
             target_type=(fila.get("target_type") or "")[:100],

@@ -33,10 +33,10 @@ ROLES = {
         # de superusuario en el día a día. Salvo lo de Gestión Humana que no es
         # de TI (decisión del usuario, 05/11/2026; ver `tasks/0003`,
         # `projects/0002`, `ausencias/0002`, `analytics/0002`, `informes/0002`,
-        # `mejora_continua/0003`, `reuniones/0003` y `escritorio/0003`): las
-        # tareas y horas del equipo, sus proyectos, sus ausencias, que incluyen
-        # datos de salud, su KPI con la inteligencia preventiva, sus informes
-        # ejecutivos, sus ideas de mejora continua, sus reuniones y su escritorio;
+        # `mejora_continua/0003` y `escritorio/0003`): las tareas y horas del
+        # equipo, sus proyectos, sus ausencias, que incluyen datos de salud, su
+        # KPI con la inteligencia preventiva, sus informes ejecutivos, sus ideas
+        # de mejora continua y su escritorio;
         # y las solicitudes de datos personales (`privacidad/0003`).
         "permisos": "*",
         "excluir_prefijos": (
@@ -50,7 +50,6 @@ ROLES = {
             # Nova, la IA de Gestión Humana (09/11/2026, `roles/0041`).
             "nova.",
             "mejora_continua.",
-            "reuniones.",
             "escritorio.",
             # Las solicitudes de derechos sobre datos personales (09/11/2026,
             # `privacidad/0003`): las atiende Gestión Humana, no TI. Atender

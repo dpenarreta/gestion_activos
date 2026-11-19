@@ -27,7 +27,7 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
 
     # El Administrador (TI), además, sin lo de Gestión Humana que no es suyo:
     # tareas, equipo, proyectos, ausencias, KPI (decisión del usuario,
-    # 05/11/2026), informes ejecutivos, mejora continua, reuniones y escritorio
+    # 05/11/2026), informes ejecutivos, mejora continua y escritorio
     # (06/11/2026).
     de_gestion_humana = {
         c
@@ -44,7 +44,6 @@ def test_crea_administrador_y_superusuario_con_todo_el_catalogo():
                 # Nova, la IA (09/11/2026, `roles/0041` y `roles/0042`).
                 "nova.",
                 "mejora_continua.",
-                "reuniones.",
                 "escritorio.",
                 # Y las solicitudes de datos personales (09/11/2026).
                 "privacidad.",

@@ -29,7 +29,6 @@ from apps.escritorio.models import DeskNote
 from apps.nomina.models import ConsultaRolPagos
 from apps.privacidad import mis_datos
 from apps.privacidad.models import SolicitudDerechos
-from apps.reuniones.models import Meeting
 from apps.sugerencias.models import Reporte
 from apps.tasks.models import Task
 
@@ -41,8 +40,6 @@ TAREA_PROPIA = "Conciliar planillas de Durán — Begoña"
 TAREA_AJENA = "Tarea de Ana Núñez que no es de Begoña"
 OBSERVACION_MEDICA = "Reposo por amigdalitis"
 JTI = "jti-secreto-de-la-sesion-0001"
-CLAVE_REUNION = "clave-sala-9876"
-ENLACE_REUNION = "https://reuniones.example.com/sala/abc123"
 NOTA_PRIVADA = "Nota privada del escritorio para Ana"
 MENSAJE_CHAT = "Mensaje directo del chat, solo de las dos"
 OBSERVACION_ROL = "OBSERVACION-ROL-DE-PAGOS-NO-SALE"
@@ -78,14 +75,6 @@ def datos(begona, nunez, admin_gh):
     )
     Session.objects.create(
         user=begona, refresh_token_jti=JTI, expires_at=timezone.now() + timedelta(days=1)
-    )
-    Meeting.objects.create(
-        title="Revisión de turnos de bodega",
-        host=begona,
-        meeting_date=timezone.now(),
-        duration=30,
-        join_url=ENLACE_REUNION,
-        join_password=CLAVE_REUNION,
     )
     DeskNote.objects.create(sender=begona, recipient=nunez, message=NOTA_PRIVADA)
     conversacion = Conversacion.objects.create(tipo="directa", clave=f"d-{begona.pk}-{nunez.pk}")
@@ -145,7 +134,6 @@ def test_la_descarga_propia_trae_lo_suyo_y_nada_ajeno_ni_secreto(begona, datos):
     usuario = type(begona).objects.get(pk=begona.pk)
     assert usuario.password[:20] not in texto
     assert JTI not in texto
-    assert CLAVE_REUNION not in texto and ENLACE_REUNION not in texto
     # Ni el rol de pagos.
     assert OBSERVACION_ROL not in texto
     assert not any("rol" in s["clave"] and "pago" in s["clave"] for s in contenido["secciones"])

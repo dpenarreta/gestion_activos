@@ -152,7 +152,6 @@ import { MarcoProyectos } from "../pages/GestionHumana/Proyectos/ContextoProyect
 import { MarcoKpi } from "../pages/GestionHumana/Desempeno/ContextoKpi";
 import { MarcoInformes } from "../pages/GestionHumana/Informes/ContextoInformes";
 import { MarcoMejoraContinua } from "../pages/GestionHumana/MejoraContinua/ContextoMejoraContinua";
-import { MarcoReuniones } from "../pages/GestionHumana/Reuniones/ContextoReuniones";
 import { MarcoEscritorio } from "../pages/GestionHumana/Escritorio/ContextoEscritorio";
 import {
   ACCEDER as GH_ACCEDER,
@@ -178,7 +177,6 @@ import {
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
   PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
-  PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
   ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
 } from "../modulos/permisosGestionHumana";
 
@@ -285,18 +283,7 @@ const LlamadosAtencion = lazy(() =>
     (m) => ({ default: m.LlamadosAtencion }),
   ),
 );
-// Reuniones y Escritorio, también bajo demanda; sus marcos conservan `me/`
-// (en Reuniones, al pasar del listado al detalle).
-const Reuniones = lazy(() =>
-  import("../pages/GestionHumana/Reuniones/Reuniones").then((m) => ({
-    default: m.Reuniones,
-  })),
-);
-const DetalleReunion = lazy(() =>
-  import("../pages/GestionHumana/Reuniones/DetalleReunion").then((m) => ({
-    default: m.DetalleReunion,
-  })),
-);
+// Escritorio, también bajo demanda; su marco conserva `me/`.
 const Escritorio = lazy(() =>
   import("../pages/GestionHumana/Escritorio/Escritorio").then((m) => ({
     default: m.Escritorio,
@@ -958,6 +945,13 @@ export function AppRoutes() {
             <Navigate to="/admin/gestion-humana/dias-laborados" replace />
           }
         />
+        {/* Reuniones se quitó del sistema (19/11/2026): un aviso o un
+            marcador viejo lleva a la portada de Gestión Humana, dentro del
+            marco, y no a un 404. */}
+        <Route
+          path="gestion-humana/reuniones/*"
+          element={<Navigate to="/admin/gestion-humana" replace />}
+        />
         {/* El marco solo pide `novedades/me/` cuando una pantalla lo usa:
             la entrada e Ingresos y salidas (con sus propios permisos) no lo
             necesitan. */}
@@ -1208,27 +1202,6 @@ export function AppRoutes() {
               </RequirePermission>
             }
           />
-          {/* Reuniones. `reuniones/<id>` es el enlace de los avisos de la
-              campana (`ENLACE_REUNION` del backend). Qué reunión ve cada
-              quien lo decide el servidor (una ajena es 404). */}
-          <Route element={<MarcoReuniones />}>
-            <Route
-              path="reuniones"
-              element={
-                <RequirePermission permission={GH_PERMISOS_REUNIONES}>
-                  <Reuniones />
-                </RequirePermission>
-              }
-            />
-            <Route
-              path="reuniones/:reunionId"
-              element={
-                <RequirePermission permission={GH_PERMISOS_REUNIONES}>
-                  <DetalleReunion />
-                </RequirePermission>
-              }
-            />
-          </Route>
           {/* Escritorio: notas y recordatorios personales. Es el destino de
               los avisos de notas y de recordatorios vencidos. */}
           <Route element={<MarcoEscritorio />}>

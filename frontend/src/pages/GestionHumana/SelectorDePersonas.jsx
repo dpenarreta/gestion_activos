@@ -1,5 +1,5 @@
 /*
- * Elegir personas con un buscador y una lista (los invitados de una reunión,
+ * Elegir personas con un buscador y una lista (por ejemplo,
  * el destinatario de una nota del Escritorio). Lo elegido se muestra arriba
  * con «Quitar»; debajo, el buscador y los resultados, con casillas (varias
  * personas) o radios (una sola). El número de resultados se anuncia en una
@@ -10,7 +10,7 @@
  * 06/11/2026: un `select` deshabilitado dejaba el foco fuera).
  *
  * `buscar(texto)` devuelve una promesa con la lista: puede pedir al servidor
- * (`reuniones/invitables/?q=`) o filtrar una lista ya cargada.
+ * o filtrar una lista ya cargada.
  */
 import { useEffect, useState } from "react";
 

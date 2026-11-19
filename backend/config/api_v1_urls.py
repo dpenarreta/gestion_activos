@@ -66,8 +66,6 @@ urlpatterns = [
     path("nova/", include("apps.nova.urls")),
     # --- Gestión Humana · Mejora continua (las «Ideas» de Nexo) ---
     path("mejora-continua/", include("apps.mejora_continua.urls")),
-    # --- Gestión Humana · Reuniones (sin Zoom: el enlace lo pega quien organiza) ---
-    path("reuniones/", include("apps.reuniones.urls")),
     path("interaccion/", include("apps.interaccion.urls")),
     # --- Gestión Humana · Escritorio (notas, recordatorios y su bitácora) ---
     path("escritorio/", include("apps.escritorio.urls")),

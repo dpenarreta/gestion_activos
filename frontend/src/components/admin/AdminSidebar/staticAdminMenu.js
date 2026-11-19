@@ -47,7 +47,6 @@ import {
   RIESGO_VER as GH_RIESGO_VER,
   PERMISOS_INFORMES as GH_PERMISOS_INFORMES,
   PERMISOS_MEJORA_CONTINUA as GH_PERMISOS_MEJORA,
-  PERMISOS_REUNIONES as GH_PERMISOS_REUNIONES,
   ESCRITORIO_ACCEDER as GH_ESCRITORIO_ACCEDER,
   PERMISOS_LLAMADOS as GH_PERMISOS_LLAMADOS,
 } from "../../../modulos/permisosGestionHumana";
@@ -510,17 +509,6 @@ export const ADMIN_MENU = [
         icon: "lightbulb",
         path: `${RUTA_GESTION_HUMANA}/mejora-continua`,
         permission: GH_PERMISOS_MEJORA,
-      },
-      {
-        // Reuniones: no depende de Tareas; el servidor pide uno de los tres
-        // `reuniones.*`. El detalle (`reuniones/<id>`, destino de los
-        // avisos) cuelga de aquí.
-        id: "gh-reuniones",
-        modulo: "gestion_humana",
-        name: "Reuniones",
-        icon: "camera-video",
-        path: `${RUTA_GESTION_HUMANA}/reuniones`,
-        permission: GH_PERMISOS_REUNIONES,
       },
       {
         // Escritorio: notas y recordatorios personales. La insignia cuenta

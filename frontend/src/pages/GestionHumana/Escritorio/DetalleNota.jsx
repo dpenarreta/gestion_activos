@@ -19,7 +19,7 @@ import { EstadoDeCarga } from "../../../components/common/EstadoDeCarga/EstadoDe
 import { Icon } from "../../../components/common/Icon/Icon";
 import { ErrorEnLinea, fechaHora } from "../comunes";
 import { enfocarDespues } from "../enfocar";
-import { aCampoLocal, deCampoLocal } from "../Reuniones/reunionesComunes";
+import { aCampoLocal, deCampoLocal } from "../fechasLocales";
 import { Ventana } from "../Tareas/Ventanas";
 import { useEscritorio } from "./ContextoEscritorio";
 import {
